@@ -1,313 +1,195 @@
 <!DOCTYPE html>
-   <html lang="en">
-   <head>
-     <meta charset="UTF-8">
-     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-     <title>Anonymous Chat</title>
-     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
-     <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==">
-   </head>
-   <body class="bg-gray-100 flex items-center justify-center h-screen">
-     <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
-       <h1 class="text-2xl font-bold mb-4 text-center">Anonymous Chat</h1>
-       <div id="status" class="mb-4 text-center"></div>
-       <div id="codeDisplay" class="mb-4 text-center font-mono text-lg"></div>
-       <div id="chatContainer" class="hidden">
-         <div id="messages" class="border p-4 h-64 overflow-y-auto mb-4"></div>
-         <input id="messageInput" type="text" class="border p-2 w-full mb-2" placeholder="Type a message...">
-         <button id="sendButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full">Send</button>
-       </div>
-       <div id="connectContainer">
-         <input id="codeInput" type="text" class="border p-2 w-full mb-2" placeholder="Enter code to connect">
-         <button id="connectButton" class="bg-green-500 text-white px-4 py-2 rounded w-full">Connect</button>
-       </div>
-       <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mt-2 hidden">New Session</button>
-     </div>
-     <script>
-       const socket = new WebSocket('wss://signaling-server-sl3m.onrender.com');
-       let peerConnection;
-       let dataChannel;
-       let isInitiator = false;
-       let code = null;
-       let isConnected = false;
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anonymous Chat</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+  <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==">
+</head>
+<body class="bg-gray-100 flex items-center justify-center h-screen">
+  <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
+    <h1 class="text-2xl font-bold mb-4 text-center">Anonymous Chat</h1>
+    <div id="status" class="mb-4 text-center">Generating code...</div>
+    <div id="codeDisplay" class="mb-4 text-center font-mono"></div>
+    <div id="chatContainer" class="hidden">
+      <div id="messages" class="border p-4 h-64 overflow-y-auto mb-4"></div>
+      <input id="messageInput" type="text" class="border p-2 w-full mb-2" placeholder="Type a message...">
+      <button id="sendButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full">Send</button>
+    </div>
+    <div id="connectContainer">
+      <input id="codeInput" type="text" class="border p-2 w-full mb-2" placeholder="Enter code to connect">
+      <button id="connectButton" class="bg-green-500 text-white px-4 py-2 rounded w-full">Connect</button>
+    </div>
+    <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mt-2 hidden">New Session</button>
+  </div>
+  <script>
+    function generateCode() {
+      const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+      let result = '';
+      for (let i = 0; i < 16; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+        if (i % 4 === 3 && i < 15) result += '-';
+      }
+      return result;
+    }
 
-       function generateCode() {
-         try {
-           const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-           let result = '';
-           for (let i = 0; i < 16; i++) {
-             result += chars.charAt(Math.floor(Math.random() * chars.length));
-             if (i % 4 === 3 && i < 15) result += '-';
-           }
-           console.log('Generated code:', result);
-           return result;
-         } catch (error) {
-           console.error('Error generating code:', error);
-           return null;
-         }
-       }
+    let code = generateCode();
+    let isInitiator = false;
+    let isConnected = false;
+    let peerConnection;
+    let dataChannel;
 
-       function initialize() {
-         try {
-           code = generateCode();
-           const codeDisplay = document.getElementById('codeDisplay');
-           const status = document.getElementById('status');
-           if (!codeDisplay || !status) {
-             console.error('DOM elements missing: codeDisplay or status');
-             return;
-           }
-           if (code) {
-             codeDisplay.textContent = `Your code: ${code}`;
-             status.textContent = 'Generating code...';
-           } else {
-             status.textContent = 'Error generating code';
-           }
-         } catch (error) {
-           console.error('Error in initialize:', error);
-           document.getElementById('status').textContent = 'Error initializing';
-         }
-       }
+    const statusElement = document.getElementById('status');
+    const codeDisplayElement = document.getElementById('codeDisplay');
+    codeDisplayElement.textContent = `Your code: ${code}`;
+    statusElement.textContent = 'Generating code...';
 
-       // Run initialization
-       initialize();
+    const socket = new WebSocket('wss://signaling-server-sl3m.onrender.com');
 
-       socket.onopen = () => {
-         try {
-           if (code) {
-             socket.send(JSON.stringify({ type: 'join', code }));
-             document.getElementById('status').textContent = 'Waiting for connection...';
-             console.log('WebSocket opened, sent join with code:', code);
-           } else {
-             console.error('No code available to join');
-             document.getElementById('status').textContent = 'Error: No code generated';
-           }
-         } catch (error) {
-           console.error('Error in socket.onopen:', error);
-           document.getElementById('status').textContent = 'WebSocket error';
-         }
-       };
+    socket.onopen = () => {
+      socket.send(JSON.stringify({ type: 'join', code }));
+      statusElement.textContent = 'Waiting for connection...';
+    };
 
-       socket.onmessage = (event) => {
-         try {
-           const message = JSON.parse(event.data);
-           console.log('Received message:', message);
-           if (message.type === 'join' && message.code === code && !isInitiator) {
-             isInitiator = true;
-             startPeerConnection();
-           } else if (message.type === 'offer') {
-             handleOffer(message.offer);
-           } else if (message.type === 'answer') {
-             handleAnswer(message.answer);
-           } else if (message.type === 'candidate') {
-             handleCandidate(message.candidate);
-           }
-         } catch (error) {
-           console.error('Error in socket.onmessage:', error);
-           document.getElementById('status').textContent = 'Message error';
-         }
-       };
+    socket.onerror = (error) => {
+      statusElement.textContent = 'WebSocket error. Please try again.';
+      console.error('WebSocket error:', error);
+    };
 
-       socket.onerror = (error) => {
-         console.error('WebSocket error:', error);
-         document.getElementById('status').textContent = 'WebSocket error';
-       };
+    socket.onmessage = (event) => {
+      const message = JSON.parse(event.data);
+      if (message.type === 'join' && message.code === code && !isInitiator) {
+        isInitiator = true;
+        startPeerConnection();
+      } else if (message.type === 'offer') {
+        handleOffer(message.offer);
+      } else if (message.type === 'answer') {
+        handleAnswer(message.answer);
+      } else if (message.type === 'candidate') {
+        handleCandidate(message.candidate);
+      }
+    };
 
-       socket.onclose = () => {
-         console.log('WebSocket closed');
-         document.getElementById('status').textContent = 'Disconnected';
-       };
+    function startPeerConnection() {
+      peerConnection = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+      });
 
-       function startPeerConnection() {
-         try {
-           peerConnection = new RTCPeerConnection({
-             iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-           });
+      dataChannel = peerConnection.createDataChannel('chat');
+      dataChannel.onopen = () => {
+        isConnected = true;
+        statusElement.textContent = 'Connected!';
+        document.getElementById('connectContainer').classList.add('hidden');
+        document.getElementById('chatContainer').classList.remove('hidden');
+        document.getElementById('newSessionButton').classList.remove('hidden');
+      };
+      dataChannel.onmessage = (event) => {
+        const messages = document.getElementById('messages');
+        messages.innerHTML += `<div class="text-gray-600">Them: ${event.data}</div>`;
+        messages.scrollTop = messages.scrollHeight;
+      };
 
-           dataChannel = peerConnection.createDataChannel('chat');
-           dataChannel.onopen = () => {
-             isConnected = true;
-             document.getElementById('status').textContent = 'Connected!';
-             document.getElementById('connectContainer').classList.add('hidden');
-             document.getElementById('chatContainer').classList.remove('hidden');
-             document.getElementById('newSessionButton').classList.remove('hidden');
-             console.log('Data channel opened');
-           };
-           dataChannel.onmessage = (event) => {
-             const messages = document.getElementById('messages');
-             messages.innerHTML += `<div class="text-gray-600">Them: ${event.data}</div>`;
-             messages.scrollTop = messages.scrollHeight;
-             console.log('Received message:', event.data);
-           };
-           dataChannel.onerror = (error) => {
-             console.error('Data channel error:', error);
-           };
+      peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate, code }));
+        }
+      };
 
-           peerConnection.onicecandidate = (event) => {
-             if (event.candidate) {
-               socket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate, code }));
-               console.log('Sent ICE candidate:', event.candidate);
-             }
-           };
+      if (isInitiator) {
+        peerConnection.createOffer().then(offer => {
+          peerConnection.setLocalDescription(offer);
+          socket.send(JSON.stringify({ type: 'offer', offer, code }));
+        });
+      }
+    }
 
-           if (isInitiator) {
-             peerConnection.createOffer().then(offer => {
-               peerConnection.setLocalDescription(offer);
-               socket.send(JSON.stringify({ type: 'offer', offer, code }));
-               console.log('Sent offer:', offer);
-             }).catch(error => {
-               console.error('Error creating offer:', error);
-             });
-           }
-         } catch (error) {
-           console.error('Error in startPeerConnection:', error);
-           document.getElementById('status').textContent = 'Peer connection error';
-         }
-       }
+    function handleOffer(offer) {
+      peerConnection = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+      });
 
-       function handleOffer(offer) {
-         try {
-           peerConnection = new RTCPeerConnection({
-             iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-           });
+      peerConnection.ondatachannel = (event) => {
+        dataChannel = event.channel;
+        dataChannel.onopen = () => {
+          isConnected = true;
+          statusElement.textContent = 'Connected!';
+          document.getElementById('connectContainer').classList.add('hidden');
+          document.getElementById('chatContainer').classList.remove('hidden');
+          document.getElementById('newSessionButton').classList.remove('hidden');
+        };
+        dataChannel.onmessage = (event) => {
+          const messages = document.getElementById('messages');
+          messages.innerHTML += `<div class="text-gray-600">Them: ${event.data}</div>`;
+          messages.scrollTop = messages.scrollHeight;
+        };
+      };
 
-           peerConnection.ondatachannel = (event) => {
-             dataChannel = event.channel;
-             dataChannel.onopen = () => {
-               isConnected = true;
-               document.getElementById('status').textContent = 'Connected!';
-               document.getElementById('connectContainer').classList.add('hidden');
-               document.getElementById('chatContainer').classList.remove('hidden');
-               document.getElementById('newSessionButton').classList.remove('hidden');
-               console.log('Data channel opened for responder');
-             };
-             dataChannel.onmessage = (event) => {
-               const messages = document.getElementById('messages');
-               messages.innerHTML += `<div class="text-gray-600">Them: ${event.data}</div>`;
-               messages.scrollTop = messages.scrollHeight;
-               console.log('Received message:', event.data);
-             };
-             dataChannel.onerror = (error) => {
-               console.error('Data channel error:', error);
-             };
-           };
+      peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate, code }));
+        }
+      };
 
-           peerConnection.onicecandidate = (event) => {
-             if (event.candidate) {
-               socket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate, code }));
-               console.log('Sent ICE candidate:', event.candidate);
-             }
-           };
+      peerConnection.setRemoteDescription(new RTCSessionDescription(offer)).then(() => {
+        peerConnection.createAnswer().then(answer => {
+          peerConnection.setLocalDescription(answer);
+          socket.send(JSON.stringify({ type: 'answer', answer, code }));
+        });
+      });
+    }
 
-           peerConnection.setRemoteDescription(new RTCSessionDescription(offer)).then(() => {
-             peerConnection.createAnswer().then(answer => {
-               peerConnection.setLocalDescription(answer);
-               socket.send(JSON.stringify({ type: 'answer', answer, code }));
-               console.log('Sent answer:', answer);
-             }).catch(error => {
-               console.error('Error creating answer:', error);
-             });
-           }).catch(error => {
-             console.error('Error setting remote description:', error);
-           });
-         } catch (error) {
-           console.error('Error in handleOffer:', error);
-           document.getElementById('status').textContent = 'Offer handling error';
-         }
-       }
+    function handleAnswer(answer) {
+      peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+    }
 
-       function handleAnswer(answer) {
-         try {
-           peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-           console.log('Set remote description with answer:', answer);
-         } catch (error) {
-           console.error('Error in handleAnswer:', error);
-         }
-       }
+    function handleCandidate(candidate) {
+      peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+    }
 
-       function handleCandidate(candidate) {
-         try {
-           peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-           console.log('Added ICE candidate:', candidate);
-         } catch (error) {
-           console.error('Error in handleCandidate:', error);
-         }
-       }
+    document.getElementById('connectButton').onclick = () => {
+      const inputCode = document.getElementById('codeInput').value;
+      if (inputCode && !isConnected) {
+        code = inputCode;
+        codeDisplayElement.textContent = `Using code: ${code}`;
+        statusElement.textContent = 'Connecting...';
+        socket.send(JSON.stringify({ type: 'join', code }));
+        startPeerConnection();
+      }
+    };
 
-       document.getElementById('connectButton').onclick = () => {
-         try {
-           const inputCode = document.getElementById('codeInput').value;
-           if (inputCode && !isConnected) {
-             code = inputCode;
-             document.getElementById('status').textContent = 'Connecting...';
-             document.getElementById('codeDisplay').textContent = `Using code: ${code}`;
-             socket.send(JSON.stringify({ type: 'join', code }));
-             startPeerConnection();
-             console.log('Attempting to connect with code:', code);
-           } else {
-             console.error('Invalid code or already connected');
-             document.getElementById('status').textContent = 'Enter a valid code';
-           }
-         } catch (error) {
-           console.error('Error in connectButton.onclick:', error);
-           document.getElementById('status').textContent = 'Connection error';
-         }
-       };
+    document.getElementById('sendButton').onclick = () => {
+      const messageInput = document.getElementById('messageInput');
+      const message = messageInput.value;
+      if (message && isConnected) {
+        dataChannel.send(message);
+        const messages = document.getElementById('messages');
+        messages.innerHTML += `<div class="text-blue-600">You: ${message}</div>`;
+        messages.scrollTop = messages.scrollHeight;
+        messageInput.value = '';
+      }
+    };
 
-       document.getElementById('sendButton').onclick = () => {
-         try {
-           const messageInput = document.getElementById('messageInput');
-           const message = messageInput.value;
-           if (message && isConnected) {
-             dataChannel.send(message);
-             const messages = document.getElementById('messages');
-             messages.innerHTML += `<div class="text-blue-600">You: ${message}</div>`;
-             messages.scrollTop = messages.scrollHeight;
-             messageInput.value = '';
-             console.log('Sent message:', message);
-           } else {
-             console.error('No message or not connected');
-             document.getElementById('status').textContent = 'Not connected or empty message';
-           }
-         } catch (error) {
-           console.error('Error in sendButton.onclick:', error);
-           document.getElementById('status').textContent = 'Send error';
-         }
-       };
-
-       document.getElementById('newSessionButton').onclick = () => {
-         try {
-           if (peerConnection) {
-             peerConnection.close();
-             console.log('Closed peer connection');
-           }
-           if (dataChannel) {
-             dataChannel.close();
-             console.log('Closed data channel');
-           }
-           isConnected = false;
-           isInitiator = false;
-           code = generateCode();
-           const codeDisplay = document.getElementById('codeDisplay');
-           const status = document.getElementById('status');
-           if (code) {
-             codeDisplay.textContent = `Your code: ${code}`;
-             status.textContent = 'Generating new code...';
-           } else {
-             status.textContent = 'Error generating code';
-           }
-           document.getElementById('messages').innerHTML = '';
-           document.getElementById('messageInput').value = '';
-           document.getElementById('codeInput').value = '';
-           document.getElementById('connectContainer').classList.remove('hidden');
-           document.getElementById('chatContainer').classList.add('hidden');
-           document.getElementById('newSessionButton').classList.add('hidden');
-           socket.send(JSON.stringify({ type: 'join', code }));
-           console.log('New session started with code:', code);
-         } catch (error) {
-           console.error('Error in newSessionButton.onclick:', error);
-           document.getElementById('status').textContent = 'Session reset error';
-         }
-       };
-     </script>
-   </body>
-   </html>
+    document.getElementById('newSessionButton').onclick = () => {
+      if (peerConnection) {
+        peerConnection.close();
+      }
+      if (dataChannel) {
+        dataChannel.close();
+      }
+      isConnected = false;
+      isInitiator = false;
+      code = generateCode();
+      codeDisplayElement.textContent = `Your code: ${code}`;
+      statusElement.textContent = 'Generating new code...';
+      document.getElementById('messages').innerHTML = '';
+      document.getElementById('messageInput').value = '';
+      document.getElementById('codeInput').value = '';
+      document.getElementById('connectContainer').classList.remove('hidden');
+      document.getElementById('chatContainer').classList.add('hidden');
+      document.getElementById('newSessionButton').classList.add('hidden');
+      socket.send(JSON.stringify({ type: 'join', code }));
+    };
+  </script>
+</body>
+</html>
