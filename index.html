@@ -70,10 +70,11 @@
     let dataChannels = new Map();
     let connectionTimeouts = new Map();
     let retryCounts = new Map();
-    const maxRetries = 1; // Reduced from 2
+    const maxRetries = 0; // No retries
     let candidatesQueues = new Map();
     let processedMessageIds = new Set();
-    let processedAnswers = new Set(); // New: Track processed answers
+    let processedAnswers = new Set();
+    let sentOffers = new Set(); // Track sent offers
     let username = null;
     let usernames = new Map();
 
@@ -131,12 +132,11 @@
         }
         if (message.type === 'init') {
           clientId = message.clientId;
-          maxClients = message.maxClients;
+          maxClients = message.maxClients || 2;
           isInitiator = message.isInitiator;
           totalClients = 1;
           console.log(`Initialized client ${clientId}, username: ${username}, maxClients: ${maxClients}, isInitiator: ${isInitiator}`);
           usernames.set(clientId, username);
-          console.log(`Set own username: ${username} for client ${clientId}, usernames: ${[...usernames.entries()]}`);
           initializeMaxClientsUI();
           updateMaxClientsUI();
         }
@@ -155,7 +155,7 @@
           }
           updateMaxClientsUI();
           if (isInitiator && message.clientId !== clientId && !peerConnections.has(message.clientId)) {
-            console.log(`Initiating peer connection with client ${message.clientId}`);
+            console.log(`Initiating peer connection with ${message.clientId}`);
             startPeerConnection(message.clientId, true);
           }
         }
@@ -279,12 +279,11 @@
         }
       };
 
-      let iceTimeout;
       peerConnection.onicegatheringstatechange = () => {
         console.log(`ICE gathering state for ${targetId}: ${peerConnection.iceGatheringState}`);
-        if (peerConnection.iceGatheringState === 'complete' && isOfferer) {
-          clearTimeout(iceTimeout); // Clear timeout on completion
+        if (peerConnection.iceGatheringState === 'complete' && isOfferer && !sentOffers.has(targetId)) {
           console.log(`ICE gathering complete, sending offer to ${targetId}`);
+          sentOffers.add(targetId);
           socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code, targetId }));
         }
       };
@@ -292,21 +291,12 @@
       peerConnection.onconnectionstatechange = () => {
         console.log(`Connection state for ${targetId}: ${peerConnection.connectionState}`);
         if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
-          statusElement.textContent = 'Connection failed. Retrying...';
+          statusElement.textContent = 'Connection failed. Please try again.';
           cleanupPeerConnection(targetId);
-          const retryCount = retryCounts.get(targetId) || 0;
-          if (retryCount < maxRetries) {
-            retryCounts.set(targetId, retryCount + 1);
-            console.log(`Retrying connection attempt ${retryCount + 1} with ${targetId}`);
-            startPeerConnection(targetId, isOfferer);
-          } else {
-            statusElement.textContent = 'Connection failed. Please try again.';
-          }
         } else if (peerConnection.connectionState === 'connected') {
           console.log(`WebRTC connection established with ${targetId} for code: ${code}`);
           isConnected = true;
           retryCounts.delete(targetId);
-          clearTimeout(iceTimeout); // Clear timeout on connection
           updateMaxClientsUI();
         }
       };
@@ -330,13 +320,6 @@
       if (isOfferer) {
         peerConnection.createOffer().then(offer => {
           return peerConnection.setLocalDescription(offer);
-        }).then(() => {
-          iceTimeout = setTimeout(() => {
-            if (peerConnection.iceGatheringState !== 'complete') {
-              console.log(`ICE gathering timeout, sending offer to ${targetId}`);
-              socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code, targetId }));
-            }
-          }, 5000);
         }).catch(error => {
           console.error(`Error creating offer for ${targetId}:`, error);
         });
@@ -346,25 +329,13 @@
         if (!dataChannels.get(targetId)?.readyState === 'open') {
           console.log(`Connection timed out with ${targetId} for code: ${code}`);
           cleanupPeerConnection(targetId);
-          const retryCount = retryCounts.get(targetId) || 0;
-          if (retryCount < maxRetries) {
-            retryCounts.set(targetId, retryCount + 1);
-            console.log(`Retrying connection attempt ${retryCount + 1} with ${targetId}`);
-            startPeerConnection(targetId, isOfferer);
-          } else {
-            statusElement.textContent = 'Connection timed out. Please try again.';
-          }
+          statusElement.textContent = 'Connection timed out. Please try again.';
         }
       }, 10000);
       connectionTimeouts.set(targetId, timeout);
     }
 
     function setupDataChannel(dataChannel, targetId) {
-      dataChannel.onmessage = null;
-      dataChannel.onopen = null;
-      dataChannel.onerror = null;
-      dataChannel.onclose = () => {};
-
       dataChannel.onopen = () => {
         console.log(`Data channel opened with ${targetId} for code: ${code}, state: ${dataChannel.readyState}`);
         isConnected = true;
@@ -428,17 +399,22 @@
         console.error(`Received invalid offer type from ${targetId}:`, offer.type);
         return;
       }
+      const peerConnection = peerConnections.get(targetId);
+      if (peerConnection && (peerConnection.connectionState === 'connected' || peerConnection.signalingState === 'stable')) {
+        console.log(`Offer from ${targetId} ignored: connection already established or stable`);
+        return;
+      }
       if (!peerConnections.has(targetId)) {
         startPeerConnection(targetId, false);
       }
-      const peerConnection = peerConnections.get(targetId);
-      peerConnection.setRemoteDescription(new RTCSessionDescription(offer)).then(() => {
+      const pc = peerConnections.get(targetId);
+      pc.setRemoteDescription(new RTCSessionDescription(offer)).then(() => {
         console.log(`Creating answer for ${targetId}`);
-        return peerConnection.createAnswer();
+        return pc.createAnswer();
       }).then(answer => {
-        return peerConnection.setLocalDescription(answer);
+        return pc.setLocalDescription(answer);
       }).then(() => {
-        socket.send(JSON.stringify({ type: 'answer', answer: peerConnection.localDescription, code, targetId }));
+        socket.send(JSON.stringify({ type: 'answer', answer: pc.localDescription, code, targetId }));
         const queue = candidatesQueues.get(targetId) || [];
         queue.forEach(candidate => {
           handleCandidate(candidate, targetId);
@@ -453,27 +429,26 @@
       console.log(`Handling answer from ${targetId} for code: ${code}`);
       const peerConnection = peerConnections.get(targetId);
       if (!peerConnection) {
-        console.warn(`No peer connection for ${targetId}, ignoring answer`);
+        console.log(`No peer connection for ${targetId}, ignoring answer`);
         return;
       }
       if (answer.type !== 'answer') {
         console.error(`Received invalid answer type from ${targetId}:`, answer.type);
         return;
       }
-      const answerKey = `${targetId}-${answer.sdp.substring(0, 50)}`; // Basic deduplication key
-      if (processedAnswers.has(answerKey)) {
-        console.warn(`Duplicate answer from ${targetId} ignored`);
+      if (processedAnswers.has(targetId)) {
+        console.log(`Duplicate answer from ${targetId} ignored`);
         return;
       }
-      processedAnswers.add(answerKey);
-      if (peerConnection.signalingState === 'stable' && peerConnection.connectionState === 'connected') {
-        console.warn(`Answer from ${targetId} ignored: connection already established (signalingState: ${peerConnection.signalingState}, connectionState: ${peerConnection.connectionState})`);
+      if (peerConnection.signalingState === 'stable' || peerConnection.connectionState === 'connected') {
+        console.log(`Answer from ${targetId} ignored: connection already established (signalingState: ${peerConnection.signalingState}, connectionState: ${peerConnection.connectionState})`);
         return;
       }
       if (peerConnection.signalingState !== 'have-local-offer') {
-        console.warn(`Unexpected signaling state for ${targetId}: ${peerConnection.signalingState}, expected have-local-offer`);
+        console.log(`Unexpected signaling state for ${targetId}: ${peerConnection.signalingState}, expected have-local-offer`);
         return;
       }
+      processedAnswers.add(targetId);
       peerConnection.setRemoteDescription(new RTCSessionDescription(answer)).then(() => {
         console.log(`Successfully set remote description for answer from ${targetId}`);
         const queue = candidatesQueues.get(targetId) || [];
@@ -524,6 +499,8 @@
       clearTimeout(connectionTimeouts.get(targetId));
       connectionTimeouts.delete(targetId);
       retryCounts.delete(targetId);
+      processedAnswers.delete(targetId);
+      sentOffers.delete(targetId);
       isConnected = dataChannels.size > 0;
       updateMaxClientsUI();
     }
@@ -645,6 +622,7 @@
       retryCounts.clear();
       processedMessageIds.clear();
       processedAnswers.clear();
+      sentOffers.clear();
       usernames.clear();
       username = null;
       isConnected = false;
