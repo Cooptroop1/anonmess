@@ -112,7 +112,8 @@
           if (isInitiator) {
             userNumber = 1;
             userNumbers.set(clientId, 1);
-            console.log(`Assigned User 1 to initiator ${clientId}`);
+            console.log(`Assigned User 1 to initiator ${clientId}, userNumbers: ${[...userNumbers.entries()]}`);
+            socket.send(JSON.stringify({ type: 'join-notify', clientId, totalClients, code, userNumber: 1 }));
           }
           console.log(`Initialized client ${clientId}, userNumber: ${userNumber}, maxClients: ${maxClients}, isInitiator: ${isInitiator}`);
           initializeMaxClientsUI();
@@ -126,7 +127,8 @@
           if (isInitiator && !userNumbers.has(clientId)) {
             userNumber = Math.max(...userNumbers.values(), 0) + 1;
             userNumbers.set(clientId, userNumber);
-            console.log(`Assigned User ${userNumber} to new initiator ${clientId}`);
+            console.log(`Assigned User ${userNumber} to new initiator ${clientId}, userNumbers: ${[...userNumbers.entries()]}`);
+            socket.send(JSON.stringify({ type: 'join-notify', clientId, totalClients, code, userNumber }));
           }
         }
         if (message.type === 'join-notify' && message.code === code) {
@@ -134,8 +136,8 @@
           console.log(`Join-notify received for code: ${code}, client: ${message.clientId}, total: ${totalClients}, maxClients: ${maxClients}, userNumber: ${message.userNumber}`);
           if (message.userNumber != null) {
             userNumbers.set(message.clientId, message.userNumber);
-            console.log(`Updated userNumbers: ${message.clientId} -> User ${message.userNumber}`);
-            if (message.clientId === clientId) {
+            console.log(`Updated userNumbers: ${message.clientId} -> User ${message.userNumber}, userNumbers: ${[...userNumbers.entries()]}`);
+            if (message.clientId === clientId && userNumber == null) {
               userNumber = message.userNumber;
               console.log(`Set own userNumber: User ${userNumber} for client ${clientId}`);
             }
@@ -143,7 +145,7 @@
           if (isInitiator && message.clientId !== clientId && !userNumbers.has(message.clientId)) {
             const newUserNumber = totalClients;
             userNumbers.set(message.clientId, newUserNumber);
-            console.log(`Assigned User ${newUserNumber} to client ${message.clientId}`);
+            console.log(`Assigned User ${newUserNumber} to client ${message.clientId}, userNumbers: ${[...userNumbers.entries()]}`);
             socket.send(JSON.stringify({ 
               type: 'join-notify', 
               clientId: message.clientId, 
@@ -162,7 +164,7 @@
           totalClients = message.totalClients;
           console.log(`Client ${message.clientId} disconnected from code: ${code}, total: ${totalClients}`);
           userNumbers.delete(message.clientId);
-          console.log(`Removed userNumber for client ${message.clientId}`);
+          console.log(`Removed userNumber for client ${message.clientId}, userNumbers: ${[...userNumbers.entries()]}`);
           cleanupPeerConnection(message.clientId);
           updateMaxClientsUI();
         }
@@ -383,17 +385,21 @@
           return;
         }
         processedMessageIds.add(data.messageId);
-        const senderUserNumber = userNumbers.get(targetId) || data.userNumber;
-        console.log(`Received message ${data.messageId} from User ${senderUserNumber} (${targetId}):`, data.content);
+        const senderUserNumber = userNumbers.get(targetId);
+        if (senderUserNumber == null) {
+          console.warn(`No userNumber for ${targetId}, using ${data.userNumber}, userNumbers: ${[...userNumbers.entries()]}`);
+        }
+        const displayUserNumber = senderUserNumber || data.userNumber;
+        console.log(`Received message ${data.messageId} from User ${displayUserNumber} (${targetId}):`, data.content);
         const messages = document.getElementById('messages');
-        const isSelf = senderUserNumber === userNumber;
+        const isSelf = displayUserNumber === userNumber;
         const className = isSelf ? 'text-blue-600' : 'text-gray-600';
-        messages.innerHTML += `<div class="${className}">User ${senderUserNumber}: ${data.content}</div>`;
+        messages.innerHTML += `<div class="${className}">User ${displayUserNumber}: ${data.content}</div>`;
         messages.scrollTop = messages.scrollHeight;
         if (isInitiator) {
           dataChannels.forEach((dc, id) => {
             if (id !== targetId && dc.readyState === 'open' && dc !== dataChannel) {
-              console.log(`Relaying message ${data.messageId} to ${id} as User ${senderUserNumber}:`, data.content);
+              console.log(`Relaying message ${data.messageId} to ${id} as User ${displayUserNumber}:`, data.content);
               dc.send(JSON.stringify(data));
             }
           });
@@ -583,11 +589,6 @@
       document.getElementById('messageInput').value = '';
       document.getElementById('codeInput').value = '';
       document.getElementById('connectContainer').classList.remove('hidden');
-      document.getElementById('chatContainer').innerHTML = `
-        <div id="messages" class="border border-gray-300 p-4 h-64 overflow-auto mb-2 rounded"></div>
-        <input id="messageInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded-lg" placeholder="Type a message...">
-        <button id="sendButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600">Send</button>
-      `;
       document.getElementById('chatContainer').classList.add('hidden');
       document.getElementById('newSessionButton').classList.add('hidden');
       maxClientsContainer.classList.add('hidden');
