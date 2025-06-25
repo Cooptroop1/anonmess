@@ -65,8 +65,8 @@
     };
 
     socket.onclose = () => {
+      statusElement.textContent = 'WebSocket closed. Please refresh.';
       console.error('WebSocket closed');
-      statusElement.textContent = 'Connection closed. Please refresh.';
       clearTimeout(connectionTimeout);
     };
 
@@ -75,10 +75,10 @@
       try {
         const message = JSON.parse(event.data);
         console.log('Parsed message:', message);
-        if (message.type === 'join-notify' && (message.code === code && !isInitiator)) {
+        if (message.type === 'join-notify' && message.code === code && !isInitiator) {
           console.log('Join-notify received, becoming initiator for code:', code);
           isInitiator = true;
-          startPeer();
+          startPeerConnection();
         } else if (message.type === 'offer' && !isInitiator) {
           console.log('Received offer for code:', code);
           handleOffer(message.offer, message.code);
@@ -94,7 +94,7 @@
       }
     };
 
-    function startPeer() {
+    function startPeerConnection() {
       console.log('Starting peer connection for code:', code);
       peerConnection = new RTCPeerConnection({
         iceServers: [
@@ -111,7 +111,7 @@
             credential: 'muazkh'
           }
         ],
-        iceTransportPolicy: 'relay'
+        iceTransportPolicy: 'all' // Allow all candidate types
       });
 
       if (isInitiator) {
@@ -150,7 +150,7 @@
               console.log('ICE gathering timeout, sending offer for code:', code);
               socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code }));
             }
-          }, 5000);
+          }, 10000); // 10-second ICE timeout
         } else if (peerConnection.iceGatheringState === 'complete' && isInitiator) {
           clearTimeout(iceTimeout);
           console.log('ICE gathering complete, sending offer for code:', code);
@@ -167,7 +167,7 @@
           if (retryCount < maxRetries && !isConnected) {
             retryCount++;
             console.log(`Retrying connection attempt ${retryCount} for code: ${code}`);
-            startPeer();
+            startPeerConnection();
           }
         } else if (peerConnection.connectionState === 'connected') {
           console.log('WebRTC connection established for code:', code);
@@ -194,10 +194,10 @@
           if (retryCount < maxRetries) {
             retryCount++;
             console.log(`Retrying connection attempt ${retryCount} for code: ${code}`);
-            startPeer();
+            startPeerConnection();
           }
         }
-      }, 180000);
+      }, 180000); // 3 minutes
     }
 
     function handleOffer(offer, offerCode) {
@@ -217,7 +217,7 @@
             credential: 'muazkh'
           }
         ],
-        iceTransportPolicy: 'relay'
+        iceTransportPolicy: 'all' // Allow all candidate types
       });
 
       peerConnection.ondatachannel = (event) => {
@@ -256,7 +256,7 @@
               console.log('ICE gathering timeout, sending answer for code:', code);
               socket.send(JSON.stringify({ type: 'answer', answer: peerConnection.localDescription, code }));
             }
-          }, 5000);
+          }, 10000); // 10-second ICE timeout
         } else if (peerConnection.iceGatheringState === 'complete') {
           clearTimeout(iceTimeout);
           console.log('ICE gathering complete, sending answer for code:', code);
@@ -309,27 +309,30 @@
             handleOffer(offer, offerCode);
           }
         }
-      }, 180000);
+      }, 180000); // 3 minutes
     }
 
     function handleAnswer(answer) {
       console.log('Handling answer for code:', code);
       peerConnection.setRemoteDescription(new RTCSessionDescription(answer)).then(() => {
+        console.log('Successfully set remote description for answer');
         candidatesQueue.forEach(candidate => {
           console.log('Applying queued ICE candidate for code:', code);
           handleCandidate(candidate);
         });
         candidatesQueue = [];
       }).catch(error => {
-        console.error('Error handling answer:', error);
+        console.error('Error setting remote description for answer:', error);
       });
     }
 
     function handleCandidate(candidate) {
       console.log('Handling ICE candidate for code:', code, candidate);
       if (peerConnection && peerConnection.remoteDescription) {
-        peerConnection.addIceCandidate(new RTCIceCandidate(candidate)).catch(error => {
-          console.error('Error handling ICE candidate:', error);
+        peerConnection.addIceCandidate(new RTCIceCandidate(candidate)).then(() => {
+          console.log('Successfully added ICE candidate');
+        }).catch(error => {
+          console.error('Error adding ICE candidate:', error);
         });
       } else {
         console.log('Queuing ICE candidate for code:', code);
