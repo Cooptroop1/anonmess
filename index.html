@@ -12,13 +12,18 @@
     <div class="bg-white p-8 rounded-lg shadow-lg flex-grow">
       <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">Anonymous Chat</h1>
       <div id="status" class="text-center mb-4 text-gray-600"></div>
-      <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800"></div>
+      <div id="usernameContainer">
+        <input id="usernameInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)">
+        <button id="startChatButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600">Start Chat</button>
+      </div>
+      <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800 hidden"></div>
       <div id="chatContainer" class="hidden">
         <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded bg-white"></div>
         <input id="messageInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Type a message...">
         <button id="sendButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600">Send</button>
       </div>
-      <div id="connectContainer">
+      <div id="connectContainer" class="hidden">
+        <input id="usernameConnectInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)">
         <input id="codeInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter code to connect">
         <button id="connectButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600">Connect</button>
       </div>
@@ -44,6 +49,11 @@
       return Math.random().toString(36).substr(2, 9);
     }
 
+    function validateUsername(username) {
+      const regex = /^[a-zA-Z0-9]{1,16}$/;
+      return username && regex.test(username);
+    }
+
     let code = generateCode();
     let clientId = '';
     let isInitiator = false;
@@ -57,22 +67,22 @@
     const maxRetries = 2;
     let candidatesQueues = new Map();
     let processedMessageIds = new Set();
-    let userNumber = null;
-    let userNumbers = new Map(); // clientId -> userNumber
+    let username = null;
+    let usernames = new Map(); // clientId -> username
 
     const statusElement = document.getElementById('status');
     const codeDisplayElement = document.getElementById('codeDisplay');
+    const usernameContainer = document.getElementById('usernameContainer');
+    const connectContainer = document.getElementById('connectContainer');
     const maxClientsContainer = document.getElementById('maxClientsContainer');
-    codeDisplayElement.textContent = `Your code: ${code}`;
-    statusElement.textContent = 'Generating code...';
+    statusElement.textContent = 'Enter a username to start or join a chat';
 
     const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
-    console.log('WebSocket created for code:', code);
+    console.log('WebSocket created');
 
     socket.onopen = () => {
-      console.log('WebSocket opened, sending join for code:', code);
-      socket.send(JSON.stringify({ type: 'join', code }));
-      statusElement.textContent = 'Waiting for connection...';
+      console.log('WebSocket opened');
+      statusElement.textContent = 'Enter a username to start or join a chat';
     };
 
     socket.onerror = (error) => {
@@ -95,12 +105,13 @@
         const message = JSON.parse(event.data);
         console.log('Parsed message:', message);
         if (message.type === 'error') {
-          if (message.message !== 'Only initiator can set max clients') {
-            statusElement.textContent = message.message;
-          }
+          statusElement.textContent = message.message;
           console.error('Server error:', message.message);
-          if (message.message.includes('Chat is full')) {
+          if (message.message.includes('Chat is full') || message.message.includes('Username already taken')) {
             socket.close();
+            usernameContainer.classList.remove('hidden');
+            connectContainer.classList.add('hidden');
+            codeDisplayElement.classList.add('hidden');
           }
           return;
         }
@@ -110,12 +121,11 @@
           isInitiator = message.isInitiator;
           totalClients = 1;
           if (isInitiator) {
-            userNumber = 1;
-            userNumbers.set(clientId, 1);
-            console.log(`Assigned User 1 to initiator ${clientId}, userNumbers: ${[...userNumbers.entries()]}`);
-            socket.send(JSON.stringify({ type: 'join-notify', clientId, totalClients, code, userNumber: 1 }));
+            usernames.set(clientId, username);
+            console.log(`Assigned username ${username} to initiator ${clientId}, usernames: ${[...usernames.entries()]}`);
+            socket.send(JSON.stringify({ type: 'join-notify', clientId, totalClients, code, username }));
           }
-          console.log(`Initialized client ${clientId}, userNumber: ${userNumber}, maxClients: ${maxClients}, isInitiator: ${isInitiator}`);
+          console.log(`Initialized client ${clientId}, username: ${username}, maxClients: ${maxClients}, isInitiator: ${isInitiator}`);
           initializeMaxClientsUI();
           updateMaxClientsUI();
         }
@@ -124,34 +134,32 @@
           isInitiator = message.newInitiator === clientId;
           initializeMaxClientsUI();
           updateMaxClientsUI();
-          if (isInitiator && !userNumbers.has(clientId)) {
-            userNumber = Math.max(...userNumbers.values(), 0) + 1;
-            userNumbers.set(clientId, userNumber);
-            console.log(`Assigned User ${userNumber} to new initiator ${clientId}, userNumbers: ${[...userNumbers.entries()]}`);
-            socket.send(JSON.stringify({ type: 'join-notify', clientId, totalClients, code, userNumber }));
+          if (isInitiator && !usernames.has(clientId)) {
+            usernames.set(clientId, username);
+            console.log(`Assigned username ${username} to new initiator ${clientId}, usernames: ${[...usernames.entries()]}`);
+            socket.send(JSON.stringify({ type: 'join-notify', clientId, totalClients, code, username }));
           }
         }
         if (message.type === 'join-notify' && message.code === code) {
           totalClients = message.totalClients;
-          console.log(`Join-notify received for code: ${code}, client: ${message.clientId}, total: ${totalClients}, maxClients: ${maxClients}, userNumber: ${message.userNumber}`);
-          if (message.userNumber != null) {
-            userNumbers.set(message.clientId, message.userNumber);
-            console.log(`Updated userNumbers: ${message.clientId} -> User ${message.userNumber}, userNumbers: ${[...userNumbers.entries()]}`);
-            if (message.clientId === clientId && userNumber == null) {
-              userNumber = message.userNumber;
-              console.log(`Set own userNumber: User ${userNumber} for client ${clientId}`);
+          console.log(`Join-notify received for code: ${code}, client: ${message.clientId}, total: ${totalClients}, maxClients: ${maxClients}, username: ${message.username}`);
+          if (message.username) {
+            usernames.set(message.clientId, message.username);
+            console.log(`Updated usernames: ${message.clientId} -> ${message.username}, usernames: ${[...usernames.entries()]}`);
+            if (message.clientId === clientId && username == null) {
+              username = message.username;
+              console.log(`Set own username: ${username} for client ${clientId}`);
             }
           }
-          if (isInitiator && message.clientId !== clientId && !userNumbers.has(message.clientId)) {
-            const newUserNumber = totalClients;
-            userNumbers.set(message.clientId, newUserNumber);
-            console.log(`Assigned User ${newUserNumber} to client ${message.clientId}, userNumbers: ${[...userNumbers.entries()]}`);
+          if (isInitiator && message.clientId !== clientId && !usernames.has(message.clientId)) {
+            usernames.set(message.clientId, message.username);
+            console.log(`Assigned username ${message.username} to client ${message.clientId}, usernames: ${[...usernames.entries()]}`);
             socket.send(JSON.stringify({ 
               type: 'join-notify', 
               clientId: message.clientId, 
               totalClients, 
               code, 
-              userNumber: newUserNumber 
+              username: message.username 
             }));
           }
           updateMaxClientsUI();
@@ -163,8 +171,8 @@
         if (message.type === 'client-disconnected') {
           totalClients = message.totalClients;
           console.log(`Client ${message.clientId} disconnected from code: ${code}, total: ${totalClients}`);
-          userNumbers.delete(message.clientId);
-          console.log(`Removed userNumber for client ${message.clientId}, userNumbers: ${[...userNumbers.entries()]}`);
+          usernames.delete(message.clientId);
+          console.log(`Removed username for client ${message.clientId}, usernames: ${[...usernames.entries()]}`);
           cleanupPeerConnection(message.clientId);
           updateMaxClientsUI();
         }
@@ -355,12 +363,13 @@
       dataChannel.onmessage = null;
       dataChannel.onopen = null;
       dataChannel.onerror = null;
-      dataChannel.onclose = null;
+      dataChannel.onclose = () => {};
 
       dataChannel.onopen = () => {
         console.log(`Data channel opened with ${targetId} for code: ${code}, state: ${dataChannel.readyState}`);
         isConnected = true;
         document.getElementById('connectContainer').classList.add('hidden');
+        document.getElementById('usernameContainer').classList.add('hidden');
         document.getElementById('chatContainer').classList.remove('hidden');
         document.getElementById('newSessionButton').classList.remove('hidden');
         clearTimeout(connectionTimeouts.get(targetId));
@@ -376,8 +385,8 @@
           console.error(`Invalid message format from ${targetId}:`, event.data);
           return;
         }
-        if (!data.messageId || !data.content || data.userNumber == null) {
-          console.log(`Missing messageId, content, or userNumber from ${targetId}:`, data);
+        if (!data.messageId || !data.content || !data.username) {
+          console.log(`Missing messageId, content, or username from ${targetId}:`, data);
           return;
         }
         if (processedMessageIds.has(data.messageId)) {
@@ -385,21 +394,17 @@
           return;
         }
         processedMessageIds.add(data.messageId);
-        const senderUserNumber = userNumbers.get(targetId);
-        if (senderUserNumber == null) {
-          console.warn(`No userNumber for ${targetId}, using ${data.userNumber}, userNumbers: ${[...userNumbers.entries()]}`);
-        }
-        const displayUserNumber = senderUserNumber || data.userNumber;
-        console.log(`Received message ${data.messageId} from User ${displayUserNumber} (${targetId}):`, data.content);
+        const senderUsername = usernames.get(targetId) || data.username;
+        console.log(`Received message ${data.messageId} from ${senderUsername} (${targetId}):`, data.content);
         const messages = document.getElementById('messages');
-        const isSelf = displayUserNumber === userNumber;
+        const isSelf = senderUsername === username;
         const className = isSelf ? 'text-blue-600' : 'text-gray-600';
-        messages.innerHTML += `<div class="${className}">User ${displayUserNumber}: ${data.content}</div>`;
+        messages.innerHTML += `<div class="${className}">${senderUsername}: ${data.content}</div>`;
         messages.scrollTop = messages.scrollHeight;
         if (isInitiator) {
           dataChannels.forEach((dc, id) => {
             if (id !== targetId && dc.readyState === 'open' && dc !== dataChannel) {
-              console.log(`Relaying message ${data.messageId} to ${id} as User ${displayUserNumber}:`, data.content);
+              console.log(`Relaying message ${data.messageId} to ${id} as ${senderUsername}:`, data.content);
               dc.send(JSON.stringify(data));
             }
           });
@@ -509,11 +514,11 @@
     }
 
     function sendMessage(content) {
-      if (content && dataChannels.size > 0 && userNumber != null) {
+      if (content && dataChannels.size > 0 && username) {
         try {
           const messageId = generateMessageId();
-          const message = { messageId, content, userNumber };
-          console.log(`Broadcasting message ${messageId} from User ${userNumber}:`, content);
+          const message = { messageId, content, username };
+          console.log(`Broadcasting message ${messageId} from ${username}:`, content);
           dataChannels.forEach((dataChannel, targetId) => {
             if (dataChannel.readyState === 'open') {
               dataChannel.send(JSON.stringify(message));
@@ -523,7 +528,7 @@
             }
           });
           const messages = document.getElementById('messages');
-          messages.innerHTML += `<div class="text-blue-600">User ${userNumber}: ${content}</div>`;
+          messages.innerHTML += `<div class="text-blue-600">${username}: ${content}</div>`;
           messages.scrollTop = messages.scrollHeight;
           document.getElementById('messageInput').value = '';
           processedMessageIds.add(messageId);
@@ -531,23 +536,46 @@
           console.error('Error broadcasting message:', error);
         }
       } else {
-        console.log(`Cannot send message: userNumber=${userNumber}, dataChannels.size=${dataChannels.size}`);
-        statusElement.textContent = 'Error: User ID not assigned. Please reconnect.';
+        console.log(`Cannot send message: username=${username}, dataChannels.size=${dataChannels.size}`);
+        statusElement.textContent = 'Error: Username not set or no connections. Please reconnect.';
       }
     }
 
-    document.getElementById('connectButton').onclick = () => {
-      const inputCode = document.getElementById('codeInput').value;
-      if (inputCode && !isConnected) {
-        code = inputCode;
-        codeDisplayElement.textContent = `Using code: ${code}`;
-        statusElement.textContent = 'Connecting...';
-        console.log(`User connecting with code: ${code}`);
-        socket.send(JSON.stringify({ type: 'join', code }));
-        processedMessageIds.clear();
-        userNumber = null;
-        userNumbers.clear();
+    document.getElementById('startChatButton').onclick = () => {
+      const usernameInput = document.getElementById('usernameInput').value.trim();
+      if (!validateUsername(usernameInput)) {
+        statusElement.textContent = 'Invalid username: 1-16 alphanumeric characters required.';
+        return;
       }
+      username = usernameInput;
+      codeDisplayElement.textContent = `Your code: ${code}`;
+      codeDisplayElement.classList.remove('hidden');
+      usernameContainer.classList.add('hidden');
+      connectContainer.classList.add('hidden');
+      statusElement.textContent = 'Waiting for connection...';
+      console.log(`Starting chat with username: ${username}, code: ${code}`);
+      socket.send(JSON.stringify({ type: 'join', code, username }));
+    };
+
+    document.getElementById('connectButton').onclick = () => {
+      const usernameInput = document.getElementById('usernameConnectInput').value.trim();
+      const inputCode = document.getElementById('codeInput').value.trim();
+      if (!validateUsername(usernameInput)) {
+        statusElement.textContent = 'Invalid username: 1-16 alphanumeric characters required.';
+        return;
+      }
+      if (!inputCode) {
+        statusElement.textContent = 'Please enter a valid code.';
+        return;
+      }
+
+      username = usernameInput;
+      code = inputCode;
+      codeDisplayElement.textContent = `Using code: ${code}`;
+      codeDisplayElement.classList.remove('hidden');
+      statusElement.textContent = 'Connecting...';
+      console.log(`Connecting with username: ${username}, code: ${code}`);
+      socket.send(JSON.stringify({ type: 'join', code, username }));
     };
 
     document.getElementById('sendButton').onclick = () => {
@@ -574,26 +602,52 @@
       connectionTimeouts.clear();
       retryCounts.clear();
       processedMessageIds.clear();
-      userNumbers.clear();
-      userNumber = null;
+      usernames.clear();
+      username = null;
       isConnected = false;
       isInitiator = false;
       maxClients = 2;
       totalClients = 0;
       code = generateCode();
       clientId = '';
-      codeDisplayElement.textContent = `Your code: ${code}`;
-      statusElement.textContent = 'Generating new code...';
-      console.log('New session started with code:', code);
+      codeDisplayElement.textContent = '';
+      codeDisplayElement.classList.add('hidden');
+      statusElement.textContent = 'Enter a username to start or join a chat';
+      console.log('New session started');
       document.getElementById('messages').innerHTML = '';
       document.getElementById('messageInput').value = '';
+      document.getElementById('usernameInput').value = '';
+      document.getElementById('usernameConnectInput').value = '';
       document.getElementById('codeInput').value = '';
-      document.getElementById('connectContainer').classList.remove('hidden');
+      document.getElementById('connectContainer').classList.add('hidden');
+      document.getElementById('usernameContainer').classList.remove('hidden');
       document.getElementById('chatContainer').classList.add('hidden');
       document.getElementById('newSessionButton').classList.add('hidden');
       maxClientsContainer.classList.add('hidden');
-      socket.send(JSON.stringify({ type: 'join', code }));
+      socket.send(JSON.stringify({ type: 'join' }));
     };
+
+    // Show connect container for joining
+    document.getElementById('usernameInput').addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        document.getElementById('startChatButton').click();
+      }
+    });
+
+    document.getElementById('usernameConnectInput').addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        document.getElementById('codeInput').focus();
+      }
+    });
+
+    document.getElementById('codeInput').addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        document.getElementById('connectButton').click();
+      }
+    });
   </script>
 </body>
 </html>
