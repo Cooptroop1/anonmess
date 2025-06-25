@@ -313,136 +313,135 @@
           const retryCount = retryCounts.get(targetId) || 0;
           if (retryCount < maxRetries) {
             retryCounts.set(targetId, retryCount + 1);
-            console.log(`Retrying connection attempt ${retryCount + 1} with ${retryCount}`);
-          setTimeout(() => startPeerConnection(targetId, isOfferer), 1000);
-        } else {
-          statusElement.textContent = 'Connection failed. Please try again.';
-          console.error(`Max retries reached for ${targetId}`);
-        }
-      } else if (peerConnection.connectionState === 'connected') {
-        console.log(`WebRTC connection established with ${targetId}`);
-      isConnected = true;
-      retryCounts.delete(targetId);
-      updateMaxClientsUI();
-    }
-  };
-
-  peerConnection.oniceconnectionstatechange = () => {
-    console.log(`ICE connection state ${targetId}: ${targetId} ${peerConnection.iceConnectionState}`);
-  };
-
-  peerConnection.ondatachannel = event => {
-    console.log(`Received data channel from ${targetId}`);
-    if (dataChannels.has(targetId)) {
-      console.log(`Closing existing client data channel for ${targetId}`);
-      const existingChannel = dataChannels.get(targetId);
-      existingChannel.onmessage = null;
-      existingChannel.onopen = null;
-      existingChannel.onerror = null;
-      existingChannel.onclose = null;
-      existingChannel.close();
-    }
-    dataChannel = event.channel;
-    setupDataChannel(dataChannel, targetId);
-    dataChannels.set(targetId, dataChannel);
-  };
-
-  if (isOfferer) {
-    peerConnection.createOffer()
-      .then(offer => {
-        console.log(`Created offer for ${targetId}`);
-        return peerConnection.setLocalDescription(offer);
-      })
-      .then(() => {
-        console.log(`Set local description for ${targetId}`);
-      }))
-      .catch(error => {
-        console.error(`Error creating or setting offer for ${targetId}:`, error);
-        cleanupPeerConnection(targetId));
-        return;
-      });
-    }
-
-    const timeout = setTimeout(() => {
-      if (!dataChannels.has(targetId) || dataChannels.get(targetId).readyState !== 'open') {
-        console.log(`Connection timed out with ${targetId} for code: ${code}`);
-        cleanupPeerConnection(targetId);
-        const retryCount = retryCounts.get(targetId) || 0;
-        if (retryCount < maxRetries) {
-          retryCounts.set(targetId, retryCount + 1);
-          console.log(`Retrying connection attempt ${retryCount + 1} with ${targetId}`);
-          setTimeout(() => startPeerConnection(targetId, isOfferer), 1000);
-        } else {
-          statusElement.textContent = 'Connection timed out. Please try again.';
-          console.error(`Max retries reached for ${targetId}`);
-        }
-      }
-    }, 20000);
-    connectionTimeouts.set(targetId, timeout);
-  }
-
-  function setupDataChannel(dataChannel, targetId) {
-    console.log(`Setting up data channel for ${targetId}`);
-    dataChannel.onmessage = null;
-    dataChannel.onopen = null;
-    dataChannel.onerror = null;
-    dataChannel.onclose = () => {};
-
-    dataChannel.onopen = () => {
-      console.log(`Data channel opened with ${targetId} for code: ${code}, state: ${dataChannel.readyState}`);
-      isConnected = true;
-      initialContainer.classList.add('hidden');
-      usernameContainer.classList.add('hidden');
-      connectContainer.classList.add('hidden');
-      chatContainer.classList.remove('hidden');
-      newSessionButton.classList.remove('hidden');
-      clearTimeout(connectionTimeouts.get(targetId));
-      retryCounts.delete(targetId);
-      updateMaxClientsUI();
-    };
-
-    dataChannel.onmessage = event => {
-      let data;
-      try {
-        data = JSON.parse(event.data);
-      } catch (e) {
-        console.error(`Invalid message format from ${targetId}:`, data.data);
-        return;
-      }
-      if (!data.messageId || !data.content || !data.username) {
-        console.log(`Missing messageId, content, or username from ${targetId}:`, data);
-        return;
-      }
-      if (processedMessageIds.has(data.messageId)) {
-        console.log(`Duplicate message ${data.messageId} from ${targetId}, ignoring`);
-        return;
-      }
-      processedMessageIds.add(data.messageId);
-      const senderUsername = usernames.get(targetId) || data.username;
-      console.log(`Received message ${data.messageId} from ${senderUsername} (${targetId}): ${data.content}`);
-      const messages = document.getElementById('messages');
-      const isSelf = senderUsername === username;
-      const className = isSelf ? 'text-blue-600' : 'text-gray-600';
-      messages.innerHTML += `<div class="${className}">${senderUsername}: ${data.content}</div>`;
-      messages.scrollTop = messages.scrollHeight;
-      if (isInitiator) {
-        dataChannels.forEach((dc, id) => {
-          if (id !== idtargetId && dc.readyState === 'open' && dc !== dataChannel) {
-            console.log(`Relaying message ${data.messageId} to ${id} as ${senderUsername}:`, data.content);
-            dc.send(JSON.stringify(data));
+            console.log(`Retrying connection attempt ${retryCount + 1} with ${targetId}`);
+            setTimeout(() => startPeerConnection(targetId, isOfferer), 1000);
+          } else {
+            statusElement.textContent = 'Connection timed out. Please try again.';
+            console.error(`Max retries reached for ${targetId}`);
           }
-        });
+        } else if (peerConnection.connectionState === 'connected') {
+          console.log(`WebRTC connection established with ${targetId}`);
+          isConnected = true;
+          retryCounts.delete(targetId);
+          updateMaxClientsUI();
+        }
+      };
+
+      peerConnection.oniceconnectionstatechange = () => {
+        console.log(`ICE connection state for ${targetId}: ${peerConnection.iceConnectionState}`);
+      };
+
+      peerConnection.ondatachannel = event => {
+        console.log(`Received data channel from ${targetId}`);
+        if (dataChannels.has(targetId)) {
+          console.log(`Closing existing data channel for ${targetId}`);
+          const existingChannel = dataChannels.get(targetId);
+          existingChannel.onmessage = null;
+          existingChannel.onopen = null;
+          existingChannel.onerror = null;
+          existingChannel.onclose = null;
+          existingChannel.close();
+        }
+        dataChannel = event.channel;
+        setupDataChannel(dataChannel, targetId);
+        dataChannels.set(targetId, dataChannel);
+      };
+
+      if (isOfferer) {
+        peerConnection.createOffer()
+          .then(offer => {
+            console.log(`Created offer for ${targetId}`);
+            return peerConnection.setLocalDescription(offer);
+          })
+          .then(() => {
+            console.log(`Set local description for ${targetId}`);
+          })
+          .catch(error => {
+            console.error(`Error creating or setting offer for ${targetId}:`, error);
+            cleanupPeerConnection(targetId);
+          });
       }
-    };
 
-    dataChannel.onerror = error => {
-      console.error(`Data channel error with ${targetId}:`, error);
-    };
+      const timeout = setTimeout(() => {
+        if (!dataChannels.has(targetId) || dataChannels.get(targetId).readyState !== 'open') {
+          console.log(`Connection timed out with ${targetId} for code: ${code}`);
+          cleanupPeerConnection(targetId);
+          const retryCount = retryCounts.get(targetId) || 0;
+          if (retryCount < maxRetries) {
+            retryCounts.set(targetId, retryCount + 1);
+            console.log(`Retrying connection attempt ${retryCount + 1} with ${targetId}`);
+            setTimeout(() => startPeerConnection(targetId, isOfferer), 1000);
+          } else {
+            statusElement.textContent = 'Connection timed out. Please try again.';
+            console.error(`Max retries reached for ${targetId}`);
+          }
+        }
+      }, 20000);
+      connectionTimeouts.set(targetId, timeout);
+    }
 
-    dataChannel.onclose = () => {
-      console.log(`Data channel closed with ${targetId}`);
-      cleanupPeerConnection(targetId);
-    };
+    function setupDataChannel(dataChannel, targetId) {
+      console.log(`Setting up data channel for ${targetId}`);
+      dataChannel.onmessage = null;
+      dataChannel.onopen = null;
+      dataChannel.onerror = null;
+      dataChannel.onclose = null;
+
+      dataChannel.onopen = () => {
+        console.log(`Data channel opened with ${targetId} for code: ${code}, state: ${dataChannel.readyState}`);
+        isConnected = true;
+        initialContainer.classList.add('hidden');
+        usernameContainer.classList.add('hidden');
+        connectContainer.classList.add('hidden');
+        chatContainer.classList.remove('hidden');
+        newSessionButton.classList.remove('hidden');
+        clearTimeout(connectionTimeouts.get(targetId));
+        retryCounts.delete(targetId);
+        updateMaxClientsUI();
+      };
+
+      dataChannel.onmessage = event => {
+        let data;
+        try {
+          data = JSON.parse(event.data);
+        } catch (e) {
+          console.error(`Invalid message format from ${targetId}:`, event.data);
+          return;
+        }
+        if (!data.messageId || !data.content || !data.username) {
+          console.log(`Missing messageId, content, or username from ${targetId}:`, data);
+          return;
+        }
+        if (processedMessageIds.has(data.messageId)) {
+          console.log(`Duplicate message ${data.messageId} from ${targetId}, ignoring`);
+          return;
+        }
+        processedMessageIds.add(data.messageId);
+        const senderUsername = usernames.get(targetId) || data.username;
+        console.log(`Received message ${data.messageId} from ${senderUsername} (${targetId}): ${data.content}`);
+        const messages = document.getElementById('messages');
+        const isSelf = senderUsername === username;
+        const className = isSelf ? 'text-blue-600' : 'text-gray-600';
+        messages.innerHTML += `<div class="${className}">${senderUsername}: ${data.content}</div>`;
+        messages.scrollTop = messages.scrollHeight;
+        if (isInitiator) {
+          dataChannels.forEach((dc, id) => {
+            if (id !== targetId && dc.readyState === 'open' && dc !== dataChannel) {
+              console.log(`Relaying message ${data.messageId} to ${id} as ${senderUsername}:`, data.content);
+              dc.send(JSON.stringify(data));
+            }
+          });
+        }
+      };
+
+      dataChannel.onerror = error => {
+        console.error(`Data channel error with ${targetId}:`, error);
+      };
+
+      dataChannel.onclose = () => {
+        console.log(`Data channel closed with ${targetId}`);
+        cleanupPeerConnection(targetId);
+      };
     }
 
     function handleOffer(offer, targetId) {
@@ -488,16 +487,16 @@
       try {
         const peerConnection = peerConnections.get(targetId);
         if (!peerConnection || peerConnection.signalingState !== 'have-local-offer') {
-          console.log(`Invalid signaling state for ${targetId}:`, peerConnection ? `peerConnection.signalingState : 'no peerConnection`);
+          console.error(`Invalid signaling state for ${targetId}:`, peerConnection ? peerConnection.signalingState : 'no peerConnection');
           return;
         }
         if (answer.type !== 'answer') {
-          console.error(`Received invalid answer type from ${answer.type}:`, answer.type);
+          console.error(`Received invalid answer type from ${targetId}:`, answer.type);
           return;
         }
-        peerConnection.setRemoteDescription(new RTCSessionDescription(answer.targetId))
+        peerConnection.setRemoteDescription(new RTCSessionDescription(answer))
           .then(() => {
-            console.log(`Successfully set remote description for answer from ${targetId}`);
+            console.log(`Set remote description for answer from ${targetId}`);
             const queue = candidatesQueues.get(targetId) || [];
             queue.forEach(candidate => {
               handleCandidate(candidate, targetId);
