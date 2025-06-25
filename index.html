@@ -11,7 +11,7 @@
   <div class="flex w-full max-w-lg">
     <div class="bg-white p-8 rounded-lg shadow-lg flex-grow">
       <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">Anonymous Chat</h1>
-      <div id="status" class="text-center mb-4 text-gray-600"></div>
+      <div id="status" class="text-center mb-4 text-gray-600">Start a new chat or connect to an existing one</div>
       <div id="initialContainer">
         <button id="startChatToggleButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full mb-2 hover:bg-blue-600">Start Chat</button>
         <button id="connectToggleButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600">Connect to Chat</button>
@@ -74,7 +74,7 @@
     let candidatesQueues = new Map();
     let processedMessageIds = new Set();
     let username = null;
-    let usernames = new Map(); // clientId -> username
+    let usernames = new Map();
 
     const statusElement = document.getElementById('status');
     const codeDisplayElement = document.getElementById('codeDisplay');
@@ -450,12 +450,20 @@
     function handleAnswer(answer, targetId) {
       console.log(`Handling answer from ${targetId} for code: ${code}`);
       const peerConnection = peerConnections.get(targetId);
-      if (!peerConnection || peerConnection.signalingState !== 'have-local-offer') {
-        console.log(`Invalid signaling state for ${targetId}:`, peerConnection ? peerConnection.signalingState : 'no peerConnection');
+      if (!peerConnection) {
+        console.warn(`No peer connection for ${targetId}, ignoring answer`);
         return;
       }
       if (answer.type !== 'answer') {
         console.error(`Received invalid answer type from ${targetId}:`, answer.type);
+        return;
+      }
+      if (peerConnection.signalingState === 'stable' && peerConnection.connectionState === 'connected') {
+        console.warn(`Answer from ${targetId} ignored: connection already established (signalingState: ${peerConnection.signalingState}, connectionState: ${peerConnection.connectionState})`);
+        return;
+      }
+      if (peerConnection.signalingState !== 'have-local-offer') {
+        console.warn(`Unexpected signaling state for ${targetId}: ${peerConnection.signalingState}, expected have-local-offer`);
         return;
       }
       peerConnection.setRemoteDescription(new RTCSessionDescription(answer)).then(() => {
