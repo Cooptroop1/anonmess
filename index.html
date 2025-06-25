@@ -109,9 +109,10 @@
           initializeMaxClientsUI();
           updateMaxClientsUI();
           if (isInitiator) {
-            // Re-establish peer connections as new initiator
+            // Only restart failed connections
             peerConnections.forEach((pc, id) => {
-              if (pc.connectionState !== 'connected') {
+              if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+                console.log(`Restarting connection with ${id} as new initiator`);
                 cleanupPeerConnection(id);
                 startPeerConnection(id, true);
               }
@@ -308,6 +309,12 @@
     }
 
     function setupDataChannel(dataChannel, targetId) {
+      // Clear previous event listeners to prevent duplicates
+      dataChannel.onmessage = null;
+      dataChannel.onopen = null;
+      dataChannel.onerror = null;
+      dataChannel.onclose = null;
+
       dataChannel.onopen = () => {
         console.log(`Data channel opened with ${targetId} for code: ${code}, state: ${dataChannel.readyState}`);
         isConnected = true;
@@ -318,24 +325,30 @@
         retryCounts.delete(targetId);
         updateMaxClientsUI();
       };
+
       dataChannel.onmessage = (event) => {
         console.log(`Received message from ${targetId}:`, event.data);
         const messages = document.getElementById('messages');
-        messages.innerHTML += `<div class="text-gray-600">Them: ${event.data}</div>`;
-        messages.scrollTop = messages.scrollHeight;
+        // Prevent processing relayed messages as new on initiator
+        if (!isInitiator || dataChannels.get(targetId) === dataChannel) {
+          messages.innerHTML += `<div class="text-gray-600">Them: ${event.data}</div>`;
+          messages.scrollTop = messages.scrollHeight;
+        }
         // Relay message to other clients if initiator
         if (isInitiator) {
           dataChannels.forEach((dc, id) => {
-            if (id !== targetId && dc.readyState === 'open') {
+            if (id !== targetId && dc.readyState === 'open' && dc !== dataChannel) {
               console.log(`Relaying message to ${id}:`, event.data);
               dc.send(event.data);
             }
           });
         }
       };
+
       dataChannel.onerror = (error) => {
         console.error(`Data channel error with ${targetId}:`, error);
       };
+
       dataChannel.onclose = () => {
         console.log(`Data channel closed with ${targetId}`);
         cleanupPeerConnection(targetId);
@@ -418,6 +431,10 @@
       }
       const dataChannel = dataChannels.get(targetId);
       if (dataChannel) {
+        dataChannel.onmessage = null;
+        dataChannel.onopen = null;
+        dataChannel.onerror = null;
+        dataChannel.onclose = null;
         dataChannel.close();
         dataChannels.delete(targetId);
         console.log(`Closed data channel with ${targetId}`);
