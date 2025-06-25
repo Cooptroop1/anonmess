@@ -5,23 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Anonymous Chat</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
-  <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==">
+  <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottroo"/>
 </head>
-<body class="bg-gray-100 flex items-center justify-center h-screen">
-  <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
-    <h1 class="text-2xl font-bold mb-4 text-center">Anonymous Chat</h1>
-    <div id="status" class="mb-4 text-center">Generating code...</div>
-    <div id="codeDisplay" class="mb-4 text-center font-mono"></div>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+  <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-sm">
+    <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">Login</h1>
+    <div id="status" class="text-center mb-4 text-gray-600"></div>
+    <div id="codeDisplay" class="text-center mb-4 font-mono text-lg"></div>
     <div id="chatContainer" class="hidden">
-      <div id="messages" class="border p-4 h-64 overflow-y-auto mb-4"></div>
-      <input id="messageInput" type="text" class="border p-2 w-full mb-2" placeholder="Type a message...">
-      <button id="sendButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full">Send</button>
+      <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded"></div>
+      <input id="messageInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Type a message...">
+      <button id="sendButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600">Send</button>
     </div>
     <div id="connectContainer">
-      <input id="codeInput" type="text" class="border p-2 w-full mb-2" placeholder="Enter code to connect">
-      <button id="connectButton" class="bg-green-500 text-white px-4 py-2 rounded w-full">Connect</button>
+      <input id="codeInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter code to connect">
+      <button id="connectButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600">Connect</button>
     </div>
-    <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mt-2 hidden">New Session</button>
+    <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mt-4 hidden hover:bg-red-600">New Session</button>
   </div>
   <script>
     function generateCode() {
@@ -76,10 +76,10 @@
           console.log('Join-notify received, becoming initiator for code:', code);
           isInitiator = true;
           startPeerConnection();
-        } else if (message.type === 'offer') {
+        } else if (message.type === 'offer' && !isInitiator) {
           console.log('Received offer for code:', code);
           handleOffer(message.offer, message.code);
-        } else if (message.type === 'answer') {
+        } else if (message.type === 'answer' && isInitiator) {
           console.log('Received answer for code:', code);
           handleAnswer(message.answer);
         } else if (message.type === 'candidate') {
@@ -94,25 +94,27 @@
     function startPeerConnection() {
       console.log('Starting peer connection for code:', code);
       peerConnection = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }]
       });
 
-      dataChannel = peerConnection.createDataChannel('chat');
-      dataChannel.onopen = () => {
-        isConnected = true;
-        statusElement.textContent = 'Connected!';
-        console.log('Data channel opened for code:', code);
-        document.getElementById('connectContainer').classList.add('hidden');
-        document.getElementById('chatContainer').classList.remove('hidden');
-        document.getElementById('newSessionButton').classList.remove('hidden');
-        clearTimeout(connectionTimeout);
-      };
-      dataChannel.onmessage = (event) => {
-        console.log('Received message on data channel:', event.data);
-        const messages = document.getElementById('messages');
-        messages.innerHTML += `<div class="text-gray-600">Them: ${event.data}</div>`;
-        messages.scrollTop = messages.scrollHeight;
-      };
+      if (isInitiator) {
+        dataChannel = peerConnection.createDataChannel('chat');
+        dataChannel.onopen = () => {
+          isConnected = true;
+          statusElement.textContent = 'Connected!';
+          console.log('Data channel opened for code:', code);
+          document.getElementById('connectContainer').classList.add('hidden');
+          document.getElementById('chatContainer').classList.remove('hidden');
+          document.getElementById('newSessionButton').classList.remove('hidden');
+          clearTimeout(connectionTimeout);
+        };
+        dataChannel.onmessage = (event) => {
+          console.log('Received message on data channel:', event.data);
+          const messages = document.getElementById('messages');
+          messages.innerHTML += `<div class="text-gray-600">Them: ${event.data}</div>`;
+          messages.scrollTop = messages.scrollHeight;
+        };
+      }
 
       peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
@@ -141,7 +143,6 @@
         });
       }
 
-      // Set timeout to prevent hanging
       connectionTimeout = setTimeout(() => {
         if (!isConnected) {
           statusElement.textContent = 'Connection timed out. Try again.';
@@ -150,13 +151,13 @@
             peerConnection.close();
           }
         }
-      }, 10000); // 10 seconds
+      }, 180000); // 3 minutes
     }
 
     function handleOffer(offer, offerCode) {
       console.log('Handling offer for code:', offerCode);
       peerConnection = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }]
       });
 
       peerConnection.ondatachannel = (event) => {
@@ -213,7 +214,7 @@
             peerConnection.close();
           }
         }
-      }, 10000);
+      }, 180000); // 3 minutes
     }
 
     function handleAnswer(answer) {
@@ -238,7 +239,6 @@
         statusElement.textContent = 'Connecting...';
         console.log('User B connecting with code:', code);
         socket.send(JSON.stringify({ type: 'join', code }));
-        startPeerConnection();
       }
     };
 
