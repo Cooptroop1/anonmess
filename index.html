@@ -40,6 +40,8 @@
     let peerConnection;
     let dataChannel;
     let connectionTimeout;
+    let retryCount = 0;
+    const maxRetries = 1;
 
     const statusElement = document.getElementById('status');
     const codeDisplayElement = document.getElementById('codeDisplay');
@@ -106,6 +108,11 @@
             urls: 'turn:openrelay.metered.ca:443', 
             username: 'openrelayproject', 
             credential: 'openrelayproject'
+          },
+          {
+            urls: 'turn:numb.viagenie.ca',
+            username: 'webrtc@live.com',
+            credential: 'muazkh'
           }
         ]
       });
@@ -120,6 +127,7 @@
           document.getElementById('chatContainer').classList.remove('hidden');
           document.getElementById('newSessionButton').classList.remove('hidden');
           clearTimeout(connectionTimeout);
+          retryCount = 0; // Reset retry count on success
         };
         dataChannel.onmessage = (event) => {
           console.log('Received message on data channel:', event.data);
@@ -132,7 +140,7 @@
       let candidatesQueue = [];
       peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
-          console.log('Sending ICE candidate for code:', code);
+          console.log('Sending ICE candidate for code:', code, event.candidate);
           socket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate, code }));
         }
       };
@@ -150,6 +158,11 @@
         if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
           statusElement.textContent = 'Connection failed. Try again.';
           clearTimeout(connectionTimeout);
+          if (retryCount < maxRetries && !isConnected) {
+            retryCount++;
+            console.log(`Retrying connection attempt ${retryCount} for code: ${code}`);
+            startPeerConnection();
+          }
         }
       };
 
@@ -168,6 +181,11 @@
           console.log('Connection timed out for code:', code);
           if (peerConnection) {
             peerConnection.close();
+          }
+          if (retryCount < maxRetries) {
+            retryCount++;
+            console.log(`Retrying connection attempt ${retryCount} for code: ${code}`);
+            startPeerConnection();
           }
         }
       }, 180000); // 3 minutes
@@ -188,6 +206,11 @@
             urls: 'turn:openrelay.metered.ca:443', 
             username: 'openrelayproject', 
             credential: 'openrelayproject'
+          },
+          {
+            urls: 'turn:numb.viagenie.ca',
+            username: 'webrtc@live.com',
+            credential: 'muazkh'
           }
         ]
       });
@@ -202,6 +225,7 @@
           document.getElementById('chatContainer').classList.remove('hidden');
           document.getElementById('newSessionButton').classList.remove('hidden');
           clearTimeout(connectionTimeout);
+          retryCount = 0; // Reset retry count on success
         };
         dataChannel.onmessage = (event) => {
           console.log('Received message on data channel:', event.data);
@@ -214,7 +238,7 @@
       let candidatesQueue = [];
       peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
-          console.log('Sending ICE candidate for code:', code);
+          console.log('Sending ICE candidate for code:', code, event.candidate);
           socket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate, code }));
         }
       };
@@ -232,6 +256,11 @@
         if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
           statusElement.textContent = 'Connection failed. Try again.';
           clearTimeout(connectionTimeout);
+          if (retryCount < maxRetries && !isConnected) {
+            retryCount++;
+            console.log(`Retrying connection attempt ${retryCount} for code: ${code}`);
+            handleOffer(offer, offerCode);
+          }
         }
       };
 
@@ -240,6 +269,12 @@
         return peerConnection.createAnswer();
       }).then(answer => {
         return peerConnection.setLocalDescription(answer);
+      }).then(() => {
+        candidatesQueue.forEach(candidate => {
+          console.log('Applying queued ICE candidate for code:', code);
+          handleCandidate(candidate);
+        });
+        candidatesQueue = [];
       }).catch(error => {
         console.error('Error handling offer:', error);
       });
@@ -251,22 +286,33 @@
           if (peerConnection) {
             peerConnection.close();
           }
+          if (retryCount < maxRetries) {
+            retryCount++;
+            console.log(`Retrying connection attempt ${retryCount} for code: ${code}`);
+            handleOffer(offer, offerCode);
+          }
         }
       }, 180000); // 3 minutes
     }
 
     function handleAnswer(answer) {
       console.log('Handling answer for code:', code);
-      peerConnection.setRemoteDescription(new RTCSessionDescription(answer)).catch(error => {
+      peerConnection.setRemoteDescription(new RTCSessionDescription(answer)).then(() => {
+        candidatesQueue.forEach(candidate => {
+          console.log('Applying queued ICE candidate for code:', code);
+          handleCandidate(candidate);
+        });
+        candidatesQueue = [];
+      }).catch(error => {
         console.error('Error handling answer:', error);
       });
     }
 
     function handleCandidate(candidate) {
-      console.log('Handling ICE candidate for code:', code);
+      console.log('Handling ICE candidate for code:', code, candidate);
       if (peerConnection && peerConnection.remoteDescription) {
         peerConnection.addIceCandidate(new RTCIceCandidate(candidate)).catch(error => {
-          console.error('Error handling candidate:', error);
+          console.error('Error handling ICE candidate:', error);
         });
       } else {
         console.log('Queuing ICE candidate for code:', code);
@@ -310,6 +356,7 @@
       clearTimeout(connectionTimeout);
       isConnected = false;
       isInitiator = false;
+      retryCount = 0;
       code = generateCode();
       codeDisplayElement.textContent = `Your code: ${code}`;
       statusElement.textContent = 'Generating new code...';
