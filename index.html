@@ -109,9 +109,6 @@
           console.log(`Initialized client ${clientId}, maxClients: ${maxClients}, isInitiator: ${isInitiator}`);
           initializeMaxClientsUI();
           updateMaxClientsUI();
-          if (isInitiator) {
-            setMaxClients(3);
-          }
         }
         if (message.type === 'initiator-changed') {
           console.log(`Initiator changed to ${message.newInitiator} for code: ${code}`);
@@ -287,6 +284,15 @@
 
       peerConnection.ondatachannel = (event) => {
         console.log(`Received data channel from ${targetId}`);
+        if (dataChannels.has(targetId)) {
+          console.log(`Closing existing data channel for ${targetId}`);
+          const existingChannel = dataChannels.get(targetId);
+          existingChannel.onmessage = null;
+          existingChannel.onopen = null;
+          existingChannel.onerror = null;
+          existingChannel.onclose = null;
+          existingChannel.close();
+        }
         dataChannel = event.channel;
         setupDataChannel(dataChannel, targetId);
         dataChannels.set(targetId, dataChannel);
