@@ -131,12 +131,19 @@
         }
         if (message.type === 'join-notify' && message.code === code) {
           totalClients = message.totalClients;
-          console.log(`Join-notify received for code: ${code}, new client: ${message.clientId}, total: ${totalClients}, maxClients: ${maxClients}`);
-          if (isInitiator && message.clientId !== clientId) {
+          console.log(`Join-notify received for code: ${code}, client: ${message.clientId}, total: ${totalClients}, maxClients: ${maxClients}, userNumber: ${message.userNumber}`);
+          if (message.userNumber != null) {
+            userNumbers.set(message.clientId, message.userNumber);
+            console.log(`Updated userNumbers: ${message.clientId} -> User ${message.userNumber}`);
+            if (message.clientId === clientId) {
+              userNumber = message.userNumber;
+              console.log(`Set own userNumber: User ${userNumber} for client ${clientId}`);
+            }
+          }
+          if (isInitiator && message.clientId !== clientId && !userNumbers.has(message.clientId)) {
             const newUserNumber = totalClients;
             userNumbers.set(message.clientId, newUserNumber);
             console.log(`Assigned User ${newUserNumber} to client ${message.clientId}`);
-            // Broadcast updated join-notify with userNumber
             socket.send(JSON.stringify({ 
               type: 'join-notify', 
               clientId: message.clientId, 
@@ -145,24 +152,17 @@
               userNumber: newUserNumber 
             }));
           }
-          if (message.clientId === clientId && message.userNumber != null) {
-            userNumber = message.userNumber;
-            userNumbers.set(clientId, userNumber);
-            console.log(`Received own userNumber: User ${userNumber} for client ${clientId}`);
-          }
           updateMaxClientsUI();
           if (isInitiator && message.clientId !== clientId && !peerConnections.has(message.clientId)) {
-            console.log(`Initiating peer connection with new client ${message.clientId}`);
+            console.log(`Initiating peer connection with client ${message.clientId}`);
             startPeerConnection(message.clientId, true);
           }
         }
         if (message.type === 'client-disconnected') {
           totalClients = message.totalClients;
           console.log(`Client ${message.clientId} disconnected from code: ${code}, total: ${totalClients}`);
-          if (isInitiator) {
-            userNumbers.delete(message.clientId);
-            console.log(`Removed userNumber for client ${message.clientId}`);
-          }
+          userNumbers.delete(message.clientId);
+          console.log(`Removed userNumber for client ${message.clientId}`);
           cleanupPeerConnection(message.clientId);
           updateMaxClientsUI();
         }
@@ -383,7 +383,7 @@
           return;
         }
         processedMessageIds.add(data.messageId);
-        const senderUserNumber = isInitiator ? (userNumbers.get(targetId) || data.userNumber) : data.userNumber;
+        const senderUserNumber = userNumbers.get(targetId) || data.userNumber;
         console.log(`Received message ${data.messageId} from User ${senderUserNumber} (${targetId}):`, data.content);
         const messages = document.getElementById('messages');
         const isSelf = senderUserNumber === userNumber;
@@ -394,7 +394,7 @@
           dataChannels.forEach((dc, id) => {
             if (id !== targetId && dc.readyState === 'open' && dc !== dataChannel) {
               console.log(`Relaying message ${data.messageId} to ${id} as User ${senderUserNumber}:`, data.content);
-              dc.send(JSON.stringify({ ...data, userNumber: senderUserNumber }));
+              dc.send(JSON.stringify(data));
             }
           });
         }
@@ -526,6 +526,7 @@
         }
       } else {
         console.log(`Cannot send message: userNumber=${userNumber}, dataChannels.size=${dataChannels.size}`);
+        statusElement.textContent = 'Error: User ID not assigned. Please reconnect.';
       }
     }
 
@@ -539,6 +540,7 @@
         socket.send(JSON.stringify({ type: 'join', code }));
         processedMessageIds.clear();
         userNumber = null;
+        userNumbers.clear();
       }
     };
 
@@ -581,6 +583,11 @@
       document.getElementById('messageInput').value = '';
       document.getElementById('codeInput').value = '';
       document.getElementById('connectContainer').classList.remove('hidden');
+      document.getElementById('chatContainer').innerHTML = `
+        <div id="messages" class="border border-gray-300 p-4 h-64 overflow-auto mb-2 rounded"></div>
+        <input id="messageInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded-lg" placeholder="Type a message...">
+        <button id="sendButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600">Send</button>
+      `;
       document.getElementById('chatContainer').classList.add('hidden');
       document.getElementById('newSessionButton').classList.add('hidden');
       maxClientsContainer.classList.add('hidden');
