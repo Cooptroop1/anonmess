@@ -351,6 +351,21 @@
       }
     }
 
+    function sendMessage(message) {
+      if (message && isConnected && dataChannel) {
+        try {
+          console.log('Sending message on data channel:', message);
+          dataChannel.send(message);
+          const messages = document.getElementById('messages');
+          messages.innerHTML += `<div class="text-blue-600">You: ${message}</div>`;
+          messages.scrollTop = messages.scrollHeight;
+          document.getElementById('messageInput').value = '';
+        } catch (error) {
+          console.error('Error sending message:', error);
+        }
+      }
+    }
+
     document.getElementById('connectButton').onclick = () => {
       const inputCode = document.getElementById('codeInput').value;
       if (inputCode && !isConnected) {
@@ -365,19 +380,16 @@
     document.getElementById('sendButton').onclick = () => {
       const messageInput = document.getElementById('messageInput');
       const message = messageInput.value;
-      if (message && isConnected && dataChannel) {
-        try {
-          console.log('Sending message on data channel:', message);
-          dataChannel.send(message);
-          const messages = document.getElementById('messages');
-          messages.innerHTML += `<div class="text-blue-600">You: ${message}</div>`;
-          messages.scrollTop = messages.scrollHeight;
-          messageInput.value = '';
-        } catch (error) {
-          console.error('Error sending message:', error);
-        }
-      }
+      sendMessage(message);
     };
+
+    document.getElementById('messageInput').addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        const message = event.target.value;
+        sendMessage(message);
+      }
+    });
 
     document.getElementById('newSessionButton').onclick = () => {
       if (peerConnection) {
