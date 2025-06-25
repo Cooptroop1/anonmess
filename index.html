@@ -70,9 +70,10 @@
     let dataChannels = new Map();
     let connectionTimeouts = new Map();
     let retryCounts = new Map();
-    const maxRetries = 2;
+    const maxRetries = 1; // Reduced from 2
     let candidatesQueues = new Map();
     let processedMessageIds = new Set();
+    let processedAnswers = new Set(); // New: Track processed answers
     let username = null;
     let usernames = new Map();
 
@@ -281,15 +282,8 @@
       let iceTimeout;
       peerConnection.onicegatheringstatechange = () => {
         console.log(`ICE gathering state for ${targetId}: ${peerConnection.iceGatheringState}`);
-        if (peerConnection.iceGatheringState === 'gathering' && isOfferer) {
-          iceTimeout = setTimeout(() => {
-            if (peerConnection.iceGatheringState !== 'complete') {
-              console.log(`ICE gathering timeout, sending offer to ${targetId}`);
-              socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code, targetId }));
-            }
-          }, 5000);
-        } else if (peerConnection.iceGatheringState === 'complete' && isOfferer) {
-          clearTimeout(iceTimeout);
+        if (peerConnection.iceGatheringState === 'complete' && isOfferer) {
+          clearTimeout(iceTimeout); // Clear timeout on completion
           console.log(`ICE gathering complete, sending offer to ${targetId}`);
           socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code, targetId }));
         }
@@ -312,6 +306,7 @@
           console.log(`WebRTC connection established with ${targetId} for code: ${code}`);
           isConnected = true;
           retryCounts.delete(targetId);
+          clearTimeout(iceTimeout); // Clear timeout on connection
           updateMaxClientsUI();
         }
       };
@@ -335,6 +330,13 @@
       if (isOfferer) {
         peerConnection.createOffer().then(offer => {
           return peerConnection.setLocalDescription(offer);
+        }).then(() => {
+          iceTimeout = setTimeout(() => {
+            if (peerConnection.iceGatheringState !== 'complete') {
+              console.log(`ICE gathering timeout, sending offer to ${targetId}`);
+              socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code, targetId }));
+            }
+          }, 5000);
         }).catch(error => {
           console.error(`Error creating offer for ${targetId}:`, error);
         });
@@ -458,6 +460,12 @@
         console.error(`Received invalid answer type from ${targetId}:`, answer.type);
         return;
       }
+      const answerKey = `${targetId}-${answer.sdp.substring(0, 50)}`; // Basic deduplication key
+      if (processedAnswers.has(answerKey)) {
+        console.warn(`Duplicate answer from ${targetId} ignored`);
+        return;
+      }
+      processedAnswers.add(answerKey);
       if (peerConnection.signalingState === 'stable' && peerConnection.connectionState === 'connected') {
         console.warn(`Answer from ${targetId} ignored: connection already established (signalingState: ${peerConnection.signalingState}, connectionState: ${peerConnection.connectionState})`);
         return;
@@ -636,6 +644,7 @@
       connectionTimeouts.clear();
       retryCounts.clear();
       processedMessageIds.clear();
+      processedAnswers.clear();
       usernames.clear();
       username = null;
       isConnected = false;
