@@ -160,7 +160,7 @@
           handleAnswer(message.answer, message.clientId);
         }
         if (message.type === 'candidate' && message.clientId !== clientId) {
-          console.log(`Candidate from ${message.clientId}`);
+          console.log(`Candidate from ${message.clientId}:`, message.candidate);
           handleCandidate(message.candidate, message.clientId);
         }
       } catch (error) {
@@ -207,9 +207,10 @@
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' },
-          { urls: 'turn:openrelay.metered.ca:80', username: 'openrelay', credential: 'openrelay' },
-          { urls: 'turn:openrelay.metered.ca:443', username: 'openrelay', credential: 'openrelay' }
-        ]
+          { urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443'], username: 'openrelay', credential: 'openrelay' },
+          { urls: 'turn:relay1.expressturn.com:3478', username: 'efQUY346I0WJSAEHLH', credential: 'pK7Wq3nGrU0y1qLo' }
+        ],
+        iceTransportPolicy: 'relay' // Force TURN for debugging
       });
       peerConnections.set(targetId, peerConnection);
       candidatesQueues.set(targetId, []);
@@ -217,6 +218,7 @@
       let dataChannel;
       if (isOfferer) {
         dataChannel = peerConnection.createDataChannel('chat');
+        console.log(`Created data channel for ${targetId}`);
         setupDataChannel(dataChannel, targetId);
         dataChannels.set(targetId, dataChannel);
       }
@@ -225,12 +227,14 @@
         if (event.candidate && socket.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate, code, targetId }));
           console.log(`Sent candidate to ${targetId}:`, event.candidate);
+        } else if (!event.candidate) {
+          console.log(`ICE candidate gathering complete for ${targetId}`);
         }
       };
 
       peerConnection.oniceconnectionstatechange = () => {
         console.log(`ICE state for ${targetId}: ${peerConnection.iceConnectionState}`);
-        if (peerConnection.iceConnectionState === 'failed') {
+        if (peerConnection.iceConnectionState === 'failed' || peerConnection.iceConnectionState === 'disconnected') {
           console.log(`ICE failure for ${targetId}, retrying...`);
           statusElement.textContent = 'Connection failed. Retrying...';
           retryConnection(targetId, isOfferer);
@@ -273,15 +277,15 @@
           console.log(`Connection timeout with ${targetId}`);
           retryConnection(targetId, isOfferer);
         }
-      }, 20000);
+      }, 30000);
     }
 
     function retryConnection(targetId, isOfferer) {
       const retries = (retryCounts.get(targetId) || 0) + 1;
-      if (retries <= 2) {
+      if (retries <= 3) {
         retryCounts.set(targetId, retries);
         console.log(`Retry ${retries} for ${targetId}`);
-        setTimeout(() => startPeerConnection(targetId, isOfferer), 3000 * retries);
+        setTimeout(() => startPeerConnection(targetId, isOfferer), 5000 * retries);
       } else {
         statusElement.textContent = 'Connection failed. Please try again.';
         cleanupPeerConnection(targetId);
@@ -375,13 +379,13 @@
       const peerConnection = peerConnections.get(targetId);
       if (peerConnection && peerConnection.remoteDescription) {
         peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
-          .then(() => console.log(`Successfully added ICE candidate from ${targetId}`))
+          .then(() => console.log(`Successfully added ICE candidate from ${targetId}:`, candidate))
           .catch(error => console.error(`Error adding ICE candidate from ${targetId}:`, error));
       } else {
         const queue = candidatesQueues.get(targetId) || [];
         queue.push(candidate);
         candidatesQueues.set(targetId, queue);
-        console.log(`Queued ICE candidate for ${targetId}`);
+        console.log(`Queued ICE candidate for ${targetId}:`, candidate);
       }
     }
 
