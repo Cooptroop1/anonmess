@@ -45,7 +45,7 @@
     codeDisplayElement.textContent = `Your code: ${code}`;
     statusElement.textContent = 'Generating code...';
 
-    const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
+    const socket = new WebSocket('wss://signaling-server-sl3m.onrender.com');
 
     socket.onopen = () => {
       socket.send(JSON.stringify({ type: 'join', code }));
@@ -55,11 +55,6 @@
     socket.onerror = (error) => {
       statusElement.textContent = 'WebSocket error. Please try again.';
       console.error('WebSocket error:', error);
-    };
-
-    socket.onclose = () => {
-      statusElement.textContent = 'WebSocket closed. Please refresh.';
-      console.error('WebSocket closed');
     };
 
     socket.onmessage = (event) => {
