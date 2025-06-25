@@ -45,11 +45,11 @@
     }
 
     let code = generateCode();
-    let clientId = null;
+    let clientId = '';
     let isInitiator = false;
     let isConnected = false;
     let maxClients = 2;
-    let totalClients = 1;
+    let totalClients = 0;
     let peerConnections = new Map();
     let dataChannels = new Map();
     let connectionTimeouts = new Map();
@@ -108,6 +108,7 @@
           clientId = message.clientId;
           maxClients = message.maxClients;
           isInitiator = message.isInitiator;
+          totalClients = 1;
           if (isInitiator) {
             userNumber = 1;
             userNumbers.set(clientId, 1);
@@ -123,7 +124,7 @@
           initializeMaxClientsUI();
           updateMaxClientsUI();
           if (isInitiator && !userNumbers.has(clientId)) {
-            userNumber = userNumbers.size + 1;
+            userNumber = Math.max(...userNumbers.values(), 0) + 1;
             userNumbers.set(clientId, userNumber);
             console.log(`Assigned User ${userNumber} to new initiator ${clientId}`);
           }
@@ -134,19 +135,26 @@
           if (isInitiator && message.clientId !== clientId) {
             const newUserNumber = totalClients;
             userNumbers.set(message.clientId, newUserNumber);
-            socket.send(JSON.stringify({ type: 'user-number', targetId: message.clientId, userNumber: newUserNumber, code }));
             console.log(`Assigned User ${newUserNumber} to client ${message.clientId}`);
+            // Broadcast updated join-notify with userNumber
+            socket.send(JSON.stringify({ 
+              type: 'join-notify', 
+              clientId: message.clientId, 
+              totalClients, 
+              code, 
+              userNumber: newUserNumber 
+            }));
+          }
+          if (message.clientId === clientId && message.userNumber != null) {
+            userNumber = message.userNumber;
+            userNumbers.set(clientId, userNumber);
+            console.log(`Received own userNumber: User ${userNumber} for client ${clientId}`);
           }
           updateMaxClientsUI();
           if (isInitiator && message.clientId !== clientId && !peerConnections.has(message.clientId)) {
             console.log(`Initiating peer connection with new client ${message.clientId}`);
             startPeerConnection(message.clientId, true);
           }
-        }
-        if (message.type === 'user-number' && message.targetId === clientId) {
-          userNumber = message.userNumber;
-          userNumbers.set(clientId, userNumber);
-          console.log(`Received userNumber: User ${userNumber} for client ${clientId}`);
         }
         if (message.type === 'client-disconnected') {
           totalClients = message.totalClients;
@@ -375,17 +383,18 @@
           return;
         }
         processedMessageIds.add(data.messageId);
-        console.log(`Received message ${data.messageId} from User ${data.userNumber} (${targetId}):`, data.content);
+        const senderUserNumber = isInitiator ? (userNumbers.get(targetId) || data.userNumber) : data.userNumber;
+        console.log(`Received message ${data.messageId} from User ${senderUserNumber} (${targetId}):`, data.content);
         const messages = document.getElementById('messages');
-        const isSelf = data.userNumber === userNumber;
+        const isSelf = senderUserNumber === userNumber;
         const className = isSelf ? 'text-blue-600' : 'text-gray-600';
-        messages.innerHTML += `<div class="${className}">User ${data.userNumber}: ${data.content}</div>`;
+        messages.innerHTML += `<div class="${className}">User ${senderUserNumber}: ${data.content}</div>`;
         messages.scrollTop = messages.scrollHeight;
         if (isInitiator) {
           dataChannels.forEach((dc, id) => {
             if (id !== targetId && dc.readyState === 'open' && dc !== dataChannel) {
-              console.log(`Relaying message ${data.messageId} to ${id}:`, data.content);
-              dc.send(JSON.stringify(data));
+              console.log(`Relaying message ${data.messageId} to ${id} as User ${senderUserNumber}:`, data.content);
+              dc.send(JSON.stringify({ ...data, userNumber: senderUserNumber }));
             }
           });
         }
@@ -494,11 +503,11 @@
     }
 
     function sendMessage(content) {
-      if (content && dataChannels.size > 0) {
+      if (content && dataChannels.size > 0 && userNumber != null) {
         try {
           const messageId = generateMessageId();
-          const message = { messageId, content, userNumber: userNumber || 1 };
-          console.log(`Broadcasting message ${messageId} from User ${userNumber || 1}:`, content);
+          const message = { messageId, content, userNumber };
+          console.log(`Broadcasting message ${messageId} from User ${userNumber}:`, content);
           dataChannels.forEach((dataChannel, targetId) => {
             if (dataChannel.readyState === 'open') {
               dataChannel.send(JSON.stringify(message));
@@ -508,13 +517,15 @@
             }
           });
           const messages = document.getElementById('messages');
-          messages.innerHTML += `<div class="text-blue-600">User ${userNumber || 1}: ${content}</div>`;
+          messages.innerHTML += `<div class="text-blue-600">User ${userNumber}: ${content}</div>`;
           messages.scrollTop = messages.scrollHeight;
           document.getElementById('messageInput').value = '';
           processedMessageIds.add(messageId);
         } catch (error) {
           console.error('Error broadcasting message:', error);
         }
+      } else {
+        console.log(`Cannot send message: userNumber=${userNumber}, dataChannels.size=${dataChannels.size}`);
       }
     }
 
@@ -560,9 +571,9 @@
       isConnected = false;
       isInitiator = false;
       maxClients = 2;
-      totalClients = 1;
+      totalClients = 0;
       code = generateCode();
-      clientId = null;
+      clientId = '';
       codeDisplayElement.textContent = `Your code: ${code}`;
       statusElement.textContent = 'Generating new code...';
       console.log('New session started with code:', code);
