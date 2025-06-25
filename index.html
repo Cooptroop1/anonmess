@@ -7,13 +7,13 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
   <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottroo"/>
 </head>
-<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+<body class="bg-black min-h-screen flex items-center justify-center">
   <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-sm">
     <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">Anonymous Chat</h1>
     <div id="status" class="text-center mb-4 text-gray-600"></div>
-    <div id="codeDisplay" class="text-center mb-4 font-mono text-lg"></div>
+    <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800"></div>
     <div id="chatContainer" class="hidden">
-      <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded"></div>
+      <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded bg-white"></div>
       <input id="messageInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Type a message...">
       <button id="sendButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600">Send</button>
     </div>
@@ -42,7 +42,7 @@
     let connectionTimeout;
     let retryCount = 0;
     const maxRetries = 1;
-    let candidatesQueue = []; // Global queue for ICE candidates
+    let candidatesQueue = [];
 
     const statusElement = document.getElementById('status');
     const codeDisplayElement = document.getElementById('codeDisplay');
@@ -65,8 +65,8 @@
     };
 
     socket.onclose = () => {
-      statusElement.textContent = 'WebSocket closed. Please refresh.';
       console.error('WebSocket closed');
+      statusElement.textContent = 'Connection closed. Please refresh.';
       clearTimeout(connectionTimeout);
     };
 
@@ -75,10 +75,10 @@
       try {
         const message = JSON.parse(event.data);
         console.log('Parsed message:', message);
-        if (message.type === 'join-notify' && message.code === code && !isInitiator) {
+        if (message.type === 'join-notify' && (message.code === code && !isInitiator)) {
           console.log('Join-notify received, becoming initiator for code:', code);
           isInitiator = true;
-          startPeerConnection();
+          startPeer();
         } else if (message.type === 'offer' && !isInitiator) {
           console.log('Received offer for code:', code);
           handleOffer(message.offer, message.code);
@@ -86,7 +86,7 @@
           console.log('Received answer for code:', code);
           handleAnswer(message.answer);
         } else if (message.type === 'candidate') {
-          console.log('Received ICE candidate for code:', code);
+          console.log('Received ICE candidate for code:', code, message.candidate);
           handleCandidate(message.candidate);
         }
       } catch (error) {
@@ -94,19 +94,14 @@
       }
     };
 
-    function startPeerConnection() {
+    function startPeer() {
       console.log('Starting peer connection for code:', code);
       peerConnection = new RTCPeerConnection({
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' },
           { 
-            urls: 'turn:openrelay.metered.ca:80', 
-            username: 'openrelayproject', 
-            credential: 'openrelayproject'
-          },
-          { 
-            urls: 'turn:openrelay.metered.ca:443', 
+            urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443'], 
             username: 'openrelayproject', 
             credential: 'openrelayproject'
           },
@@ -115,7 +110,8 @@
             username: 'webrtc@live.com',
             credential: 'muazkh'
           }
-        ]
+        ],
+        iceTransportPolicy: 'relay'
       });
 
       if (isInitiator) {
@@ -145,9 +141,18 @@
         }
       };
 
+      let iceTimeout;
       peerConnection.onicegatheringstatechange = () => {
         console.log('ICE gathering state:', peerConnection.iceGatheringState);
-        if (peerConnection.iceGatheringState === 'complete' && isInitiator) {
+        if (peerConnection.iceGatheringState === 'gathering') {
+          iceTimeout = setTimeout(() => {
+            if (isInitiator && peerConnection.iceGatheringState !== 'complete') {
+              console.log('ICE gathering timeout, sending offer for code:', code);
+              socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code }));
+            }
+          }, 5000);
+        } else if (peerConnection.iceGatheringState === 'complete' && isInitiator) {
+          clearTimeout(iceTimeout);
           console.log('ICE gathering complete, sending offer for code:', code);
           socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code }));
         }
@@ -158,11 +163,14 @@
         if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
           statusElement.textContent = 'Connection failed. Try again.';
           clearTimeout(connectionTimeout);
+          clearTimeout(iceTimeout);
           if (retryCount < maxRetries && !isConnected) {
             retryCount++;
             console.log(`Retrying connection attempt ${retryCount} for code: ${code}`);
-            startPeerConnection();
+            startPeer();
           }
+        } else if (peerConnection.connectionState === 'connected') {
+          console.log('WebRTC connection established for code:', code);
         }
       };
 
@@ -182,13 +190,14 @@
           if (peerConnection) {
             peerConnection.close();
           }
+          clearTimeout(iceTimeout);
           if (retryCount < maxRetries) {
             retryCount++;
             console.log(`Retrying connection attempt ${retryCount} for code: ${code}`);
-            startPeerConnection();
+            startPeer();
           }
         }
-      }, 180000); // 3 minutes
+      }, 180000);
     }
 
     function handleOffer(offer, offerCode) {
@@ -198,12 +207,7 @@
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' },
           { 
-            urls: 'turn:openrelay.metered.ca:80', 
-            username: 'openrelayproject', 
-            credential: 'openrelayproject'
-          },
-          { 
-            urls: 'turn:openrelay.metered.ca:443', 
+            urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443'], 
             username: 'openrelayproject', 
             credential: 'openrelayproject'
           },
@@ -212,7 +216,8 @@
             username: 'webrtc@live.com',
             credential: 'muazkh'
           }
-        ]
+        ],
+        iceTransportPolicy: 'relay'
       });
 
       peerConnection.ondatachannel = (event) => {
@@ -242,9 +247,18 @@
         }
       };
 
+      let iceTimeout;
       peerConnection.onicegatheringstatechange = () => {
         console.log('ICE gathering state:', peerConnection.iceGatheringState);
-        if (peerConnection.iceGatheringState === 'complete') {
+        if (peerConnection.iceGatheringState === 'gathering') {
+          iceTimeout = setTimeout(() => {
+            if (peerConnection.iceGatheringState !== 'complete') {
+              console.log('ICE gathering timeout, sending answer for code:', code);
+              socket.send(JSON.stringify({ type: 'answer', answer: peerConnection.localDescription, code }));
+            }
+          }, 5000);
+        } else if (peerConnection.iceGatheringState === 'complete') {
+          clearTimeout(iceTimeout);
           console.log('ICE gathering complete, sending answer for code:', code);
           socket.send(JSON.stringify({ type: 'answer', answer: peerConnection.localDescription, code }));
         }
@@ -255,11 +269,14 @@
         if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
           statusElement.textContent = 'Connection failed. Try again.';
           clearTimeout(connectionTimeout);
+          clearTimeout(iceTimeout);
           if (retryCount < maxRetries && !isConnected) {
             retryCount++;
             console.log(`Retrying connection attempt ${retryCount} for code: ${code}`);
             handleOffer(offer, offerCode);
           }
+        } else if (peerConnection.connectionState === 'connected') {
+          console.log('WebRTC connection established for code:', code);
         }
       };
 
@@ -285,13 +302,14 @@
           if (peerConnection) {
             peerConnection.close();
           }
+          clearTimeout(iceTimeout);
           if (retryCount < maxRetries) {
             retryCount++;
             console.log(`Retrying connection attempt ${retryCount} for code: ${code}`);
             handleOffer(offer, offerCode);
           }
         }
-      }, 180000); // 3 minutes
+      }, 180000);
     }
 
     function handleAnswer(answer) {
