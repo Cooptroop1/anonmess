@@ -186,6 +186,7 @@
       let dataChannel;
       if (isOfferer) {
         dataChannel = peerConnection.createDataChannel('chat');
+        console.log(`Created data channel for ${targetId}`);
         setupDataChannel(dataChannel, targetId);
         dataChannels.set(targetId, dataChannel);
       }
@@ -220,7 +221,7 @@
           statusElement.textContent = 'Connection failed. Try again.';
           cleanupPeerConnection(targetId);
           const retryCount = retryCounts.get(targetId) || 0;
-          if (retryCount < maxRetries && !isConnected) {
+          if (retryCount < maxRetries && !dataChannels.get(targetId)?.readyState === 'open') {
             retryCounts.set(targetId, retryCount + 1);
             console.log(`Retrying connection attempt ${retryCount + 1} with ${targetId}`);
             startPeerConnection(targetId, isOfferer);
@@ -233,6 +234,7 @@
       };
 
       peerConnection.ondatachannel = (event) => {
+        console.log(`Received data channel from ${targetId}`);
         dataChannel = event.channel;
         setupDataChannel(dataChannel, targetId);
         dataChannels.set(targetId, dataChannel);
@@ -247,7 +249,7 @@
       }
 
       const timeout = setTimeout(() => {
-        if (!isConnected) {
+        if (!dataChannels.get(targetId)?.readyState === 'open') {
           statusElement.textContent = 'Connection timed out. Try again.';
           console.log(`Connection timed out with ${targetId} for code: ${code}`);
           cleanupPeerConnection(targetId);
@@ -264,7 +266,7 @@
 
     function setupDataChannel(dataChannel, targetId) {
       dataChannel.onopen = () => {
-        console.log(`Data channel opened with ${targetId} for code: ${code}`);
+        console.log(`Data channel opened with ${targetId} for code: ${code}, state: ${dataChannel.readyState}`);
         isConnected = true;
         document.getElementById('connectContainer').classList.add('hidden');
         document.getElementById('chatContainer').classList.remove('hidden');
@@ -278,9 +280,22 @@
         const messages = document.getElementById('messages');
         messages.innerHTML += `<div class="text-gray-600">Them: ${event.data}</div>`;
         messages.scrollTop = messages.scrollHeight;
+        // Relay message to other clients if initiator
+        if (isInitiator) {
+          dataChannels.forEach((dc, id) => {
+            if (id !== targetId && dc.readyState === 'open') {
+              console.log(`Relaying message to ${id}:`, event.data);
+              dc.send(event.data);
+            }
+          });
+        }
       };
       dataChannel.onerror = (error) => {
         console.error(`Data channel error with ${targetId}:`, error);
+      };
+      dataChannel.onclose = () => {
+        console.log(`Data channel closed with ${targetId}`);
+        cleanupPeerConnection(targetId);
       };
     }
 
@@ -315,7 +330,7 @@
       console.log(`Handling answer from ${targetId} for code: ${code}`);
       const peerConnection = peerConnections.get(targetId);
       if (!peerConnection || peerConnection.signalingState !== 'have-local-offer') {
-        console.log(`Invalid signaling state for ${targetId}:`, peerConnection ? peerConnection.signalingState : 'no peerConnection');
+        console.log(`Invalid signaling state for ${dataChannel.readyState} ${targetId}:`, peerConnection ? peerConnection.signalingState : 'no peerConnection');
         return;
       }
       if (answer.type !== 'answer') {
@@ -379,7 +394,9 @@
           dataChannels.forEach((dataChannel, targetId) => {
             if (dataChannel.readyState === 'open') {
               dataChannel.send(message);
-              console.log(`Sent message to ${targetId}`);
+              console.log(`Sent message to ${targetId}, state: ${dataChannel.readyState}`);
+            } else {
+              console.log(`Skipped sending to ${targetId}, state: ${dataChannel.readyState}`);
             }
           });
           const messages = document.getElementById('messages');
