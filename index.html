@@ -45,12 +45,13 @@
     let isInitiator = false;
     let isConnected = false;
     let maxClients = 2;
-    let peerConnection = null;
-    let dataChannel = null;
-    let connectionTimeout;
-    let retryCount = 0;
+    let totalClients = 1;
+    let peerConnections = new Map();
+    let dataChannels = new Map();
+    let connectionTimeouts = new Map();
+    let retryCounts = new Map();
     const maxRetries = 1;
-    let candidatesQueue = [];
+    let candidatesQueues = new Map();
 
     const statusElement = document.getElementById('status');
     const codeDisplayElement = document.getElementById('codeDisplay');
@@ -70,13 +71,13 @@
     socket.onerror = (error) => {
       statusElement.textContent = 'WebSocket error. Please try again.';
       console.error('WebSocket error:', error);
-      clearTimeout(connectionTimeout);
+      connectionTimeouts.forEach((timeout) => clearTimeout(timeout));
     };
 
     socket.onclose = () => {
       statusElement.textContent = 'WebSocket closed. Please refresh.';
       console.error('WebSocket closed');
-      clearTimeout(connectionTimeout);
+      connectionTimeouts.forEach((timeout) => clearTimeout(timeout));
     };
 
     socket.onmessage = (event) => {
@@ -102,30 +103,36 @@
             maxClientsContainer.classList.remove('hidden');
           }
         }
-        if (message.type === 'join-notify' && message.code === code && isInitiator) {
-          console.log('Join-notify received for code:', code);
-          startPeerConnection(true);
+        if (message.type === 'join-notify' && message.code === code) {
+          totalClients = message.totalClients;
+          console.log(`Join-notify received for code: ${code}, new client: ${message.clientId}, total: ${totalClients}`);
+          updateMaxClientsUI();
+          if (isInitiator && message.clientId !== clientId) {
+            startPeerConnection(message.clientId, true);
+          }
         }
         if (message.type === 'client-disconnected') {
-          console.log(`Client ${message.clientId} disconnected from code: ${code}`);
-          cleanupPeerConnection();
+          totalClients = message.totalClients;
+          console.log(`Client ${message.clientId} disconnected from code: ${code}, total: ${totalClients}`);
+          cleanupPeerConnection(message.clientId);
+          updateMaxClientsUI();
         }
         if (message.type === 'max-clients') {
           maxClients = message.maxClients;
           console.log(`Max clients updated to ${maxClients} for code: ${code}`);
           updateMaxClientsUI();
         }
-        if (message.type === 'offer') {
+        if (message.type === 'offer' && message.clientId !== clientId) {
           console.log(`Received offer from ${message.clientId} for code: ${code}`);
           handleOffer(message.offer, message.clientId);
         }
-        if (message.type === 'answer') {
+        if (message.type === 'answer' && message.clientId !== clientId) {
           console.log(`Received answer from ${message.clientId} for code: ${code}`);
-          handleAnswer(message.answer);
+          handleAnswer(message.answer, message.clientId);
         }
-        if (message.type === 'candidate') {
+        if (message.type === 'candidate' && message.clientId !== clientId) {
           console.log(`Received ICE candidate from ${message.clientId} for code: ${code}`);
-          handleCandidate(message.candidate);
+          handleCandidate(message.candidate, message.clientId);
         }
       } catch (error) {
         console.error('Error parsing message:', error);
@@ -133,7 +140,7 @@
     };
 
     function updateMaxClientsUI() {
-      statusElement.textContent = isConnected ? `Connected (Max ${maxClients} users)` : 'Waiting for connection...';
+      statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} users)` : 'Waiting for connection...';
       const inputs = document.querySelectorAll('input[name="maxClients"]');
       inputs.forEach(input => {
         input.checked = parseInt(input.value) === maxClients;
@@ -150,14 +157,18 @@
       }
     }
 
-    function startPeerConnection(isOfferer) {
-      console.log(`Starting peer connection for code: ${code}, offerer: ${isOfferer}`);
-      if (peerConnection) {
-        peerConnection.close();
-        peerConnection = null;
-        candidatesQueue = [];
+    function startPeerConnection(targetId, isOfferer) {
+      console.log(`Starting peer connection with ${targetId} for code: ${code}, offerer: ${isOfferer}`);
+      if (peerConnections.has(targetId)) {
+        peerConnections.get(targetId).close();
+        peerConnections.delete(targetId);
+        dataChannels.delete(targetId);
+        candidatesQueues.delete(targetId);
+        clearTimeout(connectionTimeouts.get(targetId));
+        connectionTimeouts.delete(targetId);
+        retryCounts.delete(targetId);
       }
-      peerConnection = new RTCPeerConnection({
+      const peerConnection = new RTCPeerConnection({
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' },
@@ -169,48 +180,53 @@
         ],
         iceTransportPolicy: 'all'
       });
+      peerConnections.set(targetId, peerConnection);
+      candidatesQueues.set(targetId, []);
 
+      let dataChannel;
       if (isOfferer) {
         dataChannel = peerConnection.createDataChannel('chat');
-        setupDataChannel(dataChannel);
+        setupDataChannel(dataChannel, targetId);
+        dataChannels.set(targetId, dataChannel);
       }
 
       peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
-          console.log('Sending ICE candidate for code:', code, event.candidate);
-          socket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate, code }));
+          console.log(`Sending ICE candidate to ${targetId} for code: ${code}`, event.candidate);
+          socket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate, code, targetId }));
         }
       };
 
       let iceTimeout;
       peerConnection.onicegatheringstatechange = () => {
-        console.log('ICE gathering state:', peerConnection.iceGatheringState);
+        console.log(`ICE gathering state for ${targetId}: ${peerConnection.iceGatheringState}`);
         if (peerConnection.iceGatheringState === 'gathering' && isOfferer) {
           iceTimeout = setTimeout(() => {
             if (peerConnection.iceGatheringState !== 'complete') {
-              console.log('ICE gathering timeout, sending offer');
-              socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code }));
+              console.log(`ICE gathering timeout, sending offer to ${targetId}`);
+              socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code, targetId }));
             }
           }, 3000);
         } else if (peerConnection.iceGatheringState === 'complete' && isOfferer) {
           clearTimeout(iceTimeout);
-          console.log('ICE gathering complete, sending offer');
-          socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code }));
+          console.log(`ICE gathering complete, sending offer to ${targetId}`);
+          socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code, targetId }));
         }
       };
 
       peerConnection.onconnectionstatechange = () => {
-        console.log('Connection state:', peerConnection.connectionState);
+        console.log(`Connection state for ${targetId}: ${peerConnection.connectionState}`);
         if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
           statusElement.textContent = 'Connection failed. Try again.';
-          cleanupPeerConnection();
+          cleanupPeerConnection(targetId);
+          const retryCount = retryCounts.get(targetId) || 0;
           if (retryCount < maxRetries && !isConnected) {
-            retryCount++;
-            console.log(`Retrying connection attempt ${retryCount}`);
-            startPeerConnection(isOfferer);
+            retryCounts.set(targetId, retryCount + 1);
+            console.log(`Retrying connection attempt ${retryCount + 1} with ${targetId}`);
+            startPeerConnection(targetId, isOfferer);
           }
         } else if (peerConnection.connectionState === 'connected') {
-          console.log('WebRTC connection established for code:', code);
+          console.log(`WebRTC connection established with ${targetId} for code: ${code}`);
           isConnected = true;
           updateMaxClientsUI();
         }
@@ -218,139 +234,160 @@
 
       peerConnection.ondatachannel = (event) => {
         dataChannel = event.channel;
-        setupDataChannel(dataChannel);
+        setupDataChannel(dataChannel, targetId);
+        dataChannels.set(targetId, dataChannel);
       };
 
       if (isOfferer) {
         peerConnection.createOffer().then(offer => {
           return peerConnection.setLocalDescription(offer);
         }).catch(error => {
-          console.error('Error creating offer:', error);
+          console.error(`Error creating offer for ${targetId}:`, error);
         });
       }
 
-      connectionTimeout = setTimeout(() => {
+      const timeout = setTimeout(() => {
         if (!isConnected) {
           statusElement.textContent = 'Connection timed out. Try again.';
-          console.log('Connection timed out for code:', code);
-          cleanupPeerConnection();
+          console.log(`Connection timed out with ${targetId} for code: ${code}`);
+          cleanupPeerConnection(targetId);
+          const retryCount = retryCounts.get(targetId) || 0;
           if (retryCount < maxRetries) {
-            retryCount++;
-            console.log(`Retrying connection attempt ${retryCount}`);
-            startPeerConnection(isOfferer);
+            retryCounts.set(targetId, retryCount + 1);
+            console.log(`Retrying connection attempt ${retryCount + 1} with ${targetId}`);
+            startPeerConnection(targetId, isOfferer);
           }
         }
       }, 180000);
+      connectionTimeouts.set(targetId, timeout);
     }
 
-    function setupDataChannel(dataChannel) {
+    function setupDataChannel(dataChannel, targetId) {
       dataChannel.onopen = () => {
-        console.log('Data channel opened for code:', code);
+        console.log(`Data channel opened with ${targetId} for code: ${code}`);
         isConnected = true;
         document.getElementById('connectContainer').classList.add('hidden');
         document.getElementById('chatContainer').classList.remove('hidden');
         document.getElementById('newSessionButton').classList.remove('hidden');
-        clearTimeout(connectionTimeout);
-        retryCount = 0;
+        clearTimeout(connectionTimeouts.get(targetId));
+        retryCounts.delete(targetId);
         updateMaxClientsUI();
       };
       dataChannel.onmessage = (event) => {
-        console.log('Received message:', event.data);
+        console.log(`Received message from ${targetId}:`, event.data);
         const messages = document.getElementById('messages');
         messages.innerHTML += `<div class="text-gray-600">Them: ${event.data}</div>`;
         messages.scrollTop = messages.scrollHeight;
       };
       dataChannel.onerror = (error) => {
-        console.error('Data channel error:', error);
+        console.error(`Data channel error with ${targetId}:`, error);
       };
     }
 
-    function handleOffer(offer, clientId) {
-      console.log(`Handling offer from ${clientId} for code: ${code}`);
-      if (!peerConnection) {
-        startPeerConnection(false);
-      }
+    function handleOffer(offer, targetId) {
+      console.log(`Handling offer from ${targetId} for code: ${code}`);
       if (offer.type !== 'offer') {
-        console.error('Received invalid offer type:', offer.type);
+        console.error(`Received invalid offer type from ${targetId}:`, offer.type);
         return;
       }
+      if (!peerConnections.has(targetId)) {
+        startPeerConnection(targetId, false);
+      }
+      const peerConnection = peerConnections.get(targetId);
       peerConnection.setRemoteDescription(new RTCSessionDescription(offer)).then(() => {
-        console.log('Creating answer');
+        console.log(`Creating answer for ${targetId}`);
         return peerConnection.createAnswer();
       }).then(answer => {
         return peerConnection.setLocalDescription(answer);
       }).then(() => {
-        socket.send(JSON.stringify({ type: 'answer', answer: peerConnection.localDescription, code }));
-        candidatesQueue.forEach(candidate => {
-          handleCandidate(candidate);
+        socket.send(JSON.stringify({ type: 'answer', answer: peerConnection.localDescription, code, targetId }));
+        const queue = candidatesQueues.get(targetId) || [];
+        queue.forEach(candidate => {
+          handleCandidate(candidate, targetId);
         });
-        candidatesQueue = [];
+        candidatesQueues.set(targetId, []);
       }).catch(error => {
-        console.error('Error handling offer:', error);
+        console.error(`Error handling offer from ${targetId}:`, error);
       });
     }
 
-    function handleAnswer(answer) {
-      console.log(`Handling answer for code: ${code}`);
+    function handleAnswer(answer, targetId) {
+      console.log(`Handling answer from ${targetId} for code: ${code}`);
+      const peerConnection = peerConnections.get(targetId);
       if (!peerConnection || peerConnection.signalingState !== 'have-local-offer') {
-        console.log('Invalid signaling state:', peerConnection ? peerConnection.signalingState : 'no peerConnection');
+        console.log(`Invalid signaling state for ${targetId}:`, peerConnection ? peerConnection.signalingState : 'no peerConnection');
         return;
       }
       if (answer.type !== 'answer') {
-        console.error('Received invalid answer type:', answer.type);
+        console.error(`Received invalid answer type from ${targetId}:`, answer.type);
         return;
       }
       peerConnection.setRemoteDescription(new RTCSessionDescription(answer)).then(() => {
-        console.log('Successfully set remote description for answer');
-        candidatesQueue.forEach(candidate => {
-          handleCandidate(candidate);
+        console.log(`Successfully set remote description for answer from ${targetId}`);
+        const queue = candidatesQueues.get(targetId) || [];
+        queue.forEach(candidate => {
+          handleCandidate(candidate, targetId);
         });
-        candidatesQueue = [];
+        candidatesQueues.set(targetId, []);
       }).catch(error => {
-        console.error('Error setting remote description for answer:', error);
+        console.error(`Error setting remote description for answer from ${targetId}:`, error);
       });
     }
 
-    function handleCandidate(candidate) {
-      console.log('Handling ICE candidate for code:', code);
+    function handleCandidate(candidate, targetId) {
+      console.log(`Handling ICE candidate from ${targetId} for code: ${code}`);
+      const peerConnection = peerConnections.get(targetId);
       if (peerConnection && peerConnection.remoteDescription) {
         peerConnection.addIceCandidate(new RTCIceCandidate(candidate)).then(() => {
-          console.log('Successfully added ICE candidate');
+          console.log(`Successfully added ICE candidate from ${targetId}`);
         }).catch(error => {
-          console.error('Error adding ICE candidate:', error);
+          console.error(`Error adding ICE candidate from ${targetId}:`, error);
         });
       } else {
-        console.log('Queuing ICE candidate');
-        candidatesQueue.push(candidate);
+        console.log(`Queuing ICE candidate for ${targetId}`);
+        const queue = candidatesQueues.get(targetId) || [];
+        queue.push(candidate);
+        candidatesQueues.set(targetId, queue);
       }
     }
 
-    function cleanupPeerConnection() {
+    function cleanupPeerConnection(targetId) {
+      const peerConnection = peerConnections.get(targetId);
       if (peerConnection) {
         peerConnection.close();
-        peerConnection = null;
-        console.log('Closed peer connection');
+        peerConnections.delete(targetId);
+        console.log(`Closed peer connection with ${targetId}`);
       }
+      const dataChannel = dataChannels.get(targetId);
       if (dataChannel) {
         dataChannel.close();
-        dataChannel = null;
-        console.log('Closed data channel');
+        dataChannels.delete(targetId);
+        console.log(`Closed data channel with ${targetId}`);
       }
-      isConnected = false;
+      candidatesQueues.delete(targetId);
+      clearTimeout(connectionTimeouts.get(targetId));
+      connectionTimeouts.delete(targetId);
+      retryCounts.delete(targetId);
+      isConnected = dataChannels.size > 0;
       updateMaxClientsUI();
     }
 
     function sendMessage(message) {
-      if (message && isConnected && dataChannel && dataChannel.readyState === 'open') {
+      if (message && dataChannels.size > 0) {
         try {
-          console.log('Sending message:', message);
-          dataChannel.send(message);
+          console.log('Broadcasting message:', message);
+          dataChannels.forEach((dataChannel, targetId) => {
+            if (dataChannel.readyState === 'open') {
+              dataChannel.send(message);
+              console.log(`Sent message to ${targetId}`);
+            }
+          });
           const messages = document.getElementById('messages');
           messages.innerHTML += `<div class="text-blue-600">You: ${message}</div>`;
           messages.scrollTop = messages.scrollHeight;
           document.getElementById('messageInput').value = '';
         } catch (error) {
-          console.error('Error sending message:', error);
+          console.error('Error broadcasting message:', error);
         }
       }
     }
@@ -381,15 +418,20 @@
     });
 
     document.getElementById('newSessionButton').onclick = () => {
-      cleanupPeerConnection();
-      clearTimeout(connectionTimeout);
+      peerConnections.forEach((pc) => pc.close());
+      dataChannels.forEach((dc) => dc.close());
+      peerConnections.clear();
+      dataChannels.clear();
+      candidatesQueues.clear();
+      connectionTimeouts.forEach((timeout) => clearTimeout(timeout));
+      connectionTimeouts.clear();
+      retryCounts.clear();
       isConnected = false;
       isInitiator = false;
       maxClients = 2;
-      retryCount = 0;
+      totalClients = 1;
       code = generateCode();
       clientId = null;
-      candidatesQueue = [];
       codeDisplayElement.textContent = `Your code: ${code}`;
       statusElement.textContent = 'Generating new code...';
       console.log('New session started with code:', code);
