@@ -78,6 +78,8 @@
       statusElement.textContent = 'WebSocket closed. Please refresh.';
       console.error('WebSocket closed');
       connectionTimeouts.forEach((timeout) => clearTimeout(timeout));
+      isInitiator = false;
+      maxClientsContainer.classList.add('hidden');
     };
 
     socket.onmessage = (event) => {
@@ -101,6 +103,25 @@
           updateMaxClientsUI();
           if (isInitiator) {
             maxClientsContainer.classList.remove('hidden');
+          } else {
+            maxClientsContainer.classList.add('hidden');
+          }
+        }
+        if (message.type === 'initiator-changed') {
+          console.log(`Initiator changed to ${message.newInitiator} for code: ${code}`);
+          isInitiator = message.newInitiator === clientId;
+          updateMaxClientsUI();
+          if (isInitiator) {
+            maxClientsContainer.classList.remove('hidden');
+            // Re-establish peer connections as new initiator
+            peerConnections.forEach((pc, id) => {
+              if (pc.connectionState !== 'connected') {
+                cleanupPeerConnection(id);
+                startPeerConnection(id, true);
+              }
+            });
+          } else {
+            maxClientsContainer.classList.add('hidden');
           }
         }
         if (message.type === 'join-notify' && message.code === code) {
@@ -154,6 +175,8 @@
         console.log(`Setting max clients to ${n} for code: ${code}`);
         socket.send(JSON.stringify({ type: 'set-max-clients', maxClients: n, code }));
         updateMaxClientsUI();
+      } else {
+        console.log(`Cannot set max clients to ${n}, not initiator for code: ${code}`);
       }
     }
 
