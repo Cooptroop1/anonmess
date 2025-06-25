@@ -7,14 +7,14 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
   <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottroo"/>
 </head>
-<body class="bg-black min-h-screen flex items-center justify-center">
+<body class="bg-gray-900 min-h-screen flex items-center justify-center">
   <div class="flex w-full max-w-lg">
     <div class="bg-white p-8 rounded-lg shadow-lg flex-grow">
       <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">Anonymous Chat</h1>
-      <div id="status" class="text-center mb-4 text-gray-600">Start a new chat or connect to an existing one</div>
+      <div id="status" class="text-center mb-4 text-gray-600">Start a new chat or join an existing one</div>
       <div id="initialContainer">
         <button id="startChatToggleButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full mb-2 hover:bg-blue-600">Start Chat</button>
-        <button id="connectToggleButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600">Connect to Chat</button>
+        <button id="connectToggleButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600">Join Chat</button>
       </div>
       <div id="usernameContainer" class="hidden">
         <input id="usernameInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)">
@@ -29,8 +29,8 @@
       </div>
       <div id="connectContainer" class="hidden">
         <input id="usernameConnectInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)">
-        <input id="codeInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter code to connect">
-        <button id="connectButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600">Connect</button>
+        <input id="codeInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter code to join">
+        <button id="connectButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600">Join</button>
         <button id="backButtonConnect" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600">Back</button>
       </div>
       <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mt-4 hidden hover:bg-red-600">New Session</button>
@@ -72,7 +72,6 @@
     let processedMessageIds = new Set();
     let username = null;
     let usernames = new Map();
-    let retryCounts = new Map();
 
     const statusElement = document.getElementById('status');
     const codeDisplayElement = document.getElementById('codeDisplay');
@@ -88,7 +87,7 @@
 
     socket.onopen = () => {
       console.log('WebSocket opened, state: ' + socket.readyState);
-      statusElement.textContent = 'Start a new chat or connect to an existing one';
+      statusElement.textContent = 'Start a new chat or join an existing one';
     };
 
     socket.onerror = error => {
@@ -200,57 +199,13 @@
       statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} users)` : 'Waiting for connection...';
     }
 
-    function testTurnServer(url, username, credential) {
-      return new Promise((resolve) => {
-        const pc = new RTCPeerConnection({ iceServers: [{ urls: url, username, credential }] });
-        pc.createDataChannel('test');
-        pc.createOffer()
-          .then(offer => pc.setLocalDescription(offer))
-          .then(() => {
-            let hasRelay = false;
-            pc.onicecandidate = event => {
-              if (event.candidate && event.candidate.candidate.includes('typ relay')) {
-                hasRelay = true;
-              }
-            };
-            setTimeout(() => {
-              pc.close();
-              resolve(hasRelay);
-            }, 5000);
-          })
-          .catch(error => {
-            console.error(`TURN test failed for ${url}:`, error);
-            pc.close();
-            resolve(false);
-          });
-      });
-    }
-
-    async function checkTurnServers() {
-      const servers = [
-        { url: 'turn:turn.anyfirewall.com:443?transport=tcp', username: 'webrtc', credential: 'webrtc' }
-      ];
-      for (const server of servers) {
-        const result = await testTurnServer(server.url, server.username, server.credential);
-        console.log(`TURN server ${server.url} test: ${result ? 'Success (relay candidates found)' : 'Failed (no relay candidates)'}`);
-        statusElement.textContent = `TURN test: ${server.url} ${result ? 'OK' : 'Failed'}`;
-      }
-    }
-
-    socket.onopen = () => {
-      console.log('WebSocket opened, state: ' + socket.readyState);
-      statusElement.textContent = 'Start a new chat or connect to an existing one';
-      checkTurnServers();
-    };
-
     function startPeerConnection(targetId, isOfferer) {
       console.log(`Starting peer with ${targetId}, offerer: ${isOfferer}`);
       cleanupPeerConnection(targetId);
       const peerConnection = new RTCPeerConnection({
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' },
-          { urls: 'turn:turn.anyfirewall.com:443?transport=tcp', username: 'webrtc', credential: 'webrtc' }
+          { urls: 'stun:stun1.l.google.com:19302' }
         ]
       });
       peerConnections.set(targetId, peerConnection);
@@ -276,9 +231,9 @@
       peerConnection.oniceconnectionstatechange = () => {
         console.log(`ICE state for ${targetId}: ${peerConnection.iceConnectionState}`);
         if (peerConnection.iceConnectionState === 'failed' || peerConnection.iceConnectionState === 'disconnected') {
-          console.log(`ICE failure for ${targetId}, retrying...`);
-          statusElement.textContent = 'Connection failed. Retrying...';
-          retryConnection(targetId, isOfferer);
+          console.log(`ICE failure for ${targetId}`);
+          statusElement.textContent = 'Connection failed. Please try again.';
+          cleanupPeerConnection(targetId);
         }
       };
 
@@ -286,11 +241,11 @@
         console.log(`Connection state for ${targetId}: ${peerConnection.connectionState}`);
         if (peerConnection.connectionState === 'connected') {
           isConnected = true;
-          retryCounts.delete(targetId);
           updateStatus();
         } else if (peerConnection.connectionState === 'failed' || peerConnection.connectionState === 'disconnected') {
           console.log(`Connection failed/disconnected for ${targetId}`);
-          retryConnection(targetId, isOfferer);
+          statusElement.textContent = 'Connection failed. Please try again.';
+          cleanupPeerConnection(targetId);
         }
       };
 
@@ -316,21 +271,10 @@
       setTimeout(() => {
         if (!dataChannels.has(targetId) || dataChannels.get(targetId).readyState !== 'open') {
           console.log(`Connection timeout with ${targetId}`);
-          retryConnection(targetId, isOfferer);
+          statusElement.textContent = 'Connection timed out. Please try again.';
+          cleanupPeerConnection(targetId);
         }
-      }, 30000);
-    }
-
-    function retryConnection(targetId, isOfferer) {
-      const retries = (retryCounts.get(targetId) || 0) + 1;
-      if (retries <= 3) {
-        retryCounts.set(targetId, retries);
-        console.log(`Retry ${retries} for ${targetId}`);
-        setTimeout(() => startPeerConnection(targetId, isOfferer), 5000 * retries);
-      } else {
-        statusElement.textContent = 'Connection failed. Please try again or check network.';
-        cleanupPeerConnection(targetId);
-      }
+      }, 15000);
     }
 
     function setupDataChannel(dataChannel, targetId) {
@@ -444,7 +388,6 @@
         console.log(`Closed data channel with ${targetId}`);
       }
       candidatesQueues.delete(targetId);
-      retryCounts.delete(targetId);
       isConnected = dataChannels.size > 0;
       updateStatus();
     }
@@ -453,7 +396,6 @@
       peerConnections.forEach((_, id) => cleanupPeerConnection(id));
       processedMessageIds.clear();
       usernames.clear();
-      retryCounts.clear();
       isConnected = false;
       isInitiator = false;
       updateStatus();
@@ -548,13 +490,13 @@
     document.getElementById('backButton').onclick = () => {
       usernameContainer.classList.add('hidden');
       initialContainer.classList.remove('hidden');
-      statusElement.textContent = 'Start a new chat or connect to an existing one';
+      statusElement.textContent = 'Start a new chat or join an existing one';
     };
 
     document.getElementById('backButtonConnect').onclick = () => {
       connectContainer.classList.add('hidden');
       initialContainer.classList.remove('hidden');
-      statusElement.textContent = 'Start a new chat or connect to an existing one';
+      statusElement.textContent = 'Start a new chat or join an existing one';
     };
 
     document.getElementById('sendButton').onclick = () => {
