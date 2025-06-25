@@ -9,7 +9,7 @@
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center">
   <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-sm">
-    <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">Login</h1>
+    <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">Anonymous Chat</h1>
     <div id="status" class="text-center mb-4 text-gray-600"></div>
     <div id="codeDisplay" class="text-center mb-4 font-mono text-lg"></div>
     <div id="chatContainer" class="hidden">
@@ -94,7 +94,20 @@
     function startPeerConnection() {
       console.log('Starting peer connection for code:', code);
       peerConnection = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }]
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { 
+            urls: 'turn:openrelay.metered.ca:80', 
+            username: 'openrelayproject', 
+            credential: 'openrelayproject'
+          },
+          { 
+            urls: 'turn:openrelay.metered.ca:443', 
+            username: 'openrelayproject', 
+            credential: 'openrelayproject'
+          }
+        ]
       });
 
       if (isInitiator) {
@@ -116,10 +129,19 @@
         };
       }
 
+      let candidatesQueue = [];
       peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
           console.log('Sending ICE candidate for code:', code);
           socket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate, code }));
+        }
+      };
+
+      peerConnection.onicegatheringstatechange = () => {
+        console.log('ICE gathering state:', peerConnection.iceGatheringState);
+        if (peerConnection.iceGatheringState === 'complete' && isInitiator) {
+          console.log('ICE gathering complete, sending offer for code:', code);
+          socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code }));
         }
       };
 
@@ -135,9 +157,6 @@
         console.log('Creating offer as initiator for code:', code);
         peerConnection.createOffer().then(offer => {
           return peerConnection.setLocalDescription(offer);
-        }).then(() => {
-          console.log('Sending offer for code:', code);
-          socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code }));
         }).catch(error => {
           console.error('Error creating offer:', error);
         });
@@ -157,7 +176,20 @@
     function handleOffer(offer, offerCode) {
       console.log('Handling offer for code:', offerCode);
       peerConnection = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }]
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { 
+            urls: 'turn:openrelay.metered.ca:80', 
+            username: 'openrelayproject', 
+            credential: 'openrelayproject'
+          },
+          { 
+            urls: 'turn:openrelay.metered.ca:443', 
+            username: 'openrelayproject', 
+            credential: 'openrelayproject'
+          }
+        ]
       });
 
       peerConnection.ondatachannel = (event) => {
@@ -179,10 +211,19 @@
         };
       };
 
+      let candidatesQueue = [];
       peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
           console.log('Sending ICE candidate for code:', code);
           socket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate, code }));
+        }
+      };
+
+      peerConnection.onicegatheringstatechange = () => {
+        console.log('ICE gathering state:', peerConnection.iceGatheringState);
+        if (peerConnection.iceGatheringState === 'complete') {
+          console.log('ICE gathering complete, sending answer for code:', code);
+          socket.send(JSON.stringify({ type: 'answer', answer: peerConnection.localDescription, code }));
         }
       };
 
@@ -199,9 +240,6 @@
         return peerConnection.createAnswer();
       }).then(answer => {
         return peerConnection.setLocalDescription(answer);
-      }).then(() => {
-        console.log('Sending answer for code:', code);
-        socket.send(JSON.stringify({ type: 'answer', answer: peerConnection.localDescription, code }));
       }).catch(error => {
         console.error('Error handling offer:', error);
       });
@@ -226,9 +264,14 @@
 
     function handleCandidate(candidate) {
       console.log('Handling ICE candidate for code:', code);
-      peerConnection.addIceCandidate(new RTCIceCandidate(candidate)).catch(error => {
-        console.error('Error handling candidate:', error);
-      });
+      if (peerConnection && peerConnection.remoteDescription) {
+        peerConnection.addIceCandidate(new RTCIceCandidate(candidate)).catch(error => {
+          console.error('Error handling candidate:', error);
+        });
+      } else {
+        console.log('Queuing ICE candidate for code:', code);
+        candidatesQueue.push(candidate);
+      }
     }
 
     document.getElementById('connectButton').onclick = () => {
