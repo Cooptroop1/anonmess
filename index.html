@@ -13,9 +13,14 @@
     <div class="bg-white p-8 rounded-lg shadow-lg flex-grow">
       <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">Anonymous Chat</h1>
       <div id="status" class="text-center mb-4 text-gray-600"></div>
-      <div id="usernameContainer">
+      <div id="initialContainer">
+        <button id="startChatToggleButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full mb-2 hover:bg-blue-600">Start Chat</button>
+        <button id="connectToggleButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600">Connect to Chat</button>
+      </div>
+      <div id="usernameContainer" class="hidden">
         <input id="usernameInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)">
         <button id="startChatButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600">Start Chat</button>
+        <button id="backButton" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600">Back</button>
       </div>
       <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800 hidden"></div>
       <div id="chatContainer" class="hidden">
@@ -27,6 +32,7 @@
         <input id="usernameConnectInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)">
         <input id="codeInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter code to connect">
         <button id="connectButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600">Connect</button>
+        <button id="backButtonConnect" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600">Back</button>
       </div>
       <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mt-4 hidden hover:bg-red-600">New Session</button>
     </div>
@@ -73,17 +79,18 @@
 
     const statusElement = document.getElementById('status');
     const codeDisplayElement = document.getElementById('codeDisplay');
+    const initialContainer = document.getElementById('initialContainer');
     const usernameContainer = document.getElementById('usernameContainer');
     const connectContainer = document.getElementById('connectContainer');
     const maxClientsContainer = document.getElementById('maxClientsContainer');
-    statusElement.textContent = 'Enter a username to start or join a chat';
+    statusElement.textContent = 'Start a new chat or connect to an existing one';
 
     const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
     console.log('WebSocket created');
 
     socket.onopen = () => {
       console.log('WebSocket opened');
-      statusElement.textContent = 'Enter a username to start or join a chat';
+      statusElement.textContent = 'Start a new chat or connect to an existing one';
     };
 
     socket.onerror = (error) => {
@@ -110,7 +117,8 @@
           console.error('Server error:', message.message);
           if (message.message.includes('Chat is full') || message.message.includes('Username already taken')) {
             socket.close();
-            usernameContainer.classList.remove('hidden');
+            initialContainer.classList.remove('hidden');
+            usernameContainer.classList.add('hidden');
             connectContainer.classList.add('hidden');
             codeDisplayElement.classList.add('hidden');
           }
@@ -369,10 +377,11 @@
       dataChannel.onopen = () => {
         console.log(`Data channel opened with ${targetId} for code: ${code}, state: ${dataChannel.readyState}`);
         isConnected = true;
-        document.getElementById('connectContainer').classList.add('hidden');
-        document.getElementById('usernameContainer').classList.add('hidden');
-        document.getElementById('chatContainer').classList.remove('hidden');
-        document.getElementById('newSessionButton').classList.remove('hidden');
+        initialContainer.classList.add('hidden');
+        usernameContainer.classList.add('hidden');
+        connectContainer.classList.add('hidden');
+        chatContainer.classList.remove('hidden');
+        newSessionButton.classList.remove('hidden');
         clearTimeout(connectionTimeouts.get(targetId));
         retryCounts.delete(targetId);
         updateMaxClientsUI();
@@ -542,6 +551,18 @@
       }
     }
 
+    document.getElementById('startChatToggleButton').onclick = () => {
+      initialContainer.classList.add('hidden');
+      usernameContainer.classList.remove('hidden');
+      statusElement.textContent = 'Enter a username to start a chat';
+    };
+
+    document.getElementById('connectToggleButton').onclick = () => {
+      initialContainer.classList.add('hidden');
+      connectContainer.classList.remove('hidden');
+      statusElement.textContent = 'Enter a username and code to join a chat';
+    };
+
     document.getElementById('startChatButton').onclick = () => {
       const usernameInput = document.getElementById('usernameInput').value.trim();
       if (!validateUsername(usernameInput)) {
@@ -553,6 +574,7 @@
       codeDisplayElement.classList.remove('hidden');
       usernameContainer.classList.add('hidden');
       connectContainer.classList.add('hidden');
+      initialContainer.classList.add('hidden');
       statusElement.textContent = 'Waiting for connection...';
       console.log(`Starting chat with username: ${username}, code: ${code}`);
       socket.send(JSON.stringify({ type: 'join', code, username }));
@@ -569,14 +591,28 @@
         statusElement.textContent = 'Please enter a valid code.';
         return;
       }
-
       username = usernameInput;
       code = inputCode;
       codeDisplayElement.textContent = `Using code: ${code}`;
       codeDisplayElement.classList.remove('hidden');
+      initialContainer.classList.add('hidden');
+      usernameContainer.classList.add('hidden');
+      connectContainer.classList.add('hidden');
       statusElement.textContent = 'Connecting...';
       console.log(`Connecting with username: ${username}, code: ${code}`);
       socket.send(JSON.stringify({ type: 'join', code, username }));
+    };
+
+    document.getElementById('backButton').onclick = () => {
+      usernameContainer.classList.add('hidden');
+      initialContainer.classList.remove('hidden');
+      statusElement.textContent = 'Start a new chat or connect to an existing one';
+    };
+
+    document.getElementById('backButtonConnect').onclick = () => {
+      connectContainer.classList.add('hidden');
+      initialContainer.classList.remove('hidden');
+      statusElement.textContent = 'Start a new chat or connect to an existing one';
     };
 
     document.getElementById('sendButton').onclick = () => {
@@ -613,22 +649,22 @@
       clientId = '';
       codeDisplayElement.textContent = '';
       codeDisplayElement.classList.add('hidden');
-      statusElement.textContent = 'Enter a username to start or join a chat';
+      statusElement.textContent = 'Start a new chat or connect to an existing one';
       console.log('New session started');
       document.getElementById('messages').innerHTML = '';
       document.getElementById('messageInput').value = '';
       document.getElementById('usernameInput').value = '';
       document.getElementById('usernameConnectInput').value = '';
       document.getElementById('codeInput').value = '';
-      document.getElementById('connectContainer').classList.add('hidden');
-      document.getElementById('usernameContainer').classList.remove('hidden');
-      document.getElementById('chatContainer').classList.add('hidden');
-      document.getElementById('newSessionButton').classList.add('hidden');
+      initialContainer.classList.remove('hidden');
+      usernameContainer.classList.add('hidden');
+      connectContainer.classList.add('hidden');
+      chatContainer.classList.add('hidden');
+      newSessionButton.classList.add('hidden');
       maxClientsContainer.classList.add('hidden');
       socket.send(JSON.stringify({ type: 'join' }));
     };
 
-    // Show connect container for joining
     document.getElementById('usernameInput').addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
