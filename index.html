@@ -330,7 +330,7 @@
       console.log(`Handling answer from ${targetId} for code: ${code}`);
       const peerConnection = peerConnections.get(targetId);
       if (!peerConnection || peerConnection.signalingState !== 'have-local-offer') {
-        console.log(`Invalid signaling state for ${dataChannel.readyState} ${targetId}:`, peerConnection ? peerConnection.signalingState : 'no peerConnection');
+        console.log(`Invalid signaling state for ${targetId}:`, peerConnection ? peerConnection.signalingState : 'no peerConnection');
         return;
       }
       if (answer.type !== 'answer') {
