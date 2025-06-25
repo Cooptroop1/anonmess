@@ -41,6 +41,10 @@
       return result;
     }
 
+    function generateMessageId() {
+      return Math.random().toString(36).substr(2, 9);
+    }
+
     let code = generateCode();
     let clientId = null;
     let isInitiator = false;
@@ -51,8 +55,9 @@
     let dataChannels = new Map();
     let connectionTimeouts = new Map();
     let retryCounts = new Map();
-    const maxRetries = 2; // Increased for third client
+    const maxRetries = 2;
     let candidatesQueues = new Map();
+    let processedMessageIds = new Set();
 
     const statusElement = document.getElementById('status');
     const codeDisplayElement = document.getElementById('codeDisplay');
@@ -89,7 +94,9 @@
         const message = JSON.parse(event.data);
         console.log('Parsed message:', message);
         if (message.type === 'error') {
-          statusElement.textContent = message.message;
+          if (message.message !== 'Only initiator can set max clients') {
+            statusElement.textContent = message.message;
+          }
           console.error('Server error:', message.message);
           if (message.message.includes('Chat is full')) {
             socket.close();
@@ -104,7 +111,7 @@
           initializeMaxClientsUI();
           updateMaxClientsUI();
           if (isInitiator) {
-            setMaxClients(3); // Default to 3 for initiator
+            setMaxClients(3);
           }
         }
         if (message.type === 'initiator-changed') {
@@ -113,7 +120,6 @@
           initializeMaxClientsUI();
           updateMaxClientsUI();
           if (isInitiator) {
-            setMaxClients(maxClients); // Re-apply maxClients
             peerConnections.forEach((pc, id) => {
               if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
                 console.log(`Restarting connection with ${id} as new initiator`);
@@ -202,7 +208,7 @@
         socket.send(JSON.stringify({ type: 'set-max-clients', maxClients: n, code }));
         updateMaxClientsUI();
       } else {
-        console.log(`Cannot set max clients to ${n}, not initiator for code: ${code}`);
+        console.log(`Skipping set max clients to ${n}, not initiator for code: ${code}`);
       }
     }
 
@@ -251,7 +257,7 @@
               console.log(`ICE gathering timeout, sending offer to ${targetId}`);
               socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code, targetId }));
             }
-          }, 5000); // Increased timeout
+          }, 5000);
         } else if (peerConnection.iceGatheringState === 'complete' && isOfferer) {
           clearTimeout(iceTimeout);
           console.log(`ICE gathering complete, sending offer to ${targetId}`);
@@ -308,7 +314,7 @@
             statusElement.textContent = 'Connection timed out. Please try again.';
           }
         }
-      }, 10000); // Reduced for faster retries
+      }, 10000);
       connectionTimeouts.set(targetId, timeout);
     }
 
@@ -330,17 +336,33 @@
       };
 
       dataChannel.onmessage = (event) => {
-        console.log(`Received message from ${targetId}:`, event.data);
+        let data;
+        try {
+          data = JSON.parse(event.data);
+        } catch (e) {
+          console.error(`Invalid message format from ${targetId}:`, event.data);
+          return;
+        }
+        if (!data.messageId || !data.content) {
+          console.log(`Missing messageId or content from ${targetId}`);
+          return;
+        }
+        if (processedMessageIds.has(data.messageId)) {
+          console.log(`Duplicate message ${data.messageId} from ${targetId}, ignoring`);
+          return;
+        }
+        processedMessageIds.add(data.messageId);
+        console.log(`Received message ${data.messageId} from ${targetId}:`, data.content);
         const messages = document.getElementById('messages');
         if (!isInitiator || dataChannels.get(targetId) === dataChannel) {
-          messages.innerHTML += `<div class="text-gray-600">Them: ${event.data}</div>`;
+          messages.innerHTML += `<div class="text-gray-600">Them: ${data.content}</div>`;
           messages.scrollTop = messages.scrollHeight;
         }
         if (isInitiator) {
           dataChannels.forEach((dc, id) => {
             if (id !== targetId && dc.readyState === 'open' && dc !== dataChannel) {
-              console.log(`Relaying message to ${id}:`, event.data);
-              dc.send(event.data);
+              console.log(`Relaying message ${data.messageId} to ${id}:`, data.content);
+              dc.send(JSON.stringify(data));
             }
           });
         }
@@ -448,22 +470,25 @@
       updateMaxClientsUI();
     }
 
-    function sendMessage(message) {
-      if (message && dataChannels.size > 0) {
+    function sendMessage(content) {
+      if (content && dataChannels.size > 0) {
         try {
-          console.log('Broadcasting message:', message);
+          const messageId = generateMessageId();
+          const message = { messageId, content };
+          console.log(`Broadcasting message ${messageId}:`, content);
           dataChannels.forEach((dataChannel, targetId) => {
             if (dataChannel.readyState === 'open') {
-              dataChannel.send(message);
-              console.log(`Sent message to ${targetId}, state: ${dataChannel.readyState}`);
+              dataChannel.send(JSON.stringify(message));
+              console.log(`Sent message ${messageId} to ${targetId}, state: ${dataChannel.readyState}`);
             } else {
               console.log(`Skipped sending to ${targetId}, state: ${dataChannel.readyState}`);
             }
           });
           const messages = document.getElementById('messages');
-          messages.innerHTML += `<div class="text-blue-600">You: ${message}</div>`;
+          messages.innerHTML += `<div class="text-blue-600">You: ${content}</div>`;
           messages.scrollTop = messages.scrollHeight;
           document.getElementById('messageInput').value = '';
+          processedMessageIds.add(messageId);
         } catch (error) {
           console.error('Error broadcasting message:', error);
         }
@@ -478,6 +503,7 @@
         statusElement.textContent = 'Connecting...';
         console.log(`User connecting with code: ${code}`);
         socket.send(JSON.stringify({ type: 'join', code }));
+        processedMessageIds.clear();
       }
     };
 
@@ -504,6 +530,7 @@
       connectionTimeouts.forEach((timeout) => clearTimeout(timeout));
       connectionTimeouts.clear();
       retryCounts.clear();
+      processedMessageIds.clear();
       isConnected = false;
       isInitiator = false;
       maxClients = 2;
