@@ -45,7 +45,7 @@
     codeDisplayElement.textContent = `Your code: ${code}`;
     statusElement.textContent = 'Generating code...';
 
-    const socket = new WebSocket('wss://signaling-server-sl3m.onrender.com');
+    const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
 
     socket.onopen = () => {
       socket.send(JSON.stringify({ type: 'join', code }));
