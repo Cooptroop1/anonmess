@@ -102,9 +102,9 @@
             maxClientsContainer.classList.remove('hidden');
           }
         }
-        if (message.type === 'join-notify' && message.code === code) {
+        if (message.type === 'join-notify' && message.code === code && isInitiator) {
           console.log('Join-notify received for code:', code);
-          startPeerConnection(isInitiator);
+          startPeerConnection(true);
         }
         if (message.type === 'client-disconnected') {
           console.log(`Client ${message.clientId} disconnected from code: ${code}`);
@@ -117,7 +117,7 @@
         }
         if (message.type === 'offer') {
           console.log(`Received offer from ${message.clientId} for code: ${code}`);
-          handleOffer(message.offer);
+          handleOffer(message.offer, message.clientId);
         }
         if (message.type === 'answer') {
           console.log(`Received answer from ${message.clientId} for code: ${code}`);
@@ -155,6 +155,7 @@
       if (peerConnection) {
         peerConnection.close();
         peerConnection = null;
+        candidatesQueue = [];
       }
       peerConnection = new RTCPeerConnection({
         iceServers: [
@@ -168,8 +169,6 @@
         ],
         iceTransportPolicy: 'all'
       });
-
-      let hasProcessedAnswer = false;
 
       if (isOfferer) {
         dataChannel = peerConnection.createDataChannel('chat');
@@ -266,10 +265,14 @@
       };
     }
 
-    function handleOffer(offer) {
-      console.log('Handling offer for code:', code);
+    function handleOffer(offer, clientId) {
+      console.log(`Handling offer from ${clientId} for code: ${code}`);
       if (!peerConnection) {
         startPeerConnection(false);
+      }
+      if (offer.type !== 'offer') {
+        console.error('Received invalid offer type:', offer.type);
+        return;
       }
       peerConnection.setRemoteDescription(new RTCSessionDescription(offer)).then(() => {
         console.log('Creating answer');
@@ -288,9 +291,13 @@
     }
 
     function handleAnswer(answer) {
-      console.log('Handling answer for code:', code);
+      console.log(`Handling answer for code: ${code}`);
       if (!peerConnection || peerConnection.signalingState !== 'have-local-offer') {
         console.log('Invalid signaling state:', peerConnection ? peerConnection.signalingState : 'no peerConnection');
+        return;
+      }
+      if (answer.type !== 'answer') {
+        console.error('Received invalid answer type:', answer.type);
         return;
       }
       peerConnection.setRemoteDescription(new RTCSessionDescription(answer)).then(() => {
