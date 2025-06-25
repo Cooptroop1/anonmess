@@ -111,6 +111,7 @@
           if (isInitiator) {
             userNumber = 1;
             userNumbers.set(clientId, 1);
+            console.log(`Assigned User 1 to initiator ${clientId}`);
           }
           console.log(`Initialized client ${clientId}, userNumber: ${userNumber}, maxClients: ${maxClients}, isInitiator: ${isInitiator}`);
           initializeMaxClientsUI();
@@ -121,14 +122,10 @@
           isInitiator = message.newInitiator === clientId;
           initializeMaxClientsUI();
           updateMaxClientsUI();
-          if (isInitiator) {
-            peerConnections.forEach((pc, id) => {
-              if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
-                console.log(`Restarting connection with ${id} as new initiator`);
-                cleanupPeerConnection(id);
-                startPeerConnection(id, true);
-              }
-            });
+          if (isInitiator && !userNumbers.has(clientId)) {
+            userNumber = userNumbers.size + 1;
+            userNumbers.set(clientId, userNumber);
+            console.log(`Assigned User ${userNumber} to new initiator ${clientId}`);
           }
         }
         if (message.type === 'join-notify' && message.code === code) {
@@ -137,12 +134,8 @@
           if (isInitiator && message.clientId !== clientId) {
             const newUserNumber = totalClients;
             userNumbers.set(message.clientId, newUserNumber);
-            socket.send(JSON.stringify({ type: 'user-number', clientId: message.clientId, userNumber: newUserNumber, code }));
+            socket.send(JSON.stringify({ type: 'user-number', targetId: message.clientId, userNumber: newUserNumber, code }));
             console.log(`Assigned User ${newUserNumber} to client ${message.clientId}`);
-          }
-          if (message.clientId === clientId && message.userNumber) {
-            userNumber = message.userNumber;
-            console.log(`Received own userNumber: User ${userNumber}`);
           }
           updateMaxClientsUI();
           if (isInitiator && message.clientId !== clientId && !peerConnections.has(message.clientId)) {
@@ -150,9 +143,10 @@
             startPeerConnection(message.clientId, true);
           }
         }
-        if (message.type === 'user-number' && message.clientId === clientId) {
+        if (message.type === 'user-number' && message.targetId === clientId) {
           userNumber = message.userNumber;
-          console.log(`Assigned userNumber: User ${userNumber}`);
+          userNumbers.set(clientId, userNumber);
+          console.log(`Received userNumber: User ${userNumber} for client ${clientId}`);
         }
         if (message.type === 'client-disconnected') {
           totalClients = message.totalClients;
@@ -372,8 +366,8 @@
           console.error(`Invalid message format from ${targetId}:`, event.data);
           return;
         }
-        if (!data.messageId || !data.content || !data.userNumber) {
-          console.log(`Missing messageId, content, or userNumber from ${targetId}`);
+        if (!data.messageId || !data.content || data.userNumber == null) {
+          console.log(`Missing messageId, content, or userNumber from ${targetId}:`, data);
           return;
         }
         if (processedMessageIds.has(data.messageId)) {
@@ -503,8 +497,8 @@
       if (content && dataChannels.size > 0) {
         try {
           const messageId = generateMessageId();
-          const message = { messageId, content, userNumber };
-          console.log(`Broadcasting message ${messageId} from User ${userNumber}:`, content);
+          const message = { messageId, content, userNumber: userNumber || 1 };
+          console.log(`Broadcasting message ${messageId} from User ${userNumber || 1}:`, content);
           dataChannels.forEach((dataChannel, targetId) => {
             if (dataChannel.readyState === 'open') {
               dataChannel.send(JSON.stringify(message));
@@ -514,7 +508,7 @@
             }
           });
           const messages = document.getElementById('messages');
-          messages.innerHTML += `<div class="text-blue-600">User ${userNumber}: ${content}</div>`;
+          messages.innerHTML += `<div class="text-blue-600">User ${userNumber || 1}: ${content}</div>`;
           messages.scrollTop = messages.scrollHeight;
           document.getElementById('messageInput').value = '';
           processedMessageIds.add(messageId);
@@ -533,6 +527,7 @@
         console.log(`User connecting with code: ${code}`);
         socket.send(JSON.stringify({ type: 'join', code }));
         processedMessageIds.clear();
+        userNumber = null;
       }
     };
 
