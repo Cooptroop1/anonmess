@@ -252,10 +252,16 @@
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' },
           { 
             urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443'], 
             username: 'openrelayproject', 
             credential: 'openrelayproject'
+          },
+          {
+            urls: 'turn:numb.viagenie.ca',
+            username: 'webrtc@live.com',
+            credential: 'muazkh'
           }
         ],
         iceTransportPolicy: 'all'
@@ -265,33 +271,36 @@
 
       let dataChannel;
       if (isOfferer) {
-        dataChannel = peerConnection.createDataChannel('chat');
-        console.log(`Created data channel for ${targetId}`);
-        setupDataChannel(dataChannel, targetId);
-        dataChannels.set(targetId, dataChannel);
+        try {
+          dataChannel = peerConnection.createDataChannel('chat', { reliable: true });
+          console.log(`Created data channel for ${targetId}`);
+          setupDataChannel(dataChannel, targetId);
+          dataChannels.set(targetId, dataChannel);
+        } catch (error) {
+          console.error(`Error creating data channel for ${targetId}:`, error);
+          cleanupPeerConnection(targetId);
+          return;
+        }
       }
 
       peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
-          console.log(`Sending ICE candidate to ${targetId} for code: ${code}`);
+          console.log(`Sending ICE candidate to ${targetId} for code: ${code}`, event.candidate);
           socket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate, code, targetId }));
+        } else {
+          console.log(`ICE candidate gathering complete for ${targetId}`);
         }
       };
 
-      let iceTimeout;
       peerConnection.onicegatheringstatechange = () => {
         console.log(`ICE gathering state for ${targetId}: ${peerConnection.iceGatheringState}`);
-        if (peerConnection.iceGatheringState === 'gathering' && isOfferer) {
-          iceTimeout = setTimeout(() => {
-            if (peerConnection.iceGatheringState !== 'complete') {
-              console.log(`ICE gathering timeout, sending offer to ${targetId}`);
-              socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code, targetId }));
-            }
-          }, 5000);
-        } else if (peerConnection.iceGatheringState === 'complete' && isOfferer) {
-          clearTimeout(iceTimeout);
+        if (peerConnection.iceGatheringState === 'complete' && isOfferer) {
           console.log(`ICE gathering complete, sending offer to ${targetId}`);
-          socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code, targetId }));
+          if (peerConnection.localDescription) {
+            socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code, targetId }));
+          } else {
+            console.error(`No local description for ${targetId} after ICE gathering`);
+          }
         }
       };
 
@@ -299,14 +308,16 @@
         console.log(`Connection state for ${targetId}: ${peerConnection.connectionState}`);
         if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
           statusElement.textContent = 'Connection failed. Retrying...';
+          console.log(`Connection failed with ${targetId}, retry count: ${retryCounts.get(targetId) || 0}`);
           cleanupPeerConnection(targetId);
           const retryCount = retryCounts.get(targetId) || 0;
           if (retryCount < maxRetries) {
             retryCounts.set(targetId, retryCount + 1);
             console.log(`Retrying connection attempt ${retryCount + 1} with ${targetId}`);
-            startPeerConnection(targetId, isOfferer);
+            setTimeout(() => startPeerConnection(targetId, isOfferer), 1000);
           } else {
             statusElement.textContent = 'Connection failed. Please try again.';
+            console.error(`Max retries reached for ${targetId}`);
           }
         } else if (peerConnection.connectionState === 'connected') {
           console.log(`WebRTC connection established with ${targetId} for code: ${code}`);
@@ -314,6 +325,10 @@
           retryCounts.delete(targetId);
           updateMaxClientsUI();
         }
+      };
+
+      peerConnection.oniceconnectionstatechange = () => {
+        console.log(`ICE connection state for ${targetId}: ${peerConnection.iceConnectionState}`);
       };
 
       peerConnection.ondatachannel = (event) => {
@@ -333,31 +348,40 @@
       };
 
       if (isOfferer) {
-        peerConnection.createOffer().then(offer => {
-          return peerConnection.setLocalDescription(offer);
-        }).catch(error => {
-          console.error(`Error creating offer for ${targetId}:`, error);
-        });
+        peerConnection.createOffer()
+          .then(offer => {
+            console.log(`Created offer for ${targetId}`);
+            return peerConnection.setLocalDescription(offer);
+          })
+          .then(() => {
+            console.log(`Set local description for ${targetId}`);
+          })
+          .catch(error => {
+            console.error(`Error creating or setting offer for ${targetId}:`, error);
+            cleanupPeerConnection(targetId);
+          });
       }
 
       const timeout = setTimeout(() => {
-        if (!dataChannels.get(targetId)?.readyState === 'open') {
+        if (!dataChannels.has(targetId) || dataChannels.get(targetId).readyState !== 'open') {
           console.log(`Connection timed out with ${targetId} for code: ${code}`);
           cleanupPeerConnection(targetId);
           const retryCount = retryCounts.get(targetId) || 0;
           if (retryCount < maxRetries) {
             retryCounts.set(targetId, retryCount + 1);
             console.log(`Retrying connection attempt ${retryCount + 1} with ${targetId}`);
-            startPeerConnection(targetId, isOfferer);
+            setTimeout(() => startPeerConnection(targetId, isOfferer), 1000);
           } else {
             statusElement.textContent = 'Connection timed out. Please try again.';
+            console.error(`Max retries reached for ${targetId}`);
           }
         }
-      }, 10000);
+      }, 15000);
       connectionTimeouts.set(targetId, timeout);
     }
 
     function setupDataChannel(dataChannel, targetId) {
+      console.log(`Setting up data channel for ${targetId}`);
       dataChannel.onmessage = null;
       dataChannel.onopen = null;
       dataChannel.onerror = null;
@@ -430,21 +454,28 @@
         startPeerConnection(targetId, false);
       }
       const peerConnection = peerConnections.get(targetId);
-      peerConnection.setRemoteDescription(new RTCSessionDescription(offer)).then(() => {
-        console.log(`Creating answer for ${targetId}`);
-        return peerConnection.createAnswer();
-      }).then(answer => {
-        return peerConnection.setLocalDescription(answer);
-      }).then(() => {
-        socket.send(JSON.stringify({ type: 'answer', answer: peerConnection.localDescription, code, targetId }));
-        const queue = candidatesQueues.get(targetId) || [];
-        queue.forEach(candidate => {
-          handleCandidate(candidate, targetId);
+      peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
+        .then(() => {
+          console.log(`Set remote description for offer from ${targetId}`);
+          return peerConnection.createAnswer();
+        })
+        .then(answer => {
+          console.log(`Created answer for ${targetId}`);
+          return peerConnection.setLocalDescription(answer);
+        })
+        .then(() => {
+          console.log(`Set local description for answer to ${targetId}`);
+          socket.send(JSON.stringify({ type: 'answer', answer: peerConnection.localDescription, code, targetId }));
+          const queue = candidatesQueues.get(targetId) || [];
+          queue.forEach(candidate => {
+            handleCandidate(candidate, targetId);
+          });
+          candidatesQueues.set(targetId, []);
+        })
+        .catch(error => {
+          console.error(`Error handling offer from ${targetId}:`, error);
+          cleanupPeerConnection(targetId);
         });
-        candidatesQueues.set(targetId, []);
-      }).catch(error => {
-        console.error(`Error handling offer from ${targetId}:`, error);
-      });
     }
 
     function handleAnswer(answer, targetId) {
@@ -458,27 +489,32 @@
         console.error(`Received invalid answer type from ${targetId}:`, answer.type);
         return;
       }
-      peerConnection.setRemoteDescription(new RTCSessionDescription(answer)).then(() => {
-        console.log(`Successfully set remote description for answer from ${targetId}`);
-        const queue = candidatesQueues.get(targetId) || [];
-        queue.forEach(candidate => {
-          handleCandidate(candidate, targetId);
+      peerConnection.setRemoteDescription(new RTCSessionDescription(answer))
+        .then(() => {
+          console.log(`Successfully set remote description for answer from ${targetId}`);
+          const queue = candidatesQueues.get(targetId) || [];
+          queue.forEach(candidate => {
+            handleCandidate(candidate, targetId);
+          });
+          candidatesQueues.set(targetId, []);
+        })
+        .catch(error => {
+          console.error(`Error setting remote description for answer from ${targetId}:`, error);
+          cleanupPeerConnection(targetId);
         });
-        candidatesQueues.set(targetId, []);
-      }).catch(error => {
-        console.error(`Error setting remote description for answer from ${targetId}:`, error);
-      });
     }
 
     function handleCandidate(candidate, targetId) {
       console.log(`Handling ICE candidate from ${targetId} for code: ${code}`);
       const peerConnection = peerConnections.get(targetId);
       if (peerConnection && peerConnection.remoteDescription) {
-        peerConnection.addIceCandidate(new RTCIceCandidate(candidate)).then(() => {
-          console.log(`Successfully added ICE candidate from ${targetId}`);
-        }).catch(error => {
-          console.error(`Error adding ICE candidate from ${targetId}:`, error);
-        });
+        peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
+          .then(() => {
+            console.log(`Successfully added ICE candidate from ${targetId}`);
+          })
+          .catch(error => {
+            console.error(`Error adding ICE candidate from ${targetId}:`, error);
+          });
       } else {
         console.log(`Queuing ICE candidate for ${targetId}`);
         const queue = candidatesQueues.get(targetId) || [];
