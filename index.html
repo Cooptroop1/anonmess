@@ -8,20 +8,28 @@
   <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottroo"/>
 </head>
 <body class="bg-black min-h-screen flex items-center justify-center">
-  <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-sm">
-    <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">Anonymous Chat</h1>
-    <div id="status" class="text-center mb-4 text-gray-600"></div>
-    <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800"></div>
-    <div id="chatContainer" class="hidden">
-      <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded bg-white"></div>
-      <input id="messageInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Type a message...">
-      <button id="sendButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600">Send</button>
+  <div class="flex w-full max-w-md">
+    <div class="bg-white p-8 rounded-lg shadow-lg flex-grow">
+      <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">Anonymous Chat</h1>
+      <div id="status" class="text-center mb-4 text-gray-600"></div>
+      <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800"></div>
+      <div id="chatContainer" class="hidden">
+        <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded bg-white"></div>
+        <input id="messageInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Type a message...">
+        <button id="sendButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600">Send</button>
+      </div>
+      <div id="connectContainer">
+        <input id="codeInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter code to connect">
+        <button id="connectButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600">Connect</button>
+      </div>
+      <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mt-4 hidden hover:bg-red-600">New Session</button>
     </div>
-    <div id="connectContainer">
-      <input id="codeInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter code to connect">
-      <button id="connectButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600">Connect</button>
+    <div id="groupToggleContainer" class="hidden ml-4 flex flex-col justify-center">
+      <label class="text-white flex items-center">
+        <input id="groupToggle" type="checkbox" class="mr-2">
+        <span>Allow Group Chat</span>
+      </label>
     </div>
-    <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mt-4 hidden hover:bg-red-600">New Session</button>
   </div>
   <script>
     function generateCode() {
@@ -35,18 +43,20 @@
     }
 
     let code = generateCode();
+    let clientId = null;
     let isInitiator = false;
     let isConnected = false;
-    let hasProcessedAnswer = false;
-    let peerConnection;
-    let dataChannel;
+    let groupMode = false;
+    const peerConnections = new Map();
+    const dataChannels = new Map();
     let connectionTimeout;
     let retryCount = 0;
     const maxRetries = 1;
-    let candidatesQueue = [];
 
     const statusElement = document.getElementById('status');
     const codeDisplayElement = document.getElementById('codeDisplay');
+    const groupToggleContainer = document.getElementById('groupToggleContainer');
+    const groupToggle = document.getElementById('groupToggle');
     codeDisplayElement.textContent = `Your code: ${code}`;
     statusElement.textContent = 'Generating code...';
 
@@ -76,29 +86,65 @@
       try {
         const message = JSON.parse(event.data);
         console.log('Parsed message:', message);
+        if (message.type === 'error') {
+          statusElement.textContent = message.message;
+          console.error('Server error:', message.message);
+          if (message.message.includes('Chat is full')) {
+            socket.close();
+          }
+          return;
+        }
+        if (message.type === 'init') {
+          clientId = message.clientId;
+          groupMode = message.groupMode;
+          console.log(`Initialized client ${clientId}, groupMode: ${groupMode}`);
+          updateGroupModeUI();
+        }
         if (message.type === 'join-notify' && message.code === code && !isInitiator) {
           console.log('Join-notify received, becoming initiator for code:', code);
           isInitiator = true;
-          startPeerConnection();
-        } else if (message.type === 'offer' && !isInitiator) {
-          console.log('Received offer for code:', code);
-          handleOffer(message.offer, message.code);
-        } else if (message.type === 'answer' && isInitiator) {
-          console.log('Received answer for code:', code);
-          handleAnswer(message.answer);
-        } else if (message.type === 'candidate') {
-          console.log('Received ICE candidate for code:', code, message.candidate);
-          handleCandidate(message.candidate);
+          groupToggleContainer.classList.remove('hidden');
+        }
+        if (message.type === 'join-client') {
+          console.log(`Client ${message.clientId} joined code: ${code}`);
+          startPeerConnection(message.clientId, false);
+        }
+        if (message.type === 'client-disconnected') {
+          console.log(`Client ${message.clientId} disconnected from code: ${code}`);
+          cleanupPeerConnection(message.clientId);
+        }
+        if (message.type === 'group-mode') {
+          groupMode = message.groupMode;
+          console.log(`Group mode updated to ${groupMode} for code: ${code}`);
+          updateGroupModeUI();
+        }
+        if (message.type === 'offer') {
+          console.log(`Received offer from ${message.clientId} for code: ${code}`);
+          handleOffer(message.offer, message.clientId);
+        }
+        if (message.type === 'answer') {
+          console.log(`Received answer from ${message.clientId} for code: ${code}`);
+          handleAnswer(message.answer, message.clientId);
+        }
+        if (message.type === 'candidate') {
+          console.log(`Received ICE candidate from ${message.clientId} for code: ${code}`);
+          handleCandidate(message.candidate, message.clientId);
         }
       } catch (error) {
         console.error('Error parsing message:', error);
       }
     };
 
-    function startPeerConnection() {
-      console.log('Starting peer connection for code:', code);
-      hasProcessedAnswer = false;
-      peerConnection = new RTCPeerConnection({
+    function updateGroupModeUI() {
+      statusElement.textContent = groupMode ? 'Group mode enabled' : isConnected ? 'Connected!' : 'Waiting for connection...';
+      if (isInitiator) {
+        groupToggle.checked = groupMode;
+      }
+    }
+
+    function startPeerConnection(targetId, isOfferer) {
+      console.log(`Starting peer connection with ${targetId} for code: ${code}`);
+      const peerConnection = new RTCPeerConnection({
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' },
@@ -111,241 +157,187 @@
         iceTransportPolicy: 'all'
       });
 
-      if (isInitiator) {
-        dataChannel = peerConnection.createDataChannel('chat');
-        dataChannel.onopen = () => {
-          isConnected = true;
-          statusElement.textContent = 'Connected!';
-          console.log('Data channel opened for code:', code);
-          document.getElementById('connectContainer').classList.add('hidden');
-          document.getElementById('chatContainer').classList.remove('hidden');
-          document.getElementById('newSessionButton').classList.remove('hidden');
-          clearTimeout(connectionTimeout);
-          retryCount = 0;
-        };
-        dataChannel.onmessage = (event) => {
-          console.log('Received message on data channel:', event.data);
-          const messages = document.getElementById('messages');
-          messages.innerHTML += `<div class="text-gray-600">Them: ${event.data}</div>`;
-          messages.scrollTop = messages.scrollHeight;
-        };
+      peerConnections.set(targetId, { pc: peerConnection, hasProcessedAnswer: false, candidatesQueue: [] });
+
+      if (isOfferer) {
+        const dataChannel = peerConnection.createDataChannel('chat');
+        dataChannels.set(targetId, dataChannel);
+        setupDataChannel(dataChannel, targetId);
       }
 
       peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
-          console.log('Sending ICE candidate for code:', code, 'Type:', event.candidate.type, event.candidate);
-          socket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate, code }));
+          console.log(`Sending ICE candidate to ${targetId} for code: ${code}`, event.candidate);
+          socket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate, targetId, code }));
         }
+      };
+
+      peerConnection.ondatachannel = (event) => {
+        const dataChannel = event.channel;
+        dataChannels.set(targetId, dataChannel);
+        setupDataChannel(dataChannel, targetId);
       };
 
       let iceTimeout;
       peerConnection.onicegatheringstatechange = () => {
-        console.log('ICE gathering state:', peerConnection.iceGatheringState);
-        if (peerConnection.iceGatheringState === 'gathering') {
+        console.log(`ICE gathering state for ${targetId}:`, peerConnection.iceGatheringState);
+        if (peerConnection.iceGatheringState === 'gathering' && isOfferer) {
           iceTimeout = setTimeout(() => {
-            if (isInitiator && peerConnection.iceGatheringState !== 'complete') {
-              console.log('ICE gathering timeout, sending offer for code:', code);
-              socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code }));
+            if (peerConnection.iceGatheringState !== 'complete') {
+              console.log(`ICE gathering timeout, sending offer to ${targetId}`);
+              socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, targetId, code }));
             }
           }, 3000);
-        } else if (peerConnection.iceGatheringState === 'complete' && isInitiator) {
+        } else if (peerConnection.iceGatheringState === 'complete' && isOfferer) {
           clearTimeout(iceTimeout);
-          console.log('ICE gathering complete, sending offer for code:', code);
-          socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code }));
+          console.log(`ICE gathering complete, sending offer to ${targetId}`);
+          socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, targetId, code }));
         }
       };
 
       peerConnection.onconnectionstatechange = () => {
-        console.log('Connection state:', peerConnection.connectionState);
+        console.log(`Connection state for ${targetId}:`, peerConnection.connectionState);
         if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
-          statusElement.textContent = 'Connection failed. Try again.';
-          clearTimeout(connectionTimeout);
-          clearTimeout(iceTimeout);
-          if (retryCount < maxRetries && !isConnected) {
-            retryCount++;
-            console.log(`Retrying connection attempt ${retryCount} for code: ${code}`);
-            startPeerConnection();
-          }
+          cleanupPeerConnection(targetId);
         } else if (peerConnection.connectionState === 'connected') {
-          console.log('WebRTC connection established for code:', code);
+          console.log(`WebRTC connection established with ${targetId} for code: ${code}`);
+          isConnected = true;
+          updateGroupModeUI();
+          document.getElementById('connectContainer').classList.add('hidden');
+          document.getElementById('chatContainer').classList.remove('hidden');
+          document.getElementById('newSessionButton').classList.remove('hidden');
         }
       };
 
-      if (isInitiator) {
-        console.log('Creating offer as initiator for code:', code);
+      if (isOfferer) {
         peerConnection.createOffer().then(offer => {
           return peerConnection.setLocalDescription(offer);
         }).catch(error => {
-          console.error('Error creating offer:', error);
+          console.error(`Error creating offer for ${targetId}:`, error);
         });
       }
 
       connectionTimeout = setTimeout(() => {
         if (!isConnected) {
           statusElement.textContent = 'Connection timed out. Try again.';
-          console.log('Connection timed out for code:', code);
-          if (peerConnection) {
-            peerConnection.close();
-          }
-          clearTimeout(iceTimeout);
+          console.log(`Connection timed out for code: ${code}`);
+          cleanupPeerConnection(targetId);
           if (retryCount < maxRetries) {
             retryCount++;
-            console.log(`Retrying connection attempt ${retryCount} for code: ${code}`);
-            startPeerConnection();
+            console.log(`Retrying connection attempt ${retryCount} for ${targetId}`);
+            startPeerConnection(targetId, isOfferer);
           }
         }
       }, 180000);
     }
 
-    function handleOffer(offer, offerCode) {
-      console.log('Handling offer for code:', offerCode);
-      peerConnection = new RTCPeerConnection({
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' },
-          { 
-            urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443'], 
-            username: 'openrelayproject', 
-            credential: 'openrelayproject'
-          }
-        ],
-        iceTransportPolicy: 'all'
-      });
-
-      peerConnection.ondatachannel = (event) => {
-        dataChannel = event.channel;
-        dataChannel.onopen = () => {
-          isConnected = true;
-          statusElement.textContent = 'Connected!';
-          console.log('Data channel opened for code:', code);
-          document.getElementById('connectContainer').classList.add('hidden');
-          document.getElementById('chatContainer').classList.remove('hidden');
-          document.getElementById('newSessionButton').classList.remove('hidden');
-          clearTimeout(connectionTimeout);
-          retryCount = 0;
-        };
-        dataChannel.onmessage = (event) => {
-          console.log('Received message on data channel:', event.data);
-          const messages = document.getElementById('messages');
-          messages.innerHTML += `<div class="text-gray-600">Them: ${event.data}</div>`;
-          messages.scrollTop = messages.scrollHeight;
-        };
+    function setupDataChannel(dataChannel, targetId) {
+      dataChannel.onopen = () => {
+        console.log(`Data channel opened with ${targetId} for code: ${code}`);
       };
-
-      peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-          console.log('Sending ICE candidate for code:', code, 'Type:', event.candidate.type, event.candidate);
-          socket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate, code }));
-        }
+      dataChannel.onmessage = (event) => {
+        console.log(`Received message from ${targetId}:`, event.data);
+        const messages = document.getElementById('messages');
+        messages.innerHTML += `<div class="text-gray-600">Them (${targetId.slice(0, 4)}): ${event.data}</div>`;
+        messages.scrollTop = messages.scrollHeight;
       };
-
-      let iceTimeout;
-      peerConnection.onicegatheringstatechange = () => {
-        console.log('ICE gathering state:', peerConnection.iceGatheringState);
-        if (peerConnection.iceGatheringState === 'gathering') {
-          iceTimeout = setTimeout(() => {
-            if (peerConnection.iceGatheringState !== 'complete') {
-              console.log('ICE gathering timeout, sending answer for code:', code);
-              socket.send(JSON.stringify({ type: 'answer', answer: peerConnection.localDescription, code }));
-            }
-          }, 3000);
-        } else if (peerConnection.iceGatheringState === 'complete') {
-          clearTimeout(iceTimeout);
-          console.log('ICE gathering complete, sending answer for code:', code);
-          socket.send(JSON.stringify({ type: 'answer', answer: peerConnection.localDescription, code }));
-        }
+      dataChannel.onerror = (error) => {
+        console.error(`Data channel error with ${targetId}:`, error);
       };
+    }
 
-      peerConnection.onconnectionstatechange = () => {
-        console.log('Connection state:', peerConnection.connectionState);
-        if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
-          statusElement.textContent = 'Connection failed. Try again.';
-          clearTimeout(connectionTimeout);
-          clearTimeout(iceTimeout);
-          if (retryCount < maxRetries && !isConnected) {
-            retryCount++;
-            console.log(`Retrying connection attempt ${retryCount} for code: ${code}`);
-            handleOffer(offer, offerCode);
-          }
-        } else if (peerConnection.connectionState === 'connected') {
-          console.log('WebRTC connection established for code:', code);
-        }
-      };
-
-      peerConnection.setRemoteDescription(new RTCSessionDescription(offer)).then(() => {
-        console.log('Creating answer for code:', code);
-        return peerConnection.createAnswer();
+    function handleOffer(offer, targetId) {
+      console.log(`Handling offer from ${targetId} for code: ${code}`);
+      if (!peerConnections.has(targetId)) {
+        startPeerConnection(targetId, false);
+      }
+      const { pc, candidatesQueue } = peerConnections.get(targetId);
+      pc.setRemoteDescription(new RTCSessionDescription(offer)).then(() => {
+        console.log(`Creating answer for ${targetId}`);
+        return pc.createAnswer();
       }).then(answer => {
-        return peerConnection.setLocalDescription(answer);
+        return pc.setLocalDescription(answer);
       }).then(() => {
+        socket.send(JSON.stringify({ type: 'answer', answer: pc.localDescription, targetId, code }));
         candidatesQueue.forEach(candidate => {
-          console.log('Applying queued ICE candidate for code:', code);
-          handleCandidate(candidate);
+          console.log(`Applying queued ICE candidate from ${targetId}`);
+          handleCandidate(candidate, targetId);
         });
-        candidatesQueue = [];
+        peerConnections.set(targetId, { ...peerConnections.get(targetId), candidatesQueue: [] });
       }).catch(error => {
-        console.error('Error handling offer:', error);
-      });
-
-      connectionTimeout = setTimeout(() => {
-        if (!isConnected) {
-          statusElement.textContent = 'Connection timed out. Try again.';
-          console.log('Connection timed out for code:', code);
-          if (peerConnection) {
-            peerConnection.close();
-          }
-          clearTimeout(iceTimeout);
-          if (retryCount < maxRetries) {
-            retryCount++;
-            console.log(`Retrying connection attempt ${retryCount} for code: ${code}`);
-            handleOffer(offer, offerCode);
-          }
-        }
-      }, 180000);
-    }
-
-    function handleAnswer(answer) {
-      console.log('Handling answer for code:', code);
-      if (hasProcessedAnswer) {
-        console.log('Skipping duplicate answer for code:', code);
-        return;
-      }
-      if (peerConnection.signalingState !== 'have-local-offer') {
-        console.log('Skipping answer due to invalid signaling state:', peerConnection.signalingState);
-        return;
-      }
-      hasProcessedAnswer = true;
-      peerConnection.setRemoteDescription(new RTCSessionDescription(answer)).then(() => {
-        console.log('Successfully set remote description for answer');
-        candidatesQueue.forEach(candidate => {
-          console.log('Applying queued ICE candidate for code:', code);
-          handleCandidate(candidate);
-        });
-        candidatesQueue = [];
-      }).catch(error => {
-        console.error('Error setting remote description for answer:', error);
+        console.error(`Error handling offer from ${targetId}:`, error);
       });
     }
 
-    function handleCandidate(candidate) {
-      console.log('Handling ICE candidate for code:', code, candidate);
-      if (peerConnection && peerConnection.remoteDescription) {
-        peerConnection.addIceCandidate(new RTCIceCandidate(candidate)).then(() => {
-          console.log('Successfully added ICE candidate');
+    function handleAnswer(answer, targetId) {
+      console.log(`Handling answer from ${targetId} for code: ${code}`);
+      const { pc, hasProcessedAnswer, candidatesQueue } = peerConnections.get(targetId) || {};
+      if (!pc || hasProcessedAnswer) {
+        console.log(`Skipping answer from ${targetId}`);
+        return;
+      }
+      if (pc.signalingState !== 'have-local-offer') {
+        console.log(`Invalid signaling state for ${targetId}:`, pc.signalingState);
+        return;
+      }
+      pc.setRemoteDescription(new RTCSessionDescription(answer)).then(() => {
+        console.log(`Successfully set remote description for answer from ${targetId}`);
+        candidatesQueue.forEach(candidate => {
+          console.log(`Applying queued ICE candidate from ${targetId}`);
+          handleCandidate(candidate, targetId);
+        });
+        peerConnections.set(targetId, { ...peerConnections.get(targetId), hasProcessedAnswer: true, candidatesQueue: [] });
+      }).catch(error => {
+        console.error(`Error setting remote description for answer from ${targetId}:`, error);
+      });
+    }
+
+    function handleCandidate(candidate, targetId) {
+      console.log(`Handling ICE candidate from ${targetId} for code: ${code}`);
+      const { pc, candidatesQueue } = peerConnections.get(targetId) || {};
+      if (!pc) {
+        console.log(`No peer connection for ${targetId}`);
+        return;
+      }
+      if (pc.remoteDescription) {
+        pc.addIceCandidate(new RTCIceCandidate(candidate)).then(() => {
+          console.log(`Successfully added ICE candidate from ${targetId}`);
         }).catch(error => {
-          console.error('Error adding ICE candidate:', error);
+          console.error(`Error adding ICE candidate from ${targetId}:`, error);
         });
       } else {
-        console.log('Queuing ICE candidate for code:', code);
+        console.log(`Queuing ICE candidate from ${targetId}`);
         candidatesQueue.push(candidate);
+        peerConnections.set(targetId, { ...peerConnections.get(targetId), candidatesQueue });
       }
+    }
+
+    function cleanupPeerConnection(targetId) {
+      const { pc } = peerConnections.get(targetId) || {};
+      const dataChannel = dataChannels.get(targetId);
+      if (pc) {
+        pc.close();
+        peerConnections.delete(targetId);
+        console.log(`Closed peer connection with ${targetId}`);
+      }
+      if (dataChannel) {
+        dataChannel.close();
+        dataChannels.delete(targetId);
+        console.log(`Closed data channel with ${targetId}`);
+      }
+      isConnected = peerConnections.size > 0;
+      updateGroupModeUI();
     }
 
     function sendMessage(message) {
-      if (message && isConnected && dataChannel) {
+      if (message && dataChannels.size > 0) {
         try {
-          console.log('Sending message on data channel:', message);
-          dataChannel.send(message);
+          dataChannels.forEach((dataChannel, targetId) => {
+            if (dataChannel.readyState === 'open') {
+              console.log(`Sending message to ${targetId}:`, message);
+              dataChannel.send(message);
+            }
+          });
           const messages = document.getElementById('messages');
           messages.innerHTML += `<div class="text-blue-600">You: ${message}</div>`;
           messages.scrollTop = messages.scrollHeight;
@@ -362,7 +354,7 @@
         code = inputCode;
         codeDisplayElement.textContent = `Using code: ${code}`;
         statusElement.textContent = 'Connecting...';
-        console.log('User B connecting with code:', code);
+        console.log(`User connecting with code: ${code}`);
         socket.send(JSON.stringify({ type: 'join', code }));
       }
     };
@@ -381,22 +373,33 @@
       }
     });
 
+    groupToggle.addEventListener('change', () => {
+      if (isInitiator) {
+        groupMode = groupToggle.checked;
+        console.log(`Toggling group mode to ${groupMode} for code: ${code}`);
+        socket.send(JSON.stringify({ type: 'toggle-group', groupMode, code }));
+        updateGroupModeUI();
+      }
+    });
+
     document.getElementById('newSessionButton').onclick = () => {
-      if (peerConnection) {
-        peerConnection.close();
-        console.log('Closed peer connection for code:', code);
-      }
-      if (dataChannel) {
+      peerConnections.forEach(({ pc }, targetId) => {
+        pc.close();
+        console.log(`Closed peer connection with ${targetId}`);
+      });
+      dataChannels.forEach((dataChannel, targetId) => {
         dataChannel.close();
-        console.log('Closed data channel for code:', code);
-      }
+        console.log(`Closed data channel with ${targetId}`);
+      });
+      peerConnections.clear();
+      dataChannels.clear();
       clearTimeout(connectionTimeout);
       isConnected = false;
       isInitiator = false;
-      hasProcessedAnswer = false;
+      groupMode = false;
       retryCount = 0;
       code = generateCode();
-      candidatesQueue = [];
+      clientId = null;
       codeDisplayElement.textContent = `Your code: ${code}`;
       statusElement.textContent = 'Generating new code...';
       console.log('New session started with code:', code);
@@ -406,6 +409,7 @@
       document.getElementById('connectContainer').classList.remove('hidden');
       document.getElementById('chatContainer').classList.add('hidden');
       document.getElementById('newSessionButton').classList.add('hidden');
+      groupToggleContainer.classList.add('hidden');
       socket.send(JSON.stringify({ type: 'join', code }));
     };
   </script>
