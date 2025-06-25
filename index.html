@@ -100,19 +100,15 @@
           maxClients = message.maxClients;
           isInitiator = message.isInitiator;
           console.log(`Initialized client ${clientId}, maxClients: ${maxClients}, isInitiator: ${isInitiator}`);
+          initializeMaxClientsUI();
           updateMaxClientsUI();
-          if (isInitiator) {
-            maxClientsContainer.classList.remove('hidden');
-          } else {
-            maxClientsContainer.classList.add('hidden');
-          }
         }
         if (message.type === 'initiator-changed') {
           console.log(`Initiator changed to ${message.newInitiator} for code: ${code}`);
           isInitiator = message.newInitiator === clientId;
+          initializeMaxClientsUI();
           updateMaxClientsUI();
           if (isInitiator) {
-            maxClientsContainer.classList.remove('hidden');
             // Re-establish peer connections as new initiator
             peerConnections.forEach((pc, id) => {
               if (pc.connectionState !== 'connected') {
@@ -120,8 +116,6 @@
                 startPeerConnection(id, true);
               }
             });
-          } else {
-            maxClientsContainer.classList.add('hidden');
           }
         }
         if (message.type === 'join-notify' && message.code === code) {
@@ -159,6 +153,32 @@
         console.error('Error parsing message:', error);
       }
     };
+
+    function initializeMaxClientsUI() {
+      const maxClientsRadios = document.getElementById('maxClientsRadios');
+      maxClientsRadios.innerHTML = ''; // Clear existing radios
+      if (isInitiator) {
+        maxClientsContainer.classList.remove('hidden');
+        for (let n = 2; n <= 10; n++) {
+          const label = document.createElement('label');
+          label.className = 'text-white flex items-center';
+          const input = document.createElement('input');
+          input.type = 'radio';
+          input.name = 'maxClients';
+          input.value = n;
+          input.className = 'mr-2';
+          input.checked = n === maxClients;
+          input.addEventListener('change', () => setMaxClients(n));
+          const span = document.createElement('span');
+          span.textContent = n;
+          label.appendChild(input);
+          label.appendChild(span);
+          maxClientsRadios.appendChild(label);
+        }
+      } else {
+        maxClientsContainer.classList.add('hidden');
+      }
+    }
 
     function updateMaxClientsUI() {
       statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} users)` : 'Waiting for connection...';
@@ -484,24 +504,6 @@
       maxClientsContainer.classList.add('hidden');
       socket.send(JSON.stringify({ type: 'join', code }));
     };
-
-    // Initialize max clients UI
-    for (let n = 2; n <= 10; n++) {
-      const label = document.createElement('label');
-      label.className = 'text-white flex items-center';
-      const input = document.createElement('input');
-      input.type = 'radio';
-      input.name = 'maxClients';
-      input.value = n;
-      input.className = 'mr-2';
-      input.disabled = !isInitiator;
-      input.addEventListener('change', () => setMaxClients(n));
-      const span = document.createElement('span');
-      span.textContent = n;
-      label.appendChild(input);
-      label.appendChild(span);
-      document.getElementById('maxClientsRadios').appendChild(label);
-    }
   </script>
 </body>
 </html>
