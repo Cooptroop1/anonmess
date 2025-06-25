@@ -42,6 +42,7 @@
     let connectionTimeout;
     let retryCount = 0;
     const maxRetries = 1;
+    let candidatesQueue = []; // Global queue for ICE candidates
 
     const statusElement = document.getElementById('status');
     const codeDisplayElement = document.getElementById('codeDisplay');
@@ -127,7 +128,7 @@
           document.getElementById('chatContainer').classList.remove('hidden');
           document.getElementById('newSessionButton').classList.remove('hidden');
           clearTimeout(connectionTimeout);
-          retryCount = 0; // Reset retry count on success
+          retryCount = 0;
         };
         dataChannel.onmessage = (event) => {
           console.log('Received message on data channel:', event.data);
@@ -137,7 +138,6 @@
         };
       }
 
-      let candidatesQueue = [];
       peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
           console.log('Sending ICE candidate for code:', code, event.candidate);
@@ -225,7 +225,7 @@
           document.getElementById('chatContainer').classList.remove('hidden');
           document.getElementById('newSessionButton').classList.remove('hidden');
           clearTimeout(connectionTimeout);
-          retryCount = 0; // Reset retry count on success
+          retryCount = 0;
         };
         dataChannel.onmessage = (event) => {
           console.log('Received message on data channel:', event.data);
@@ -235,7 +235,6 @@
         };
       };
 
-      let candidatesQueue = [];
       peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
           console.log('Sending ICE candidate for code:', code, event.candidate);
@@ -358,6 +357,7 @@
       isInitiator = false;
       retryCount = 0;
       code = generateCode();
+      candidatesQueue = [];
       codeDisplayElement.textContent = `Your code: ${code}`;
       statusElement.textContent = 'Generating new code...';
       console.log('New session started with code:', code);
