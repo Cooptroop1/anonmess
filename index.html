@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -82,6 +81,8 @@
     const initialContainer = document.getElementById('initialContainer');
     const usernameContainer = document.getElementById('usernameContainer');
     const connectContainer = document.getElementById('connectContainer');
+    const chatContainer = document.getElementById('chatContainer');
+    const newSessionButton = document.getElementById('newSessionButton');
     const maxClientsContainer = document.getElementById('maxClientsContainer');
     statusElement.textContent = 'Start a new chat or connect to an existing one';
 
@@ -121,6 +122,9 @@
             usernameContainer.classList.add('hidden');
             connectContainer.classList.add('hidden');
             codeDisplayElement.classList.add('hidden');
+            chatContainer.classList.add('hidden');
+            newSessionButton.classList.add('hidden');
+            maxClientsContainer.classList.add('hidden');
           }
           return;
         }
@@ -129,12 +133,9 @@
           maxClients = message.maxClients;
           isInitiator = message.isInitiator;
           totalClients = 1;
-          if (isInitiator) {
-            usernames.set(clientId, username);
-            console.log(`Assigned username ${username} to initiator ${clientId}, usernames: ${[...usernames.entries()]}`);
-            socket.send(JSON.stringify({ type: 'join-notify', clientId, totalClients, code, username }));
-          }
           console.log(`Initialized client ${clientId}, username: ${username}, maxClients: ${maxClients}, isInitiator: ${isInitiator}`);
+          usernames.set(clientId, username);
+          console.log(`Set own username: ${username} for client ${clientId}, usernames: ${[...usernames.entries()]}`);
           initializeMaxClientsUI();
           updateMaxClientsUI();
         }
@@ -143,11 +144,6 @@
           isInitiator = message.newInitiator === clientId;
           initializeMaxClientsUI();
           updateMaxClientsUI();
-          if (isInitiator && !usernames.has(clientId)) {
-            usernames.set(clientId, username);
-            console.log(`Assigned username ${username} to new initiator ${clientId}, usernames: ${[...usernames.entries()]}`);
-            socket.send(JSON.stringify({ type: 'join-notify', clientId, totalClients, code, username }));
-          }
         }
         if (message.type === 'join-notify' && message.code === code) {
           totalClients = message.totalClients;
@@ -155,21 +151,6 @@
           if (message.username) {
             usernames.set(message.clientId, message.username);
             console.log(`Updated usernames: ${message.clientId} -> ${message.username}, usernames: ${[...usernames.entries()]}`);
-            if (message.clientId === clientId && username == null) {
-              username = message.username;
-              console.log(`Set own username: ${username} for client ${clientId}`);
-            }
-          }
-          if (isInitiator && message.clientId !== clientId && !usernames.has(message.clientId)) {
-            usernames.set(message.clientId, message.username);
-            console.log(`Assigned username ${message.username} to client ${message.clientId}, usernames: ${[...usernames.entries()]}`);
-            socket.send(JSON.stringify({ 
-              type: 'join-notify', 
-              clientId: message.clientId, 
-              totalClients, 
-              code, 
-              username: message.username 
-            }));
           }
           updateMaxClientsUI();
           if (isInitiator && message.clientId !== clientId && !peerConnections.has(message.clientId)) {
@@ -221,7 +202,13 @@
           input.value = n;
           input.className = 'mr-2';
           input.checked = n === maxClients;
-          input.addEventListener('change', () => setMaxClients(n));
+          input.addEventListener('change', () => {
+            if (isInitiator) {
+              setMaxClients(n);
+            } else {
+              console.log(`Cannot set max clients to ${n}: not initiator`);
+            }
+          });
           const span = document.createElement('span');
           span.textContent = n;
           label.appendChild(input);
@@ -230,6 +217,7 @@
         }
       } else {
         maxClientsContainer.classList.add('hidden');
+        console.log('Hiding maxClientsContainer: not initiator');
       }
     }
 
@@ -240,16 +228,17 @@
         input.checked = parseInt(input.value) === maxClients;
         input.disabled = !isInitiator;
       });
+      maxClientsContainer.classList.toggle('hidden', !isInitiator);
     }
 
     function setMaxClients(n) {
-      if (isInitiator) {
+      if (isInitiator && clientId && socket.readyState === WebSocket.OPEN) {
         maxClients = n;
-        console.log(`Setting max clients to ${n} for code: ${code}`);
+        console.log(`Initiator ${clientId} setting max clients to ${n} for code: ${code}`);
         socket.send(JSON.stringify({ type: 'set-max-clients', maxClients: n, code }));
         updateMaxClientsUI();
       } else {
-        console.log(`Skipping set max clients to ${n}, not initiator for code: ${code}`);
+        console.log(`Cannot set max clients to ${n}: isInitiator=${isInitiator}, clientId=${clientId}, socket.readyState=${socket.readyState}`);
       }
     }
 
