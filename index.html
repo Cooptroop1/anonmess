@@ -7,31 +7,20 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
   <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottroo"/>
 </head>
-<body class="bg-gray-900 min-h-screen flex items-center justify-center">
+<body class="bg-black min-h-screen flex items-center justify-center">
   <div class="flex w-full max-w-lg">
     <div class="bg-white p-8 rounded-lg shadow-lg flex-grow">
       <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">Anonymous Chat</h1>
-      <div id="status" class="text-center mb-4 text-gray-600">Start a new chat or join an existing one</div>
-      <div id="initialContainer">
-        <button id="startChatToggleButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full mb-2 hover:bg-blue-600">Start Chat</button>
-        <button id="connectToggleButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600">Join Chat</button>
-      </div>
-      <div id="usernameContainer" class="hidden">
-        <input id="usernameInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)">
-        <button id="startChatButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600">Start Chat</button>
-        <button id="backButton" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600">Back</button>
-      </div>
-      <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800 hidden"></div>
+      <div id="status" class="text-center mb-4 text-gray-600"></div>
+      <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800"></div>
       <div id="chatContainer" class="hidden">
         <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded bg-white"></div>
         <input id="messageInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Type a message...">
         <button id="sendButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600">Send</button>
       </div>
-      <div id="connectContainer" class="hidden">
-        <input id="usernameConnectInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)">
-        <input id="codeInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter code to join">
-        <button id="connectButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600">Join</button>
-        <button id="backButtonConnect" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600">Back</button>
+      <div id="connectContainer">
+        <input id="codeInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter code to connect">
+        <button id="connectButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600">Connect</button>
       </div>
       <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mt-4 hidden hover:bg-red-600">New Session</button>
     </div>
@@ -51,65 +40,58 @@
       return result;
     }
 
-    function generateMessageId() {
-      return Math.random().toString(36).substr(2, 9);
-    }
-
-    function validateUsername(username) {
-      const regex = /^[a-zA-Z0-9]{1,16}$/;
-      return username && regex.test(username);
-    }
-
     let code = generateCode();
-    let clientId = '';
+    let clientId = null;
     let isInitiator = false;
     let isConnected = false;
     let maxClients = 2;
-    let totalClients = 0;
+    let totalClients = 1;
     let peerConnections = new Map();
     let dataChannels = new Map();
+    let connectionTimeouts = new Map();
+    let retryCounts = new Map();
+    const maxRetries = 1;
     let candidatesQueues = new Map();
-    let processedMessageIds = new Set();
-    let username = null;
-    let usernames = new Map();
 
     const statusElement = document.getElementById('status');
     const codeDisplayElement = document.getElementById('codeDisplay');
-    const initialContainer = document.getElementById('initialContainer');
-    const usernameContainer = document.getElementById('usernameContainer');
-    const connectContainer = document.getElementById('connectContainer');
-    const chatContainer = document.getElementById('chatContainer');
-    const newSessionButton = document.getElementById('newSessionButton');
     const maxClientsContainer = document.getElementById('maxClientsContainer');
+    codeDisplayElement.textContent = `Your code: ${code}`;
+    statusElement.textContent = 'Generating code...';
 
     const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
-    console.log('WebSocket created');
+    console.log('WebSocket created for code:', code);
 
     socket.onopen = () => {
-      console.log('WebSocket opened, state: ' + socket.readyState);
-      statusElement.textContent = 'Start a new chat or join an existing one';
+      console.log('WebSocket opened, sending join for code:', code);
+      socket.send(JSON.stringify({ type: 'join', code }));
+      statusElement.textContent = 'Waiting for connection...';
     };
 
-    socket.onerror = error => {
+    socket.onerror = (error) => {
       statusElement.textContent = 'WebSocket error. Please try again.';
       console.error('WebSocket error:', error);
+      connectionTimeouts.forEach((timeout) => clearTimeout(timeout));
     };
 
     socket.onclose = () => {
       statusElement.textContent = 'WebSocket closed. Please refresh.';
-      console.error('WebSocket closed, state: ' + socket.readyState);
-      cleanupAll();
+      console.error('WebSocket closed');
+      connectionTimeouts.forEach((timeout) => clearTimeout(timeout));
+      isInitiator = false;
+      maxClientsContainer.classList.add('hidden');
     };
 
-    socket.onmessage = event => {
+    socket.onmessage = (event) => {
+      console.log('Received WebSocket message:', event.data);
       try {
         const message = JSON.parse(event.data);
-        console.log('Received message:', message);
+        console.log('Parsed message:', message);
         if (message.type === 'error') {
           statusElement.textContent = message.message;
           console.error('Server error:', message.message);
-          if (message.message.includes('Chat is full') || message.message.includes('Username already taken')) {
-            resetUI();
+          if (message.message.includes('Chat is full')) {
+            socket.close();
           }
           return;
         }
@@ -117,59 +99,65 @@
           clientId = message.clientId;
           maxClients = message.maxClients;
           isInitiator = message.isInitiator;
-          totalClients = 1;
-          usernames.set(clientId, username);
-          console.log(`Initialized ${clientId}, username: ${username}, isInitiator: ${isInitiator}`);
-          initializeMaxClients();
-          updateStatus();
+          console.log(`Initialized client ${clientId}, maxClients: ${maxClients}, isInitiator: ${isInitiator}`);
+          initializeMaxClientsUI();
+          updateMaxClientsUI();
         }
         if (message.type === 'initiator-changed') {
+          console.log(`Initiator changed to ${message.newInitiator} for code: ${code}`);
           isInitiator = message.newInitiator === clientId;
-          console.log(`Initiator changed to ${message.newInitiator}`);
-          initializeMaxClients();
-          updateStatus();
+          initializeMaxClientsUI();
+          updateMaxClientsUI();
+          if (isInitiator) {
+            // Only restart failed connections
+            peerConnections.forEach((pc, id) => {
+              if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+                console.log(`Restarting connection with ${id} as new initiator`);
+                cleanupPeerConnection(id);
+                startPeerConnection(id, true);
+              }
+            });
+          }
         }
         if (message.type === 'join-notify' && message.code === code) {
           totalClients = message.totalClients;
-          usernames.set(message.clientId, message.username);
-          console.log(`Join: ${message.clientId} (${message.username}), total: ${totalClients}`);
-          updateStatus();
-          if (isInitiator && message.clientId !== clientId && !peerConnections.has(message.clientId)) {
+          console.log(`Join-notify received for code: ${code}, new client: ${message.clientId}, total: ${totalClients}`);
+          updateMaxClientsUI();
+          if (isInitiator && message.clientId !== clientId) {
             startPeerConnection(message.clientId, true);
           }
         }
         if (message.type === 'client-disconnected') {
           totalClients = message.totalClients;
-          usernames.delete(message.clientId);
-          console.log(`Disconnected: ${message.clientId}, total: ${totalClients}`);
+          console.log(`Client ${message.clientId} disconnected from code: ${code}, total: ${totalClients}`);
           cleanupPeerConnection(message.clientId);
-          updateStatus();
+          updateMaxClientsUI();
         }
         if (message.type === 'max-clients') {
           maxClients = message.maxClients;
-          console.log(`Max clients: ${maxClients}`);
-          updateStatus();
+          console.log(`Max clients updated to ${maxClients} for code: ${code}`);
+          updateMaxClientsUI();
         }
         if (message.type === 'offer' && message.clientId !== clientId) {
-          console.log(`Offer from ${message.clientId}`);
+          console.log(`Received offer from ${message.clientId} for code: ${code}`);
           handleOffer(message.offer, message.clientId);
         }
         if (message.type === 'answer' && message.clientId !== clientId) {
-          console.log(`Answer from ${message.clientId}`);
+          console.log(`Received answer from ${message.clientId} for code: ${code}`);
           handleAnswer(message.answer, message.clientId);
         }
         if (message.type === 'candidate' && message.clientId !== clientId) {
-          console.log(`Candidate from ${message.clientId}:`, message.candidate);
+          console.log(`Received ICE candidate from ${message.clientId} for code: ${code}`);
           handleCandidate(message.candidate, message.clientId);
         }
       } catch (error) {
-        console.error('Error parsing message:', error, 'Data:', event.data);
+        console.error('Error parsing message:', error);
       }
     };
 
-    function initializeMaxClients() {
+    function initializeMaxClientsUI() {
       const maxClientsRadios = document.getElementById('maxClientsRadios');
-      maxClientsRadios.innerHTML = '';
+      maxClientsRadios.innerHTML = ''; // Clear existing radios
       if (isInitiator) {
         maxClientsContainer.classList.remove('hidden');
         for (let n = 2; n <= 10; n++) {
@@ -181,13 +169,11 @@
           input.value = n;
           input.className = 'mr-2';
           input.checked = n === maxClients;
-          input.addEventListener('change', () => {
-            if (isInitiator && socket.readyState === WebSocket.OPEN) {
-              socket.send(JSON.stringify({ type: 'set-max-clients', maxClients: n, code }));
-            }
-          });
+          input.addEventListener('change', () => setMaxClients(n));
+          const span = document.createElement('span');
+          span.textContent = n;
           label.appendChild(input);
-          label.appendChild(document.createTextNode(n));
+          label.appendChild(span);
           maxClientsRadios.appendChild(label);
         }
       } else {
@@ -195,18 +181,48 @@
       }
     }
 
-    function updateStatus() {
+    function updateMaxClientsUI() {
       statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} users)` : 'Waiting for connection...';
+      const inputs = document.querySelectorAll('input[name="maxClients"]');
+      inputs.forEach(input => {
+        input.checked = parseInt(input.value) === maxClients;
+        input.disabled = !isInitiator;
+      });
+    }
+
+    function setMaxClients(n) {
+      if (isInitiator) {
+        maxClients = n;
+        console.log(`Setting max clients to ${n} for code: ${code}`);
+        socket.send(JSON.stringify({ type: 'set-max-clients', maxClients: n, code }));
+        updateMaxClientsUI();
+      } else {
+        console.log(`Cannot set max clients to ${n}, not initiator for code: ${code}`);
+      }
     }
 
     function startPeerConnection(targetId, isOfferer) {
-      console.log(`Starting peer with ${targetId}, offerer: ${isOfferer}`);
-      cleanupPeerConnection(targetId);
+      console.log(`Starting peer connection with ${targetId} for code: ${code}, offerer: ${isOfferer}`);
+      if (peerConnections.has(targetId)) {
+        peerConnections.get(targetId).close();
+        peerConnections.delete(targetId);
+        dataChannels.delete(targetId);
+        candidatesQueues.delete(targetId);
+        clearTimeout(connectionTimeouts.get(targetId));
+        connectionTimeouts.delete(targetId);
+        retryCounts.delete(targetId);
+      }
       const peerConnection = new RTCPeerConnection({
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' }
-        ]
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { 
+            urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443'], 
+            username: 'openrelayproject', 
+            credential: 'openrelayproject'
+          }
+        ],
+        iceTransportPolicy: 'all'
       });
       peerConnections.set(targetId, peerConnection);
       candidatesQueues.set(targetId, []);
@@ -219,37 +235,49 @@
         dataChannels.set(targetId, dataChannel);
       }
 
-      peerConnection.onicecandidate = event => {
-        if (event.candidate && socket.readyState === WebSocket.OPEN) {
+      peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+          console.log(`Sending ICE candidate to ${targetId} for code: ${code}`, event.candidate);
           socket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate, code, targetId }));
-          console.log(`Sent candidate to ${targetId}:`, event.candidate);
-        } else if (!event.candidate) {
-          console.log(`ICE candidate gathering complete for ${targetId}`);
         }
       };
 
-      peerConnection.oniceconnectionstatechange = () => {
-        console.log(`ICE state for ${targetId}: ${peerConnection.iceConnectionState}`);
-        if (peerConnection.iceConnectionState === 'failed' || peerConnection.iceConnectionState === 'disconnected') {
-          console.log(`ICE failure for ${targetId}`);
-          statusElement.textContent = 'Connection failed. Please try again.';
-          cleanupPeerConnection(targetId);
+      let iceTimeout;
+      peerConnection.onicegatheringstatechange = () => {
+        console.log(`ICE gathering state for ${targetId}: ${peerConnection.iceGatheringState}`);
+        if (peerConnection.iceGatheringState === 'gathering' && isOfferer) {
+          iceTimeout = setTimeout(() => {
+            if (peerConnection.iceGatheringState !== 'complete') {
+              console.log(`ICE gathering timeout, sending offer to ${targetId}`);
+              socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code, targetId }));
+            }
+          }, 3000);
+        } else if (peerConnection.iceGatheringState === 'complete' && isOfferer) {
+          clearTimeout(iceTimeout);
+          console.log(`ICE gathering complete, sending offer to ${targetId}`);
+          socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code, targetId }));
         }
       };
 
       peerConnection.onconnectionstatechange = () => {
         console.log(`Connection state for ${targetId}: ${peerConnection.connectionState}`);
-        if (peerConnection.connectionState === 'connected') {
-          isConnected = true;
-          updateStatus();
-        } else if (peerConnection.connectionState === 'failed' || peerConnection.connectionState === 'disconnected') {
-          console.log(`Connection failed/disconnected for ${targetId}`);
-          statusElement.textContent = 'Connection failed. Please try again.';
+        if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
+          statusElement.textContent = 'Connection failed. Try again.';
           cleanupPeerConnection(targetId);
+          const retryCount = retryCounts.get(targetId) || 0;
+          if (retryCount < maxRetries && !dataChannels.get(targetId)?.readyState === 'open') {
+            retryCounts.set(targetId, retryCount + 1);
+            console.log(`Retrying connection attempt ${retryCount + 1} with ${targetId}`);
+            startPeerConnection(targetId, isOfferer);
+          }
+        } else if (peerConnection.connectionState === 'connected') {
+          console.log(`WebRTC connection established with ${targetId} for code: ${code}`);
+          isConnected = true;
+          updateMaxClientsUI();
         }
       };
 
-      peerConnection.ondatachannel = event => {
+      peerConnection.ondatachannel = (event) => {
         console.log(`Received data channel from ${targetId}`);
         dataChannel = event.channel;
         setupDataChannel(dataChannel, targetId);
@@ -257,70 +285,70 @@
       };
 
       if (isOfferer) {
-        peerConnection.createOffer()
-          .then(offer => peerConnection.setLocalDescription(offer))
-          .then(() => {
-            if (socket.readyState === WebSocket.OPEN) {
-              socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code, targetId }));
-              console.log(`Sent offer to ${targetId}`);
-            }
-          })
-          .catch(error => console.error(`Error creating offer for ${targetId}:`, error));
+        peerConnection.createOffer().then(offer => {
+          return peerConnection.setLocalDescription(offer);
+        }).catch(error => {
+          console.error(`Error creating offer for ${targetId}:`, error);
+        });
       }
 
-      setTimeout(() => {
-        if (!dataChannels.has(targetId) || dataChannels.get(targetId).readyState !== 'open') {
-          console.log(`Connection timeout with ${targetId}`);
-          statusElement.textContent = 'Connection timed out. Please try again.';
+      const timeout = setTimeout(() => {
+        if (!dataChannels.get(targetId)?.readyState === 'open') {
+          statusElement.textContent = 'Connection timed out. Try again.';
+          console.log(`Connection timed out with ${targetId} for code: ${code}`);
           cleanupPeerConnection(targetId);
+          const retryCount = retryCounts.get(targetId) || 0;
+          if (retryCount < maxRetries) {
+            retryCounts.set(targetId, retryCount + 1);
+            console.log(`Retrying connection attempt ${retryCount + 1} with ${targetId}`);
+            startPeerConnection(targetId, isOfferer);
+          }
         }
-      }, 15000);
+      }, 180000);
+      connectionTimeouts.set(targetId, timeout);
     }
 
     function setupDataChannel(dataChannel, targetId) {
-      console.log(`Setting up data channel for ${targetId}`);
+      // Clear previous event listeners to prevent duplicates
+      dataChannel.onmessage = null;
+      dataChannel.onopen = null;
+      dataChannel.onerror = null;
+      dataChannel.onclose = null;
+
       dataChannel.onopen = () => {
-        console.log(`Data channel opened with ${targetId}`);
+        console.log(`Data channel opened with ${targetId} for code: ${code}, state: ${dataChannel.readyState}`);
         isConnected = true;
-        initialContainer.classList.add('hidden');
-        usernameContainer.classList.add('hidden');
-        connectContainer.classList.add('hidden');
-        chatContainer.classList.remove('hidden');
-        newSessionButton.classList.remove('hidden');
-        updateStatus();
+        document.getElementById('connectContainer').classList.add('hidden');
+        document.getElementById('chatContainer').classList.remove('hidden');
+        document.getElementById('newSessionButton').classList.remove('hidden');
+        clearTimeout(connectionTimeouts.get(targetId));
+        retryCounts.delete(targetId);
+        updateMaxClientsUI();
       };
-      dataChannel.onmessage = event => {
-        let data;
-        try {
-          data = JSON.parse(event.data);
-        } catch (e) {
-          console.error(`Invalid message from ${targetId}:`, event.data);
-          return;
-        }
-        if (!data.messageId || !data.content || !data.username) {
-          console.log(`Invalid message from ${targetId}:`, data);
-          return;
-        }
-        if (processedMessageIds.has(data.messageId)) {
-          console.log(`Duplicate message ${data.messageId} from ${targetId}`);
-          return;
-        }
-        processedMessageIds.add(data.messageId);
-        const senderUsername = usernames.get(targetId) || data.username;
-        const isSelf = senderUsername === username;
+
+      dataChannel.onmessage = (event) => {
+        console.log(`Received message from ${targetId}:`, event.data);
         const messages = document.getElementById('messages');
-        messages.innerHTML += `<div class="${isSelf ? 'text-blue-600' : 'text-gray-600'}">${senderUsername}: ${data.content}</div>`;
-        messages.scrollTop = messages.scrollHeight;
+        // Prevent processing relayed messages as new on initiator
+        if (!isInitiator || dataChannels.get(targetId) === dataChannel) {
+          messages.innerHTML += `<div class="text-gray-600">Them: ${event.data}</div>`;
+          messages.scrollTop = messages.scrollHeight;
+        }
+        // Relay message to other clients if initiator
         if (isInitiator) {
           dataChannels.forEach((dc, id) => {
-            if (id !== targetId && dc.readyState === 'open') {
-              dc.send(JSON.stringify(data));
-              console.log(`Relayed message ${data.messageId} to ${id}`);
+            if (id !== targetId && dc.readyState === 'open' && dc !== dataChannel) {
+              console.log(`Relaying message to ${id}:`, event.data);
+              dc.send(event.data);
             }
           });
         }
       };
-      dataChannel.onerror = error => console.error(`Data channel error with ${targetId}:`, error);
+
+      dataChannel.onerror = (error) => {
+        console.error(`Data channel error with ${targetId}:`, error);
+      };
+
       dataChannel.onclose = () => {
         console.log(`Data channel closed with ${targetId}`);
         cleanupPeerConnection(targetId);
@@ -328,49 +356,69 @@
     }
 
     function handleOffer(offer, targetId) {
+      console.log(`Handling offer from ${targetId} for code: ${code}`);
+      if (offer.type !== 'offer') {
+        console.error(`Received invalid offer type from ${targetId}:`, offer.type);
+        return;
+      }
       if (!peerConnections.has(targetId)) {
         startPeerConnection(targetId, false);
       }
       const peerConnection = peerConnections.get(targetId);
-      peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
-        .then(() => peerConnection.createAnswer())
-        .then(answer => peerConnection.setLocalDescription(answer))
-        .then(() => {
-          if (socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify({ type: 'answer', answer: peerConnection.localDescription, code, targetId }));
-            console.log(`Sent answer to ${targetId}`);
-          }
-          const queue = candidatesQueues.get(targetId) || [];
-          queue.forEach(candidate => handleCandidate(candidate, targetId));
-          candidatesQueues.set(targetId, []);
-        })
-        .catch(error => console.error(`Error handling offer from ${targetId}:`, error));
+      peerConnection.setRemoteDescription(new RTCSessionDescription(offer)).then(() => {
+        console.log(`Creating answer for ${targetId}`);
+        return peerConnection.createAnswer();
+      }).then(answer => {
+        return peerConnection.setLocalDescription(answer);
+      }).then(() => {
+        socket.send(JSON.stringify({ type: 'answer', answer: peerConnection.localDescription, code, targetId }));
+        const queue = candidatesQueues.get(targetId) || [];
+        queue.forEach(candidate => {
+          handleCandidate(candidate, targetId);
+        });
+        candidatesQueues.set(targetId, []);
+      }).catch(error => {
+        console.error(`Error handling offer from ${targetId}:`, error);
+      });
     }
 
     function handleAnswer(answer, targetId) {
+      console.log(`Handling answer from ${targetId} for code: ${code}`);
       const peerConnection = peerConnections.get(targetId);
-      if (!peerConnection) return;
-      peerConnection.setRemoteDescription(new RTCSessionDescription(answer))
-        .then(() => {
-          console.log(`Successfully set remote description for answer from ${targetId}`);
-          const queue = candidatesQueues.get(targetId) || [];
-          queue.forEach(candidate => handleCandidate(candidate, targetId));
-          candidatesQueues.set(targetId, []);
-        })
-        .catch(error => console.error(`Error handling answer from ${targetId}:`, error));
+      if (!peerConnection || peerConnection.signalingState !== 'have-local-offer') {
+        console.log(`Invalid signaling state for ${targetId}:`, peerConnection ? peerConnection.signalingState : 'no peerConnection');
+        return;
+      }
+      if (answer.type !== 'answer') {
+        console.error(`Received invalid answer type from ${targetId}:`, answer.type);
+        return;
+      }
+      peerConnection.setRemoteDescription(new RTCSessionDescription(answer)).then(() => {
+        console.log(`Successfully set remote description for answer from ${targetId}`);
+        const queue = candidatesQueues.get(targetId) || [];
+        queue.forEach(candidate => {
+          handleCandidate(candidate, targetId);
+        });
+        candidatesQueues.set(targetId, []);
+      }).catch(error => {
+        console.error(`Error setting remote description for answer from ${targetId}:`, error);
+      });
     }
 
     function handleCandidate(candidate, targetId) {
+      console.log(`Handling ICE candidate from ${targetId} for code: ${code}`);
       const peerConnection = peerConnections.get(targetId);
       if (peerConnection && peerConnection.remoteDescription) {
-        peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
-          .then(() => console.log(`Successfully added ICE candidate from ${targetId}:`, candidate))
-          .catch(error => console.error(`Error adding ICE candidate from ${targetId}:`, error));
+        peerConnection.addIceCandidate(new RTCIceCandidate(candidate)).then(() => {
+          console.log(`Successfully added ICE candidate from ${targetId}`);
+        }).catch(error => {
+          console.error(`Error adding ICE candidate from ${targetId}:`, error);
+        });
       } else {
+        console.log(`Queuing ICE candidate for ${targetId}`);
         const queue = candidatesQueues.get(targetId) || [];
         queue.push(candidate);
         candidatesQueues.set(targetId, queue);
-        console.log(`Queued ICE candidate for ${targetId}:`, candidate);
       }
     }
 
@@ -383,166 +431,96 @@
       }
       const dataChannel = dataChannels.get(targetId);
       if (dataChannel) {
+        dataChannel.onmessage = null;
+        dataChannel.onopen = null;
+        dataChannel.onerror = null;
+        dataChannel.onclose = null;
         dataChannel.close();
         dataChannels.delete(targetId);
         console.log(`Closed data channel with ${targetId}`);
       }
       candidatesQueues.delete(targetId);
+      clearTimeout(connectionTimeouts.get(targetId));
+      connectionTimeouts.delete(targetId);
+      retryCounts.delete(targetId);
       isConnected = dataChannels.size > 0;
-      updateStatus();
+      updateMaxClientsUI();
     }
 
-    function cleanupAll() {
-      peerConnections.forEach((_, id) => cleanupPeerConnection(id));
-      processedMessageIds.clear();
-      usernames.clear();
-      isConnected = false;
-      isInitiator = false;
-      updateStatus();
-    }
-
-    function resetUI() {
-      cleanupAll();
-      initialContainer.classList.remove('hidden');
-      usernameContainer.classList.add('hidden');
-      connectContainer.classList.add('hidden');
-      chatContainer.classList.add('hidden');
-      newSessionButton.classList.add('hidden');
-      maxClientsContainer.classList.add('hidden');
-      codeDisplayElement.classList.add('hidden');
-      document.getElementById('messages').innerHTML = '';
-    }
-
-    function sendMessage(content) {
-      if (content && dataChannels.size > 0 && username) {
-        const messageId = generateMessageId();
-        const message = { messageId, content, username };
-        dataChannels.forEach((dataChannel, targetId) => {
-          if (dataChannel.readyState === 'open') {
-            dataChannel.send(JSON.stringify(message));
-            console.log(`Sent message ${messageId} to ${targetId}`);
-          }
-        });
-        const messages = document.getElementById('messages');
-        messages.innerHTML += `<div class="text-blue-600">${username}: ${content}</div>`;
-        messages.scrollTop = messages.scrollHeight;
-        document.getElementById('messageInput').value = '';
-        processedMessageIds.add(messageId);
-      } else {
-        statusElement.textContent = 'Error: Not connected or no username.';
+    function sendMessage(message) {
+      if (message && dataChannels.size > 0) {
+        try {
+          console.log('Broadcasting message:', message);
+          dataChannels.forEach((dataChannel, targetId) => {
+            if (dataChannel.readyState === 'open') {
+              dataChannel.send(message);
+              console.log(`Sent message to ${targetId}, state: ${dataChannel.readyState}`);
+            } else {
+              console.log(`Skipped sending to ${targetId}, state: ${dataChannel.readyState}`);
+            }
+          });
+          const messages = document.getElementById('messages');
+          messages.innerHTML += `<div class="text-blue-600">You: ${message}</div>`;
+          messages.scrollTop = messages.scrollHeight;
+          document.getElementById('messageInput').value = '';
+        } catch (error) {
+          console.error('Error broadcasting message:', error);
+        }
       }
     }
-
-    document.getElementById('startChatToggleButton').onclick = () => {
-      initialContainer.classList.add('hidden');
-      usernameContainer.classList.remove('hidden');
-      statusElement.textContent = 'Enter a username to start a chat';
-    };
-
-    document.getElementById('connectToggleButton').onclick = () => {
-      initialContainer.classList.add('hidden');
-      connectContainer.classList.remove('hidden');
-      statusElement.textContent = 'Enter a username and code to join a chat';
-    };
-
-    document.getElementById('startChatButton').onclick = () => {
-      const usernameInput = document.getElementById('usernameInput').value.trim();
-      if (!validateUsername(usernameInput)) {
-        statusElement.textContent = 'Invalid username: 1-16 alphanumeric characters required.';
-        return;
-      }
-      username = usernameInput;
-      codeDisplayElement.textContent = `Your code: ${code}`;
-      codeDisplayElement.classList.remove('hidden');
-      usernameContainer.classList.add('hidden');
-      statusElement.textContent = 'Waiting for connection...';
-      if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: 'join', code, username }));
-      } else {
-        statusElement.textContent = 'WebSocket not connected. Please refresh.';
-      }
-    };
 
     document.getElementById('connectButton').onclick = () => {
-      const usernameInput = document.getElementById('usernameConnectInput').value.trim();
-      const inputCode = document.getElementById('codeInput').value.trim();
-      if (!validateUsername(usernameInput)) {
-        statusElement.textContent = 'Invalid username: 1-16 alphanumeric characters required.';
-        return;
+      const inputCode = document.getElementById('codeInput').value;
+      if (inputCode && !isConnected) {
+        code = inputCode;
+        codeDisplayElement.textContent = `Using code: ${code}`;
+        statusElement.textContent = 'Connecting...';
+        console.log(`User connecting with code: ${code}`);
+        socket.send(JSON.stringify({ type: 'join', code }));
       }
-      if (!inputCode) {
-        statusElement.textContent = 'Please enter a valid code.';
-        return;
-      }
-      username = usernameInput;
-      code = inputCode;
-      codeDisplayElement.textContent = `Using code: ${code}`;
-      codeDisplayElement.classList.remove('hidden');
-      connectContainer.classList.add('hidden');
-      statusElement.textContent = 'Connecting...';
-      if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: 'join', code, username }));
-      } else {
-        statusElement.textContent = 'WebSocket not connected. Please refresh.';
-      }
-    };
-
-    document.getElementById('backButton').onclick = () => {
-      usernameContainer.classList.add('hidden');
-      initialContainer.classList.remove('hidden');
-      statusElement.textContent = 'Start a new chat or join an existing one';
-    };
-
-    document.getElementById('backButtonConnect').onclick = () => {
-      connectContainer.classList.add('hidden');
-      initialContainer.classList.remove('hidden');
-      statusElement.textContent = 'Start a new chat or join an existing one';
     };
 
     document.getElementById('sendButton').onclick = () => {
-      sendMessage(document.getElementById('messageInput').value);
+      const messageInput = document.getElementById('messageInput');
+      const message = messageInput.value;
+      sendMessage(message);
     };
 
-    document.getElementById('messageInput').addEventListener('keydown', event => {
+    document.getElementById('messageInput').addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
-        sendMessage(event.target.value);
+        const message = event.target.value;
+        sendMessage(message);
       }
     });
 
     document.getElementById('newSessionButton').onclick = () => {
-      cleanupAll();
-      username = null;
+      peerConnections.forEach((pc) => pc.close());
+      dataChannels.forEach((dc) => dc.close());
+      peerConnections.clear();
+      dataChannels.clear();
+      candidatesQueues.clear();
+      connectionTimeouts.forEach((timeout) => clearTimeout(timeout));
+      connectionTimeouts.clear();
+      retryCounts.clear();
+      isConnected = false;
+      isInitiator = false;
       maxClients = 2;
-      totalClients = 0;
+      totalClients = 1;
       code = generateCode();
-      clientId = '';
-      resetUI();
-      if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: 'join' }));
-      }
+      clientId = null;
+      codeDisplayElement.textContent = `Your code: ${code}`;
+      statusElement.textContent = 'Generating new code...';
+      console.log('New session started with code:', code);
+      document.getElementById('messages').innerHTML = '';
+      document.getElementById('messageInput').value = '';
+      document.getElementById('codeInput').value = '';
+      document.getElementById('connectContainer').classList.remove('hidden');
+      document.getElementById('chatContainer').classList.add('hidden');
+      document.getElementById('newSessionButton').classList.add('hidden');
+      maxClientsContainer.classList.add('hidden');
+      socket.send(JSON.stringify({ type: 'join', code }));
     };
-
-    document.getElementById('usernameInput').addEventListener('keydown', event => {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        document.getElementById('startChatButton').click();
-      }
-    });
-
-    document.getElementById('usernameConnectInput').addEventListener('keydown', event => {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        document.getElementById('codeInput').focus();
-      }
-    });
-
-    document.getElementById('codeInput').addEventListener('keydown', event => {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        document.getElementById('connectButton').click();
-      }
-    });
   </script>
 </body>
 </html>
