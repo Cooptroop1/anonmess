@@ -14,14 +14,14 @@
     <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800"></div>
     <div id="chatContainer" class="hidden">
       <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded bg-white"></div>
-      <input id="textInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Type a message...">
+      <input id="messageInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Type a message...">
       <button id="sendButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600">Send</button>
     </div>
     <div id="connectContainer">
       <input id="codeInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter code to connect">
       <button id="connectButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600">Connect</button>
     </div>
-    <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mt-4 hidden hover:bg-blue-600">New Session</button>
+    <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mt-4 hidden hover:bg-red-600">New Session</button>
   </div>
   <script>
     function generateCode() {
@@ -37,7 +37,7 @@
     let code = generateCode();
     let isInitiator = false;
     let isConnected = false;
-    let hasProcessedAnswer = false; // Flag to prevent duplicate answers
+    let hasProcessedAnswer = false;
     let peerConnection;
     let dataChannel;
     let connectionTimeout;
@@ -97,7 +97,7 @@
 
     function startPeerConnection() {
       console.log('Starting peer connection for code:', code);
-      hasProcessedAnswer = false; // Reset flag for new connection
+      hasProcessedAnswer = false;
       peerConnection = new RTCPeerConnection({
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
@@ -152,7 +152,7 @@
               console.log('ICE gathering timeout, sending offer for code:', code);
               socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code }));
             }
-          }, 5000); // 5-second ICE timeout
+          }, 5000);
         } else if (peerConnection.iceGatheringState === 'complete' && isInitiator) {
           clearTimeout(iceTimeout);
           console.log('ICE gathering complete, sending offer for code:', code);
@@ -199,7 +199,7 @@
             startPeerConnection();
           }
         }
-      }, 180000); // 3 minutes
+      }, 180000);
     }
 
     function handleOffer(offer, offerCode) {
@@ -258,7 +258,7 @@
               console.log('ICE gathering timeout, sending answer for code:', code);
               socket.send(JSON.stringify({ type: 'answer', answer: peerConnection.localDescription, code }));
             }
-          }, 5000); // 5-second ICE timeout
+          }, 5000);
         } else if (peerConnection.iceGatheringState === 'complete') {
           clearTimeout(iceTimeout);
           console.log('ICE gathering complete, sending answer for code:', code);
@@ -311,7 +311,7 @@
             handleOffer(offer, offerCode);
           }
         }
-      }, 180000); // 3 minutes
+      }, 180000);
     }
 
     function handleAnswer(answer) {
@@ -365,13 +365,17 @@
     document.getElementById('sendButton').onclick = () => {
       const messageInput = document.getElementById('messageInput');
       const message = messageInput.value;
-      if (message && isConnected) {
-        console.log('Sending message on data channel:', message);
-        dataChannel.send(message);
-        const messages = document.getElementById('messages');
-        messages.innerHTML += `<div class="text-blue-600">You: ${message}</div>`;
-        messages.scrollTop = messages.scrollHeight;
-        messageInput.value = '';
+      if (message && isConnected && dataChannel) {
+        try {
+          console.log('Sending message on data channel:', message);
+          dataChannel.send(message);
+          const messages = document.getElementById('messages');
+          messages.innerHTML += `<div class="text-blue-600">You: ${message}</div>`;
+          messages.scrollTop = messages.scrollHeight;
+          messageInput.value = '';
+        } catch (error) {
+          console.error('Error sending message:', error);
+        }
       }
     };
 
