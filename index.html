@@ -57,6 +57,8 @@
     const maxRetries = 2;
     let candidatesQueues = new Map();
     let processedMessageIds = new Set();
+    let userNumber = null;
+    let userNumbers = new Map(); // clientId -> userNumber
 
     const statusElement = document.getElementById('status');
     const codeDisplayElement = document.getElementById('codeDisplay');
@@ -106,7 +108,11 @@
           clientId = message.clientId;
           maxClients = message.maxClients;
           isInitiator = message.isInitiator;
-          console.log(`Initialized client ${clientId}, maxClients: ${maxClients}, isInitiator: ${isInitiator}`);
+          if (isInitiator) {
+            userNumber = 1;
+            userNumbers.set(clientId, 1);
+          }
+          console.log(`Initialized client ${clientId}, userNumber: ${userNumber}, maxClients: ${maxClients}, isInitiator: ${isInitiator}`);
           initializeMaxClientsUI();
           updateMaxClientsUI();
         }
@@ -128,15 +134,33 @@
         if (message.type === 'join-notify' && message.code === code) {
           totalClients = message.totalClients;
           console.log(`Join-notify received for code: ${code}, new client: ${message.clientId}, total: ${totalClients}, maxClients: ${maxClients}`);
+          if (isInitiator && message.clientId !== clientId) {
+            const newUserNumber = totalClients;
+            userNumbers.set(message.clientId, newUserNumber);
+            socket.send(JSON.stringify({ type: 'user-number', clientId: message.clientId, userNumber: newUserNumber, code }));
+            console.log(`Assigned User ${newUserNumber} to client ${message.clientId}`);
+          }
+          if (message.clientId === clientId && message.userNumber) {
+            userNumber = message.userNumber;
+            console.log(`Received own userNumber: User ${userNumber}`);
+          }
           updateMaxClientsUI();
           if (isInitiator && message.clientId !== clientId && !peerConnections.has(message.clientId)) {
             console.log(`Initiating peer connection with new client ${message.clientId}`);
             startPeerConnection(message.clientId, true);
           }
         }
+        if (message.type === 'user-number' && message.clientId === clientId) {
+          userNumber = message.userNumber;
+          console.log(`Assigned userNumber: User ${userNumber}`);
+        }
         if (message.type === 'client-disconnected') {
           totalClients = message.totalClients;
           console.log(`Client ${message.clientId} disconnected from code: ${code}, total: ${totalClients}`);
+          if (isInitiator) {
+            userNumbers.delete(message.clientId);
+            console.log(`Removed userNumber for client ${message.clientId}`);
+          }
           cleanupPeerConnection(message.clientId);
           updateMaxClientsUI();
         }
@@ -348,8 +372,8 @@
           console.error(`Invalid message format from ${targetId}:`, event.data);
           return;
         }
-        if (!data.messageId || !data.content) {
-          console.log(`Missing messageId or content from ${targetId}`);
+        if (!data.messageId || !data.content || !data.userNumber) {
+          console.log(`Missing messageId, content, or userNumber from ${targetId}`);
           return;
         }
         if (processedMessageIds.has(data.messageId)) {
@@ -357,12 +381,12 @@
           return;
         }
         processedMessageIds.add(data.messageId);
-        console.log(`Received message ${data.messageId} from ${targetId}:`, data.content);
+        console.log(`Received message ${data.messageId} from User ${data.userNumber} (${targetId}):`, data.content);
         const messages = document.getElementById('messages');
-        if (!isInitiator || dataChannels.get(targetId) === dataChannel) {
-          messages.innerHTML += `<div class="text-gray-600">Them: ${data.content}</div>`;
-          messages.scrollTop = messages.scrollHeight;
-        }
+        const isSelf = data.userNumber === userNumber;
+        const className = isSelf ? 'text-blue-600' : 'text-gray-600';
+        messages.innerHTML += `<div class="${className}">User ${data.userNumber}: ${data.content}</div>`;
+        messages.scrollTop = messages.scrollHeight;
         if (isInitiator) {
           dataChannels.forEach((dc, id) => {
             if (id !== targetId && dc.readyState === 'open' && dc !== dataChannel) {
@@ -479,8 +503,8 @@
       if (content && dataChannels.size > 0) {
         try {
           const messageId = generateMessageId();
-          const message = { messageId, content };
-          console.log(`Broadcasting message ${messageId}:`, content);
+          const message = { messageId, content, userNumber };
+          console.log(`Broadcasting message ${messageId} from User ${userNumber}:`, content);
           dataChannels.forEach((dataChannel, targetId) => {
             if (dataChannel.readyState === 'open') {
               dataChannel.send(JSON.stringify(message));
@@ -490,7 +514,7 @@
             }
           });
           const messages = document.getElementById('messages');
-          messages.innerHTML += `<div class="text-blue-600">You: ${content}</div>`;
+          messages.innerHTML += `<div class="text-blue-600">User ${userNumber}: ${content}</div>`;
           messages.scrollTop = messages.scrollHeight;
           document.getElementById('messageInput').value = '';
           processedMessageIds.add(messageId);
@@ -536,6 +560,8 @@
       connectionTimeouts.clear();
       retryCounts.clear();
       processedMessageIds.clear();
+      userNumbers.clear();
+      userNumber = null;
       isConnected = false;
       isInitiator = false;
       maxClients = 2;
