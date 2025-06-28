@@ -195,7 +195,7 @@
             totalClients = message.totalClients;
             console.log(`Client ${message.clientId} disconnected from code: ${code}, total: ${totalClients}`);
             usernames.delete(message.clientId);
-            console.log(`Removed username for client ${message.clientId}, usernames: ${[...usernames.entries()]}`);
+            console.log(`Removed username for client ${message.clientId}, usernames: ${[...usnames.entries()]}`);
             cleanupPeerConnection(message.clientId);
             updateMaxClientsUI();
           }
@@ -285,7 +285,8 @@
         cleanupPeerConnection(targetId);
       }
       const iceServers = [
-        { urls: ['turn:numb.viagenie.ca:3478'], username: 'guest', credential: 'somepassword' }
+        { urls: ['turn:turn.anyfirewall.com:443'], username: 'test', credential: 'test123' },
+        { urls: ['stun:stun.l.google.com:19302'] }
       ];
       console.log(`Using ICE servers: ${JSON.stringify(iceServers)}`);
       const peerConnection = new RTCPeerConnection({
@@ -318,6 +319,10 @@
 
       peerConnection.onsignalingstatechange = () => {
         console.log(`Signaling state for ${targetId}: ${peerConnection.signalingState}`);
+      };
+
+      peerConnection.oniceconnectionstatechange = () => {
+        console.log(`ICE connection state for ${targetId}: ${peerConnection.iceConnectionState}`);
       };
 
       let iceTimeout;
@@ -373,6 +378,7 @@
         peerConnection.createOffer().then(offer => {
           return peerConnection.setLocalDescription(offer);
         }).then(() => {
+          console.log(`Local description set for ${targetId}, signalingState: ${peerConnection.signalingState}`);
           iceTimeout = setTimeout(() => {
             if (peerConnection.iceGatheringState !== 'complete') {
               console.log(`ICE gathering timeout, sending offer to ${targetId}`);
@@ -465,7 +471,7 @@
     }
 
     function handleOffer(offer, targetId) {
-      console.log(`Handling offer from ${targetId} for code: ${code}`);
+      console.log(`Handling offer from ${targetId} for code: ${code}, offer: ${JSON.stringify(offer)}`);
       if (offer.type !== 'offer') {
         console.error(`Received invalid offer type from ${targetId}:`, offer.type);
         return;
@@ -481,7 +487,7 @@
       }).then(answer => {
         return peerConnection.setLocalDescription(answer);
       }).then(() => {
-        console.log(`Sending answer to ${targetId} for code: ${code}`);
+        console.log(`Sending answer to ${targetId} for code: ${code}, answer: ${JSON.stringify(peerConnection.localDescription)}`);
         socket.send(JSON.stringify({ type: 'answer', answer: peerConnection.localDescription, code, targetId }));
         const queue = candidatesQueues.get(targetId) || [];
         queue.forEach(candidate => {
@@ -490,6 +496,7 @@
         candidatesQueues.set(targetId, []);
       }).catch(error => {
         console.error(`Error handling offer from ${targetId}:`, error);
+        statusElement.textContent = 'Failed to process offer. Please try again.';
       });
     }
 
@@ -523,6 +530,7 @@
         candidatesQueues.set(targetId, []);
       }).catch(error => {
         console.error(`Error setting remote description for answer from ${targetId}:`, error);
+        statusElement.textContent = 'Failed to process answer. Please try again.';
       });
     }
 
