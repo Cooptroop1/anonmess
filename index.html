@@ -195,7 +195,7 @@
             totalClients = message.totalClients;
             console.log(`Client ${message.clientId} disconnected from code: ${code}, total: ${totalClients}`);
             usernames.delete(message.clientId);
-            console.log(`Removed username for client ${message.clientId}, usernames: ${[...usnames.entries()]}`);
+            console.log(`Removed username for client ${message.clientId}, usernames: ${[...usernames.entries()]}`);
             cleanupPeerConnection(message.clientId);
             updateMaxClientsUI();
           }
@@ -285,14 +285,19 @@
         cleanupPeerConnection(targetId);
       }
       const iceServers = [
-        { urls: ['turn:turn.anyfirewall.com:443'], username: 'test', credential: 'test123' },
+        {
+          urls: [
+            'turn:openrelay.metered.ca:80',
+            'turn:openrelay.metered.ca:443',
+            'turn:openrelay.metered.ca:443?transport=tcp'
+          ],
+          username: 'dc85ccffcaf7e92353f1bc13',
+          credential: 'HMLwQ4OAU9hlIgzh'
+        },
         { urls: ['stun:stun.l.google.com:19302'] }
       ];
       console.log(`Using ICE servers: ${JSON.stringify(iceServers)}`);
-      const peerConnection = new RTCPeerConnection({
-        iceServers: iceServers,
-        iceTransportPolicy: 'relay'
-      });
+      const peerConnection = new RTCPeerConnection({ iceServers });
       peerConnections.set(targetId, peerConnection);
       candidatesQueues.set(targetId, []);
 
