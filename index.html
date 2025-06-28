@@ -73,8 +73,7 @@
 
     async function fetchIceServers() {
       try {
-        const apiKey = '20409a1726332ccf335585493153f4e3eafb';
-        const response = await fetch(`https://anonmess.metered.live/api/v1/turn/credentials?apiKey=${apiKey}`);
+        const response = await fetch('https://signaling-server-zc6m.onrender.com/get-turn-credentials');
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -83,17 +82,17 @@
         return iceServers.concat([
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' },
-          { urls: 'stun:stun2.l.google.com:19302' }
-          // Optional: Add Twilio TURN server if you have credentials
-          // { urls: 'turn:global.turn.twilio.com:3478', username: 'your-twilio-username', credential: 'your-twilio-credential' }
+          { urls: 'stun:stun2.l.google.com:19302' },
+          { urls: 'turn:turn.anyfirewall.com:3478', username: 'webrtc', credential: 'webrtc' }
         ]);
       } catch (error) {
         console.error('Error fetching ICE servers:', error);
-        statusElement.textContent = 'Failed to fetch TURN credentials. Using fallback STUN.';
+        statusElement.textContent = 'Failed to fetch TURN credentials. Using fallback servers.';
         return [
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' },
-          { urls: 'stun:stun2.l.google.com:19302' }
+          { urls: 'stun:stun2.l.google.com:19302' },
+          { urls: 'turn:turn.anyfirewall.com:3478', username: 'webrtc', credential: 'webrtc' }
         ];
       }
     }
@@ -232,11 +231,11 @@
             updateMaxClientsUI();
           }
           if (message.type === 'offer' && message.clientId !== clientId) {
-            console.log(`Received offer from ${message.clientId} for code: ${code}, offer: ${JSON.stringify(message.offer)}`);
+            console.log(`Received offer from ${message.clientId} for code: ${code}, offer SDP: ${message.offer.sdp.substring(0, 100)}...`);
             handleOffer(message.offer, message.clientId);
           }
           if (message.type === 'answer' && message.clientId !== clientId) {
-            console.log(`Received answer from ${message.clientId} for code: ${code}, answer: ${JSON.stringify(message.answer)}`);
+            console.log(`Received answer from ${message.clientId} for code: ${code}, answer SDP: ${message.answer.sdp.substring(0, 100)}...`);
             handleAnswer(message.answer, message.clientId);
           }
           if (message.type === 'candidate' && message.clientId !== clientId) {
@@ -397,6 +396,7 @@
 
       if (isOfferer) {
         peerConnection.createOffer().then(offer => {
+          console.log(`Created offer for ${targetId}: ${offer.sdp.substring(0, 100)}...`);
           return peerConnection.setLocalDescription(offer);
         }).then(() => {
           console.log(`Local description set for ${targetId}, signalingState: ${peerConnection.signalingState}`);
@@ -492,7 +492,7 @@
     }
 
     function handleOffer(offer, targetId) {
-      console.log(`Handling offer from ${targetId} for code: ${code}, offer: ${JSON.stringify(offer)}`);
+      console.log(`Handling offer from ${targetId} for code: ${code}, offer SDP: ${offer.sdp.substring(0, 100)}...`);
       if (offer.type !== 'offer') {
         console.error(`Received invalid offer type from ${targetId}:`, offer.type);
         return;
@@ -506,9 +506,10 @@
         console.log(`Successfully set remote description for offer from ${targetId}`);
         return peerConnection.createAnswer();
       }).then(answer => {
+        console.log(`Created answer for ${targetId}: ${answer.sdp.substring(0, 100)}...`);
         return peerConnection.setLocalDescription(answer);
       }).then(() => {
-        console.log(`Sending answer to ${targetId} for code: ${code}, answer: ${JSON.stringify(peerConnection.localDescription)}`);
+        console.log(`Sending answer to ${targetId} for code: ${code}, answer SDP: ${peerConnection.localDescription.sdp.substring(0, 100)}...`);
         socket.send(JSON.stringify({ type: 'answer', answer: peerConnection.localDescription, code, targetId }));
         const queue = candidatesQueues.get(targetId) || [];
         queue.forEach(candidate => {
@@ -522,7 +523,7 @@
     }
 
     async function handleAnswer(answer, targetId) {
-      console.log(`Handling answer from ${targetId} for code: ${code}, answer: ${JSON.stringify(answer)}`);
+      console.log(`Handling answer from ${targetId} for code: ${code}, answer SDP: ${answer.sdp.substring(0, 100)}...`);
       const peerConnection = peerConnections.get(targetId);
       if (!peerConnection) {
         console.warn(`No peer connection for ${targetId}, ignoring answer`);
