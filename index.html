@@ -285,8 +285,8 @@
         cleanupPeerConnection(targetId);
       }
       const iceServers = [
-        { urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443'], username: 'openrelayproject', credential: 'openrelayproject' },
-        { urls: 'turn:global.turn.twilio.com:3478', username: 'guest', credential: 'somepassword' }
+        { urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443'], username: 'openrelay', credential: 'openrelay123' },
+        { urls: ['turn:relay.metered.ca:80', 'turn:relay.metered.ca:443'], username: 'relay', credential: 'relay456' }
       ];
       console.log(`Using ICE servers: ${JSON.stringify(iceServers)}`);
       const peerConnection = new RTCPeerConnection({
@@ -308,6 +308,8 @@
         if (event.candidate) {
           console.log(`Sending ICE candidate to ${targetId} for code: ${code}: ${JSON.stringify(event.candidate)}`);
           socket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate, code, targetId }));
+        } else {
+          console.log(`No more ICE candidates for ${targetId}`);
         }
       };
 
@@ -328,6 +330,7 @@
       peerConnection.onconnectionstatechange = () => {
         console.log(`Connection state for ${targetId}: ${peerConnection.connectionState}`);
         if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
+          console.error(`Connection failed with ${targetId}: ${peerConnection.connectionState}`);
           statusElement.textContent = 'Connection failed. Retrying...';
           cleanupPeerConnection(targetId);
           const retryCount = retryCounts.get(targetId) || 0;
