@@ -285,8 +285,7 @@
         cleanupPeerConnection(targetId);
       }
       const iceServers = [
-        { urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443'], username: 'openrelay', credential: 'openrelay123' },
-        { urls: ['turn:relay.metered.ca:80', 'turn:relay.metered.ca:443'], username: 'relay', credential: 'relay456' }
+        { urls: ['turn:numb.viagenie.ca:3478'], username: 'guest', credential: 'somepassword' }
       ];
       console.log(`Using ICE servers: ${JSON.stringify(iceServers)}`);
       const peerConnection = new RTCPeerConnection({
@@ -315,6 +314,10 @@
 
       peerConnection.onicecandidateerror = (event) => {
         console.error(`ICE candidate error for ${targetId}: address=${event.address}, port=${event.port}, errorCode=${event.errorCode}, errorText=${event.errorText}`);
+      };
+
+      peerConnection.onsignalingstatechange = () => {
+        console.log(`Signaling state for ${targetId}: ${peerConnection.signalingState}`);
       };
 
       let iceTimeout;
@@ -375,7 +378,7 @@
               console.log(`ICE gathering timeout, sending offer to ${targetId}`);
               socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code, targetId }));
             }
-          }, 5000);
+          }, 10000);
         }).catch(error => {
           console.error(`Error creating offer for ${targetId}:`, error);
         });
@@ -468,15 +471,17 @@
         return;
       }
       if (!peerConnections.has(targetId)) {
+        console.log(`No existing peer connection for ${targetId}, starting new one`);
         startPeerConnection(targetId, false);
       }
       const peerConnection = peerConnections.get(targetId);
       peerConnection.setRemoteDescription(new RTCSessionDescription(offer)).then(() => {
-        console.log(`Creating answer for ${targetId}`);
+        console.log(`Successfully set remote description for offer from ${targetId}`);
         return peerConnection.createAnswer();
       }).then(answer => {
         return peerConnection.setLocalDescription(answer);
       }).then(() => {
+        console.log(`Sending answer to ${targetId} for code: ${code}`);
         socket.send(JSON.stringify({ type: 'answer', answer: peerConnection.localDescription, code, targetId }));
         const queue = candidatesQueues.get(targetId) || [];
         queue.forEach(candidate => {
