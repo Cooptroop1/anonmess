@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -83,9 +82,8 @@
     let candidatesQueues = new Map();
     let processedMessageIds = new Set();
     let processedAnswers = new Set();
-    let username = null;
+    let username = localStorage.getItem('username') || null;
     let usernames = new Map();
-    let joinTimeout = null;
 
     const statusElement = document.getElementById('status');
     const codeDisplayElement = document.getElementById('codeDisplay');
@@ -96,6 +94,8 @@
     const newSessionButton = document.getElementById('newSessionButton');
     const maxClientsContainer = document.getElementById('maxClientsContainer');
     statusElement.textContent = 'Start a new chat or connect to an existing one';
+    document.getElementById('usernameInput').value = username || '';
+    document.getElementById('usernameConnectInput').value = username || '';
 
     const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
     console.log('WebSocket created');
@@ -112,11 +112,23 @@
     };
 
     socket.onclose = () => {
-      statusElement.textContent = 'WebSocket closed. Please refresh.';
-      console.error('WebSocket closed');
-      connectionTimeouts.forEach((timeout) => clearTimeout(timeout));
-      isInitiator = false;
-      maxClientsContainer.classList.add('hidden');
+      statusElement.textContent = 'Connection lost. Reconnecting...';
+      console.error('WebSocket closed, attempting reconnect');
+      setTimeout(() => {
+        const newSocket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
+        newSocket.onopen = () => {
+          console.log('Reconnected, rejoining with code: ' + code);
+          newSocket.send(JSON.stringify({ type: 'join', code, username }));
+          statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} users)` : 'Waiting for connection...';
+        };
+        newSocket.onerror = (error) => {
+          statusElement.textContent = 'Reconnect failed. Please refresh.';
+          console.error('Reconnect error:', error);
+        };
+        newSocket.onclose = socket.onclose;
+        newSocket.onmessage = socket.onmessage;
+        socket = newSocket;
+      }, 5000);
     };
 
     socket.onmessage = (event) => {
@@ -127,7 +139,14 @@
         if (message.type === 'error') {
           statusElement.textContent = message.message;
           console.error('Server error:', message.message);
-          if (message.message.includes('Chat is full') || message.message.includes('Username already taken')) {
+          if (message.message.includes('Chat is full')) {
+            statusElement.textContent = 'Chat is full. Ask the starter to increase Max Users or try a new session.';
+          } else if (message.message.includes('Username already taken')) {
+            statusElement.textContent = 'Username taken. Choose a different username.';
+          } else if (message.message.includes('Initiator offline')) {
+            statusElement.textContent = 'The chat starter is offline. Ask them to reopen the app and use the same code.';
+          }
+          if (message.message.includes('Chat is full') || message.message.includes('Username already taken') || message.message.includes('Initiator offline')) {
             socket.close();
             initialContainer.classList.remove('hidden');
             usernameContainer.classList.add('hidden');
@@ -136,7 +155,6 @@
             chatContainer.classList.add('hidden');
             newSessionButton.classList.add('hidden');
             maxClientsContainer.classList.add('hidden');
-            clearTimeout(joinTimeout);
           }
           return;
         }
@@ -165,7 +183,6 @@
             console.log(`Updated usernames: ${message.clientId} -> ${message.username}, usernames: ${[...usernames.entries()]}`);
           }
           updateMaxClientsUI();
-          clearTimeout(joinTimeout);
           if (isInitiator && message.clientId !== clientId && !peerConnections.has(message.clientId)) {
             console.log(`Initiating peer connection with client ${message.clientId}`);
             startPeerConnection(message.clientId, true);
@@ -236,6 +253,12 @@
 
     function updateMaxClientsUI() {
       statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} users)` : 'Waiting for connection...';
+      if (totalClients >= maxClients) {
+        statusElement.textContent += ' (Chat is full)';
+        statusElement.classList.add('text-red-600');
+      } else {
+        statusElement.classList.remove('text-red-600');
+      }
       const inputs = document.querySelectorAll('input[name="maxClients"]');
       inputs.forEach(input => {
         input.checked = parseInt(input.value) === maxClients;
@@ -617,6 +640,7 @@
         return;
       }
       username = usernameInput;
+      localStorage.setItem('username', username);
       codeDisplayElement.textContent = `Your code: ${code}`;
       codeDisplayElement.classList.remove('hidden');
       usernameContainer.classList.add('hidden');
@@ -625,11 +649,6 @@
       statusElement.textContent = 'Waiting for connection...';
       console.log(`Starting chat with username: ${username}, code: ${code}`);
       socket.send(JSON.stringify({ type: 'join', code, username }));
-      joinTimeout = setTimeout(() => {
-        console.log(`Join timeout: no other clients joined code ${code}`);
-        statusElement.textContent = 'No one joined. Try a new session.';
-        newSessionButton.click();
-      }, 10000);
     };
 
     document.getElementById('connectButton').onclick = () => {
@@ -644,6 +663,7 @@
         return;
       }
       username = usernameInput;
+      localStorage.setItem('username', username);
       code = inputCode;
       codeDisplayElement.textContent = `Using code: ${code}`;
       codeDisplayElement.classList.remove('hidden');
@@ -653,25 +673,18 @@
       statusElement.textContent = 'Connecting...';
       console.log(`Connecting with username: ${username}, code: ${code}`);
       socket.send(JSON.stringify({ type: 'join', code, username }));
-      joinTimeout = setTimeout(() => {
-        console.log(`Join timeout: failed to connect to code ${code}`);
-        statusElement.textContent = 'Connection failed. Try a new session.';
-        newSessionButton.click();
-      }, 10000);
     };
 
     document.getElementById('backButton').onclick = () => {
       usernameContainer.classList.add('hidden');
       initialContainer.classList.remove('hidden');
       statusElement.textContent = 'Start a new chat or connect to an existing one';
-      clearTimeout(joinTimeout);
     };
 
     document.getElementById('backButtonConnect').onclick = () => {
       connectContainer.classList.add('hidden');
       initialContainer.classList.remove('hidden');
       statusElement.textContent = 'Start a new chat or connect to an existing one';
-      clearTimeout(joinTimeout);
     };
 
     document.getElementById('sendButton').onclick = () => {
@@ -700,7 +713,6 @@
       processedMessageIds.clear();
       processedAnswers.clear();
       usernames.clear();
-      username = null;
       isConnected = false;
       isInitiator = false;
       maxClients = 2;
@@ -713,8 +725,8 @@
       console.log('New session started');
       document.getElementById('messages').innerHTML = '';
       document.getElementById('messageInput').value = '';
-      document.getElementById('usernameInput').value = '';
-      document.getElementById('usernameConnectInput').value = '';
+      document.getElementById('usernameInput').value = username || '';
+      document.getElementById('usernameConnectInput').value = username || '';
       document.getElementById('codeInput').value = '';
       initialContainer.classList.remove('hidden');
       usernameContainer.classList.add('hidden');
