@@ -326,7 +326,11 @@
       };
 
       peerConnection.onicecandidateerror = (event) => {
-        console.error(`ICE candidate error for ${targetId}: address=${event.address}, port=${event.port}, errorCode=${event.errorCode}, errorText=${event.errorText}, url=${event.url}, network=${navigator.connection?.type || 'unknown'}, timestamp=${new Date().toISOString()}`);
+        if (event.errorCode === 701 && peerConnection.connectionState === 'connected') {
+          console.debug(`Non-critical ICE error for ${targetId}: ${event.errorText}, url=${event.url}, timestamp=${new Date().toISOString()}`);
+        } else {
+          console.error(`ICE candidate error for ${targetId}: address=${event.address}, port=${event.port}, errorCode=${event.errorCode}, errorText=${event.errorText}, url=${event.url}, network=${navigator.connection?.type || 'unknown'}, timestamp=${new Date().toISOString()}`);
+        }
       };
 
       peerConnection.onicegatheringstatechange = () => {
