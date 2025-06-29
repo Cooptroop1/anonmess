@@ -114,13 +114,11 @@
     };
 
     socket.onerror = (error) => {
-      statusElement.textContent = 'WebSocket error. Please try again.';
       console.error('WebSocket error:', error);
       connectionTimeouts.forEach((timeout) => clearTimeout(timeout));
     };
 
     socket.onclose = () => {
-      statusElement.textContent = 'Connection lost. Reconnecting...';
       console.error('WebSocket closed, attempting reconnect');
       setTimeout(() => {
         const newSocket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
@@ -130,7 +128,6 @@
           statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} users)` : 'Waiting for connection...';
         };
         newSocket.onerror = (error) => {
-          statusElement.textContent = 'Reconnect failed. Please refresh.';
           console.error('Reconnect error:', error);
         };
         newSocket.onclose = socket.onclose;
@@ -349,7 +346,6 @@
         console.log(`Connection state for ${targetId}: ${peerConnection.connectionState}`);
         if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
           console.error(`Connection failed with ${targetId}: ${peerConnection.connectionState}`);
-          statusElement.textContent = 'Connection failed. Retrying...';
           cleanupPeerConnection(targetId);
           const retryCount = retryCounts.get(targetId) || 0;
           if (retryCount < maxRetries) {
@@ -357,7 +353,7 @@
             console.log(`Retrying connection attempt ${retryCount + 1} with ${targetId}`);
             startPeerConnection(targetId, isOfferer);
           } else {
-            statusElement.textContent = 'Connection failed after retries. Please try a new session.';
+            console.error('Connection failed after retries for client:', targetId);
           }
         } else if (peerConnection.connectionState === 'connected') {
           console.log(`WebRTC connection established with ${targetId} for code: ${code}`);
@@ -402,13 +398,12 @@
           });
         }).catch(error => {
           console.error(`Error creating offer for ${targetId}:`, error);
-          statusElement.textContent = 'Failed to create offer. Please try again.';
         });
       }
 
       const timeout = setTimeout(() => {
         if (!dataChannels.get(targetId) || dataChannels.get(targetId).readyState !== 'open') {
-          console.log(`Connection timed out with ${targetId} for code: ${code}`);
+          console.error(`Connection timed out with ${targetId} for code: ${code}`);
           cleanupPeerConnection(targetId);
           const retryCount = retryCounts.get(targetId) || 0;
           if (retryCount < maxRetries) {
@@ -416,7 +411,7 @@
             console.log(`Retrying connection attempt ${retryCount + 1} with ${targetId}`);
             startPeerConnection(targetId, isOfferer);
           } else {
-            statusElement.textContent = 'Connection failed after retries. Please try a new session.';
+            console.error('Connection failed after retries for client:', targetId);
           }
         }
       }, 10000);
@@ -515,7 +510,6 @@
         candidatesQueues.set(targetId, []);
       } catch (error) {
         console.error(`Error handling offer from ${targetId}:`, error);
-        statusElement.textContent = 'Failed to process offer. Please try again.';
       }
     }
 
@@ -553,7 +547,6 @@
         candidatesQueues.set(targetId, []);
       } catch (error) {
         console.error(`Error setting remote description for answer from ${targetId}:`, error);
-        statusElement.textContent = 'Failed to process answer. Please try again.';
       }
     }
 
