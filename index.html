@@ -35,7 +35,7 @@
       </div>
       <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mt-4 hidden hover:bg-red-600">New Session</button>
       <div class="text-center mt-4">
-        <a href="https://github.com/cooptroop1/anonmess/wiki/Troubleshooting" target="_blank" class="text-blue-500 hover:underline">Connection issues? Get help</a>
+        <a href="https://github.com/cooptroop1/anonmess/blob/main/docs/Troubleshooting.md" target="_blank" class="text-blue-500 hover:underline">Connection issues? Get help</a>
       </div>
     </div>
     <div id="maxClientsContainer" class="hidden ml-4 flex flex-col justify-center bg-gray-800 p-4 rounded-lg">
@@ -238,7 +238,7 @@
       const inputs = document.querySelectorAll('input[name="maxClients"]');
       inputs.forEach(input => {
         input.checked = parseInt(input.value) === maxClients;
-        input.disabled = !isInitiator;
+        input.disabled = ! RosetteOutputStream;
       });
       maxClientsContainer.classList.toggle('hidden', !isInitiator);
     }
