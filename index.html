@@ -82,7 +82,7 @@
     let candidatesQueues = new Map();
     let processedMessageIds = new Set();
     let processedAnswers = new Set();
-    let username = localStorage.getItem('username') || null;
+    let username = localStorage.getItem('username') || '';
     let usernames = new Map();
 
     const statusElement = document.getElementById('status');
@@ -94,8 +94,8 @@
     const newSessionButton = document.getElementById('newSessionButton');
     const maxClientsContainer = document.getElementById('maxClientsContainer');
     statusElement.textContent = 'Start a new chat or connect to an existing one';
-    document.getElementById('usernameInput').value = username || '';
-    document.getElementById('usernameConnectInput').value = username || '';
+    document.getElementById('usernameInput').value = username;
+    document.getElementById('usernameConnectInput').value = username;
 
     const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
     console.log('WebSocket created');
@@ -127,7 +127,10 @@
         };
         newSocket.onclose = socket.onclose;
         newSocket.onmessage = socket.onmessage;
-        socket = newSocket;
+        Object.defineProperty(window, 'socket', {
+          value: newSocket,
+          writable: true
+        });
       }, 5000);
     };
 
@@ -286,13 +289,9 @@
       }
       const peerConnection = new RTCPeerConnection({
         iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' },
-          { urls: 'stun:stun2.l.google.com:19302' },
-          { urls: 'stun:stun3.l.google.com:19302' },
-          { urls: 'stun:stun4.l.google.com:19302' },
-          { urls: 'stun:stun.stunprotocol.org:3478' },
-          { urls: 'stun:stun.nextcloud.com:443' },
+          { urls: 'stun:openrelay.metered.ca:80' },
+          { urls: 'stun:stun.relay.metered.ca:80' },
+          { urls: 'stun:stun.freeswitch.org:3478' },
           {
             urls: [
               'turn:global.relay.metered.ca:80',
@@ -424,7 +423,7 @@
       dataChannel.onmessage = null;
       dataChannel.onopen = null;
       dataChannel.onerror = null;
-      dataChannel.onclose = () => {};
+      dataChannel.onclose = null;
 
       dataChannel.onopen = () => {
         console.log(`Data channel opened with ${targetId} for code: ${code}, state: ${dataChannel.readyState}`);
@@ -563,7 +562,7 @@
       } else {
         console.log(`Queuing ICE candidate for ${targetId}`);
         const queue = candidatesQueues.get(targetId) || [];
-        queue.push(candidate);
+        queue.push({ type: 'candidate', candidate });
         candidatesQueues.set(targetId, queue);
       }
     }
@@ -689,15 +688,19 @@
 
     document.getElementById('sendButton').onclick = () => {
       const messageInput = document.getElementById('messageInput');
-      const message = messageInput.value;
-      sendMessage(message);
+      const message = messageInput.value.trim();
+      if (message) {
+        sendMessage(message);
+      }
     };
 
     document.getElementById('messageInput').addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
-        const message = event.target.value;
-        sendMessage(message);
+        const message = event.target.value.trim();
+        if (message) {
+          sendMessage(message);
+        }
       }
     });
 
@@ -725,8 +728,8 @@
       console.log('New session started');
       document.getElementById('messages').innerHTML = '';
       document.getElementById('messageInput').value = '';
-      document.getElementById('usernameInput').value = username || '';
-      document.getElementById('usernameConnectInput').value = username || '';
+      document.getElementById('usernameInput').value = username;
+      document.getElementById('usernameConnectInput').value = username;
       document.getElementById('codeInput').value = '';
       initialContainer.classList.remove('hidden');
       usernameContainer.classList.add('hidden');
