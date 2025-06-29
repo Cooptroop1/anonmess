@@ -13,6 +13,9 @@
       overflow-y: auto;
       scroll-behavior: auto;
     }
+    #sendButton {
+      line-height: 1;
+    }
   </style>
 </head>
 <body class="bg-black min-h-screen flex items-center justify-center">
@@ -33,8 +36,10 @@
       <div id="chatContainer" class="hidden">
         <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mb-4 hover:bg-red-600 hidden">New Session</button>
         <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded bg-white"></div>
-        <input id="messageInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Type a message...">
-        <button id="sendButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600">Send</button>
+        <div class="flex items-center gap-2">
+          <input id="messageInput" type="text" class="border border-gray-300 p-2 flex-grow rounded" placeholder="Type a message...">
+          <button id="sendButton" class="bg-blue-500 text-white w-10 h-10 flex items-center justify-center rounded-full hover:bg-blue-600">📤</button>
+        </div>
       </div>
       <div id="connectContainer" class="hidden">
         <input id="usernameConnectInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)">
@@ -200,7 +205,7 @@
           totalClients = message.totalClients;
           console.log(`Client ${message.clientId} disconnected from code: ${code}, total: ${totalClients}`);
           usernames.delete(message.clientId);
-          console.log(`Removed username for client ${message.clientId}, usernames: ${[...usernames.entries()]}`);
+          console.log(`Removed username for client ${message.clientId}, usernames: ${[...usenames.entries()]}`);
           cleanupPeerConnection(message.clientId);
           updateMaxClientsUI();
         }
