@@ -482,29 +482,42 @@
     }
 
     async function handleAnswer(answer, targetId) {
-      console.log(`Handling answer from ${targetId} for code: ${code}, answer SDP: ${answer.sdp.substring(0, 100)}...`);
-      const peerConnection = peerConnections.get(targetId);
-      if (!peerConnection) {
-        console.warn(`No peer connection for ${targetId}, ignoring answer`);
-        return;
+  console.log(`Handling answer from ${targetId} for code: ${code}, answer SDP: ${answer.sdp.substring(0, 100)}...`);
+  const peerConnection = peerConnections.get(targetId);
+  if (!peerConnection) {
+    console.warn(`No peer connection for ${targetId}, ignoring answer`);
+    return;
+  }
+  if (answer.type !== 'answer') {
+    console.error(`Received invalid answer type from ${targetId}:`, answer.type);
+    return;
+  }
+  const answerKey = `${targetId}-${answer.sdp.substring(0, 50)}`;
+  if (processedAnswers.has(answerKey)) {
+    console.log(`Duplicate answer from ${targetId} ignored`);
+    return;
+  }
+  if (peerConnection.signalingState !== 'have-local-offer') {
+    console.log(`Queuing answer from ${targetId}: signalingState=${peerConnection.signalingState}, expected have-local-offer`);
+    candidatesQueues.get(targetId).push({ type: 'answer', answer });
+    return;
+  }
+  processedAnswers.add(answerKey);
+  try {
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+    console.log(`Successfully set remote description for answer from ${targetId}`);
+    const queue = candidatesQueues.get(targetId) || [];
+    queue.forEach(item => {
+      if (item.type === 'candidate') {
+        handleCandidate(item.candidate, targetId);
       }
-      if (answer.type !== 'answer') {
-        console.error(`Received invalid answer type from ${targetId}:`, answer.type);
-        return;
-      }
-      const answerKey = `${targetId}-${answer.sdp.substring(0, 50)}`;
-      if (processedAnswers.has(answerKey)) {
-        console.log(`Duplicate answer from ${targetId} ignored`);
-        return;
-      }
-      if (peerConnection.signalingState !== 'have-local-offer') {
-        console.log(`Ignoring answer from ${targetId}: signalingState=${peerConnection.signalingState}, expected have-local-offer`);
-        return;
-      }
-      processedAnswers.add(answerKey);
-      try {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-        console.log(`Successfully set remote description for answer from ${targetId}`);
+    });
+    candidatesQueues.set(targetId, []);
+  } catch (error) {
+    console.error(`Error setting remote description for answer from ${targetId}:`, error);
+    statusElement.textContent = 'Failed to process answer. Please try again.';
+  }
+}
         const queue = candidatesQueues.get(targetId) || [];
         queue.forEach(candidate => {
           handleCandidate(candidate, targetId);
