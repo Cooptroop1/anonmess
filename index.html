@@ -31,6 +31,7 @@
       </div>
       <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800 hidden"></div>
       <div id="chatContainer" class="hidden">
+        <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mb-4 hover:bg-red-600 hidden">New Session</button>
         <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded bg-white"></div>
         <input id="messageInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Type a message...">
         <button id="sendButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600">Send</button>
@@ -41,7 +42,6 @@
         <button id="connectButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600">Connect</button>
         <button id="backButtonConnect" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600">Back</button>
       </div>
-      <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mt-4 hidden hover:bg-red-600">New Session</button>
       <div class="text-center mt-4">
         <a href="https://github.com/cooptroop1/anonmess/wiki/Troubleshooting" target="_blank" class="text-blue-500 hover:underline">Connection issues? Get help</a>
       </div>
@@ -125,7 +125,7 @@
         newSocket.onopen = () => {
           console.log('Reconnected, rejoining with code: ' + code);
           newSocket.send(JSON.stringify({ type: 'join', code, username }));
-          statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} users)` : 'Waiting for connection...';
+          statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...';
         };
         newSocket.onerror = (error) => {
           console.error('Reconnect error:', error);
@@ -168,7 +168,7 @@
         }
         if (message.type === 'init') {
           clientId = message.clientId;
-          maxClients = message.maxClients;
+          maxClients = message.clientId === clientId ? message.maxClients : maxClients;
           isInitiator = message.isInitiator;
           totalClients = 1;
           console.log(`Initialized client ${clientId}, username: ${username}, maxClients: ${maxClients}, isInitiator: ${isInitiator}`);
@@ -260,13 +260,7 @@
     }
 
     function updateMaxClientsUI() {
-      statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} users)` : 'Waiting for connection...';
-      if (totalClients >= maxClients) {
-        statusElement.textContent += ' (Chat is full)';
-        statusElement.classList.add('text-red-600');
-      } else {
-        statusElement.classList.remove('text-red-600');
-      }
+      statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...';
       const inputs = document.querySelectorAll('input[name="maxClients"]');
       inputs.forEach(input => {
         input.checked = parseInt(input.value) === maxClients;
