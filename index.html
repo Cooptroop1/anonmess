@@ -38,14 +38,14 @@
         <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded bg-white"></div>
         <div class="flex items-center gap-2">
           <input id="messageInput" type="text" class="border border-gray-300 p-2 flex-grow rounded" placeholder="Type a message...">
-          <button id="sendButton" class="bg-blue-500 text-white w-10 h-10 flex items-center justify-center rounded-full hover:bg-blue-600">📤</button>
+          <button id="sendButton" class="bg-blue-500 text-white w-10 h-10 flex items-center justify-center:Set up rate limiting for messages rounded-full hover:bg-blue-600">📤</button>
         </div>
       </div>
       <div id="connectContainer" class="hidden">
         <input id="usernameConnectInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)">
         <input id="codeInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter code (xxxx-xxxx-xxxx-xxxx)">
         <button id="connectButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600">Connect</button>
-        <button id="backButtonConnect" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600">Back</button>
+        <button id="backButtonConnect" class="bg-gray-500 text-white px"Initiate WebSocket connection-4 py-2 rounded w-full mt-2 hover:bg-gray-600">Back</button>
       </div>
       <div class="text-center mt-4">
         <a href="https://github.com/cooptroop1/anonmess/wiki/Troubleshooting" target="_blank" class="text-blue-500 hover:underline">Connection issues? Get help</a>
@@ -97,6 +97,7 @@
     let processedAnswers = new Set();
     let username = localStorage.getItem('username') || '';
     let usernames = new Map();
+    const messageRateLimits = new Map(); // Track messages per peer for rate limiting
 
     const statusElement = document.getElementById('status');
     const codeDisplayElement = document.getElementById('codeDisplay');
@@ -436,6 +437,21 @@
       };
 
       dataChannel.onmessage = (event) => {
+        // Rate limiting: Allow max 10 messages per second per peer
+        const now = performance.now();
+        const rateLimit = messageRateLimits.get(targetId) || { count: 0, startTime: now };
+        if (now - rateLimit.startTime >= 1000) {
+          // Reset count every second
+          rateLimit.count = 0;
+          rateLimit.startTime = now;
+        }
+        rateLimit.count += 1;
+        messageRateLimits.set(targetId, rateLimit);
+        if (rateLimit.count > 10) {
+          console.warn(`Rate limit exceeded for ${targetId}: ${rateLimit.count} messages in 1s, dropping message`);
+          return;
+        }
+
         let data;
         try {
           data = JSON.parse(event.data);
@@ -479,6 +495,7 @@
       dataChannel.onclose = () => {
         console.log(`Data channel closed with ${targetId}`);
         cleanupPeerConnection(targetId);
+        messageRateLimits.delete(targetId); // Clear rate limit data on disconnect
       };
     }
 
@@ -586,6 +603,7 @@
       clearTimeout(connectionTimeouts.get(targetId));
       connectionTimeouts.delete(targetId);
       retryCounts.delete(targetId);
+      messageRateLimits.delete(targetId); // Clear rate limit data
       isConnected = dataChannels.size > 0;
       updateMaxClientsUI();
     }
@@ -717,6 +735,7 @@
       processedMessageIds.clear();
       processedAnswers.clear();
       usernames.clear();
+      messageRateLimits.clear(); // Clear rate limit data
       isConnected = false;
       isInitiator = false;
       maxClients = 2;
