@@ -6,6 +6,14 @@
   <title>Anonymous Chat</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
   <link rel="icon" type="image/png" href="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f60e.png"/>
+  <style>
+    #messages {
+      display: flex;
+      flex-direction: column-reverse;
+      overflow-y: auto;
+      scroll-behavior: auto;
+    }
+  </style>
 </head>
 <body class="bg-black min-h-screen flex items-center justify-center">
   <div class="flex w-full max-w-lg">
@@ -456,7 +464,10 @@
         const messages = document.getElementById('messages');
         const isSelf = senderUsername === username;
         const className = isSelf ? 'text-blue-600' : 'text-gray-600';
-        messages.innerHTML += `<div class="${className}">${senderUsername}: ${data.content}</div>`;
+        const messageDiv = document.createElement('div');
+        messageDiv.className = className;
+        messageDiv.textContent = `${senderUsername}: ${data.content}`;
+        messages.prepend(messageDiv);
         messages.scrollTop = messages.scrollHeight;
         if (isInitiator) {
           dataChannels.forEach((dc, id) => {
@@ -603,7 +614,10 @@
             }
           });
           const messages = document.getElementById('messages');
-          messages.innerHTML += `<div class="text-blue-600">${username}: ${content}</div>`;
+          const messageDiv = document.createElement('div');
+          messageDiv.className = 'text-blue-600';
+          messageDiv.textContent = `${username}: ${content}`;
+          messages.prepend(messageDiv);
           messages.scrollTop = messages.scrollHeight;
           document.getElementById('messageInput').value = '';
           processedMessageIds.add(messageId);
