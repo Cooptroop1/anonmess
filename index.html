@@ -34,6 +34,9 @@
         <button id="backButtonConnect" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600">Back</button>
       </div>
       <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mt-4 hidden hover:bg-red-600">New Session</button>
+      <div class="text-center mt-4">
+        <a href="https://github.com/cooptroop1/anonmess/wiki/Troubleshooting" target="_blank" class="text-blue-500 hover:underline">Connection issues? Get help</a>
+      </div>
     </div>
     <div id="maxClientsContainer" class="hidden ml-4 flex flex-col justify-center bg-gray-800 p-4 rounded-lg">
       <span class="text-white mb-2 font-bold">Max Users:</span>
@@ -261,7 +264,6 @@
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' },
-          { urls: 'stun:stun2.l.google.com:19302' },
           { urls: 'stun:stun.stunprotocol.org:3478' },
           { urls: 'stun:stun.nextcloud.com:443' },
           {
@@ -273,6 +275,14 @@
             ],
             username: '8008f3d422fbe49ca4157b23',
             credential: 'E7rLb3LegFMDdjem'
+          },
+          {
+            urls: [
+              'turn:relay1.expressturn.com:3480',
+              'turn:relay1.expressturn.com:3480?transport=tcp'
+            ],
+            username: '000000002066560922',
+            credential: 'KbPraDRQJfdBPGf4zBA7GJp31qY='
           }
         ],
         iceTransportPolicy: 'all'
