@@ -7,14 +7,6 @@
   <title>Anonymous Chat</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
   <link rel="icon" type="image/png" href="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f60e.png"/>
-  <style>
-    #messages {
-      display: flex;
-      flex-direction: column-reverse;
-      overflow-y: auto;
-      scroll-behavior: auto;
-    }
-  </style>
 </head>
 <body class="bg-black min-h-screen flex items-center justify-center">
   <div class="flex w-full max-w-lg">
@@ -32,7 +24,6 @@
       </div>
       <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800 hidden"></div>
       <div id="chatContainer" class="hidden">
-        <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mb-4 hover:bg-red-600 hidden">New Session</button>
         <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded bg-white"></div>
         <input id="messageInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Type a message...">
         <button id="sendButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600">Send</button>
@@ -43,6 +34,7 @@
         <button id="connectButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600">Connect</button>
         <button id="backButtonConnect" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600">Back</button>
       </div>
+      <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mt-4 hidden hover:bg-red-600">New Session</button>
       <div class="text-center mt-4">
         <a href="https://github.com/cooptroop1/anonmess/wiki/Troubleshooting" target="_blank" class="text-blue-500 hover:underline">Connection issues? Get help</a>
       </div>
@@ -115,20 +107,23 @@
     };
 
     socket.onerror = (error) => {
+      statusElement.textContent = 'WebSocket error. Please try again.';
       console.error('WebSocket error:', error);
       connectionTimeouts.forEach((timeout) => clearTimeout(timeout));
     };
 
     socket.onclose = () => {
+      statusElement.textContent = 'Connection lost. Reconnecting...';
       console.error('WebSocket closed, attempting reconnect');
       setTimeout(() => {
         const newSocket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
         newSocket.onopen = () => {
           console.log('Reconnected, rejoining with code: ' + code);
           newSocket.send(JSON.stringify({ type: 'join', code, username }));
-          statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...';
+          statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} users)` : 'Waiting for connection...';
         };
         newSocket.onerror = (error) => {
+          statusElement.textContent = 'Reconnect failed. Please refresh.';
           console.error('Reconnect error:', error);
         };
         newSocket.onclose = socket.onclose;
@@ -169,7 +164,7 @@
         }
         if (message.type === 'init') {
           clientId = message.clientId;
-          maxClients = message.clientId === clientId ? message.maxClients : maxClients;
+          maxClients = message.maxClients;
           isInitiator = message.isInitiator;
           totalClients = 1;
           console.log(`Initialized client ${clientId}, username: ${username}, maxClients: ${maxClients}, isInitiator: ${isInitiator}`);
@@ -261,7 +256,13 @@
     }
 
     function updateMaxClientsUI() {
-      statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...';
+      statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} users)` : 'Waiting for connection...';
+      if (totalClients >= maxClients) {
+        statusElement.textContent += ' (Chat is full)';
+        statusElement.classList.add('text-red-600');
+      } else {
+        statusElement.classList.remove('text-red-600');
+      }
       const inputs = document.querySelectorAll('input[name="maxClients"]');
       inputs.forEach(input => {
         input.checked = parseInt(input.value) === maxClients;
@@ -326,11 +327,7 @@
       };
 
       peerConnection.onicecandidateerror = (event) => {
-        if (event.errorCode === 701 && peerConnection.connectionState === 'connected') {
-          console.debug(`Non-critical ICE error for ${targetId}: ${event.errorText}, url=${event.url}, timestamp=${new Date().toISOString()}`);
-        } else {
-          console.error(`ICE candidate error for ${targetId}: address=${event.address}, port=${event.port}, errorCode=${event.errorCode}, errorText=${event.errorText}, url=${event.url}, network=${navigator.connection?.type || 'unknown'}, timestamp=${new Date().toISOString()}`);
-        }
+        console.error(`ICE candidate error for ${targetId}: address=${event.address}, port=${event.port}, errorCode=${event.errorCode}, errorText=${event.errorText}, url=${event.url}, network=${navigator.connection?.type || 'unknown'}, timestamp=${new Date().toISOString()}`);
       };
 
       peerConnection.onicegatheringstatechange = () => {
@@ -341,6 +338,7 @@
         console.log(`Connection state for ${targetId}: ${peerConnection.connectionState}`);
         if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
           console.error(`Connection failed with ${targetId}: ${peerConnection.connectionState}`);
+          statusElement.textContent = 'Connection failed. Retrying...';
           cleanupPeerConnection(targetId);
           const retryCount = retryCounts.get(targetId) || 0;
           if (retryCount < maxRetries) {
@@ -348,7 +346,7 @@
             console.log(`Retrying connection attempt ${retryCount + 1} with ${targetId}`);
             startPeerConnection(targetId, isOfferer);
           } else {
-            console.error('Connection failed after retries for client:', targetId);
+            statusElement.textContent = 'Connection failed after retries. Please try a new session.';
           }
         } else if (peerConnection.connectionState === 'connected') {
           console.log(`WebRTC connection established with ${targetId} for code: ${code}`);
@@ -393,12 +391,13 @@
           });
         }).catch(error => {
           console.error(`Error creating offer for ${targetId}:`, error);
+          statusElement.textContent = 'Failed to create offer. Please try again.';
         });
       }
 
       const timeout = setTimeout(() => {
         if (!dataChannels.get(targetId) || dataChannels.get(targetId).readyState !== 'open') {
-          console.error(`Connection timed out with ${targetId} for code: ${code}`);
+          console.log(`Connection timed out with ${targetId} for code: ${code}`);
           cleanupPeerConnection(targetId);
           const retryCount = retryCounts.get(targetId) || 0;
           if (retryCount < maxRetries) {
@@ -406,7 +405,7 @@
             console.log(`Retrying connection attempt ${retryCount + 1} with ${targetId}`);
             startPeerConnection(targetId, isOfferer);
           } else {
-            console.error('Connection failed after retries for client:', targetId);
+            statusElement.textContent = 'Connection failed after retries. Please try a new session.';
           }
         }
       }, 10000);
@@ -454,10 +453,7 @@
         const messages = document.getElementById('messages');
         const isSelf = senderUsername === username;
         const className = isSelf ? 'text-blue-600' : 'text-gray-600';
-        const messageDiv = document.createElement('div');
-        messageDiv.className = className;
-        messageDiv.textContent = `${senderUsername}: ${data.content}`;
-        messages.prepend(messageDiv);
+        messages.innerHTML += `<div class="${className}">${senderUsername}: ${data.content}</div>`;
         messages.scrollTop = messages.scrollHeight;
         if (isInitiator) {
           dataChannels.forEach((dc, id) => {
@@ -505,6 +501,7 @@
         candidatesQueues.set(targetId, []);
       } catch (error) {
         console.error(`Error handling offer from ${targetId}:`, error);
+        statusElement.textContent = 'Failed to process offer. Please try again.';
       }
     }
 
@@ -542,6 +539,7 @@
         candidatesQueues.set(targetId, []);
       } catch (error) {
         console.error(`Error setting remote description for answer from ${targetId}:`, error);
+        statusElement.textContent = 'Failed to process answer. Please try again.';
       }
     }
 
@@ -602,10 +600,7 @@
             }
           });
           const messages = document.getElementById('messages');
-          const messageDiv = document.createElement('div');
-          messageDiv.className = 'text-blue-600';
-          messageDiv.textContent = `${username}: ${content}`;
-          messages.prepend(messageDiv);
+          messages.innerHTML += `<div class="text-blue-600">${username}: ${content}</div>`;
           messages.scrollTop = messages.scrollHeight;
           document.getElementById('messageInput').value = '';
           processedMessageIds.add(messageId);
