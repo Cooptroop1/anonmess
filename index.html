@@ -36,7 +36,7 @@
       </div>
       <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mt-4 hidden hover:bg-red-600">New Session</button>
       <div class="text-center mt-4">
-        <a href="https://github.com/cooptroop1/anonmess/wiki/Troubleshooting" target="_blank" class="text-blue-500 hover:underline">Connection issues? Get help</a>
+        <a href="https://github.com/cooptroop1/anonmess/blob/main/docs/Troubleshooting.md" target="_blank" class="text-blue-500 hover:underline">Connection issues? Get help</a>
       </div>
     </div>
     <div id="maxClientsContainer" class="hidden ml-4 flex flex-col justify-center bg-gray-800 p-4 rounded-lg">
@@ -83,8 +83,9 @@
     let candidatesQueues = new Map();
     let processedMessageIds = new Set();
     let processedAnswers = new Set();
-    let username = localStorage.getItem('username') || '';
+    let username = null;
     let usernames = new Map();
+    let joinTimeout = null;
 
     const statusElement = document.getElementById('status');
     const codeDisplayElement = document.getElementById('codeDisplay');
@@ -95,8 +96,6 @@
     const newSessionButton = document.getElementById('newSessionButton');
     const maxClientsContainer = document.getElementById('maxClientsContainer');
     statusElement.textContent = 'Start a new chat or connect to an existing one';
-    document.getElementById('usernameInput').value = username;
-    document.getElementById('usernameConnectInput').value = username;
 
     const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
     console.log('WebSocket created');
@@ -113,26 +112,11 @@
     };
 
     socket.onclose = () => {
-      statusElement.textContent = 'Connection lost. Reconnecting...';
-      console.error('WebSocket closed, attempting reconnect');
-      setTimeout(() => {
-        const newSocket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
-        newSocket.onopen = () => {
-          console.log('Reconnected, rejoining with code: ' + code);
-          newSocket.send(JSON.stringify({ type: 'join', code, username }));
-          statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} users)` : 'Waiting for connection...';
-        };
-        newSocket.onerror = (error) => {
-          statusElement.textContent = 'Reconnect failed. Please refresh.';
-          console.error('Reconnect error:', error);
-        };
-        newSocket.onclose = socket.onclose;
-        newSocket.onmessage = socket.onmessage;
-        Object.defineProperty(window, 'socket', {
-          value: newSocket,
-          writable: true
-        });
-      }, 5000);
+      statusElement.textContent = 'WebSocket closed. Please refresh.';
+      console.error('WebSocket closed');
+      connectionTimeouts.forEach((timeout) => clearTimeout(timeout));
+      isInitiator = false;
+      maxClientsContainer.classList.add('hidden');
     };
 
     socket.onmessage = (event) => {
@@ -143,14 +127,7 @@
         if (message.type === 'error') {
           statusElement.textContent = message.message;
           console.error('Server error:', message.message);
-          if (message.message.includes('Chat is full')) {
-            statusElement.textContent = 'Chat is full. Ask the starter to increase Max Users or try a new session.';
-          } else if (message.message.includes('Username already taken')) {
-            statusElement.textContent = 'Username taken. Choose a different username.';
-          } else if (message.message.includes('Initiator offline')) {
-            statusElement.textContent = 'The chat starter is offline. Ask them to reopen the app and use the same code.';
-          }
-          if (message.message.includes('Chat is full') || message.message.includes('Username already taken') || message.message.includes('Initiator offline')) {
+          if (message.message.includes('Chat is full') || message.message.includes('Username already taken')) {
             socket.close();
             initialContainer.classList.remove('hidden');
             usernameContainer.classList.add('hidden');
@@ -159,6 +136,7 @@
             chatContainer.classList.add('hidden');
             newSessionButton.classList.add('hidden');
             maxClientsContainer.classList.add('hidden');
+            clearTimeout(joinTimeout);
           }
           return;
         }
@@ -187,6 +165,7 @@
             console.log(`Updated usernames: ${message.clientId} -> ${message.username}, usernames: ${[...usernames.entries()]}`);
           }
           updateMaxClientsUI();
+          clearTimeout(joinTimeout);
           if (isInitiator && message.clientId !== clientId && !peerConnections.has(message.clientId)) {
             console.log(`Initiating peer connection with client ${message.clientId}`);
             startPeerConnection(message.clientId, true);
@@ -257,16 +236,10 @@
 
     function updateMaxClientsUI() {
       statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} users)` : 'Waiting for connection...';
-      if (totalClients >= maxClients) {
-        statusElement.textContent += ' (Chat is full)';
-        statusElement.classList.add('text-red-600');
-      } else {
-        statusElement.classList.remove('text-red-600');
-      }
       const inputs = document.querySelectorAll('input[name="maxClients"]');
       inputs.forEach(input => {
         input.checked = parseInt(input.value) === maxClients;
-        input.disabled = !isInitiator;
+        input.disabled = ! RosetteOutputStream;
       });
       maxClientsContainer.classList.toggle('hidden', !isInitiator);
     }
@@ -290,16 +263,28 @@
       }
       const peerConnection = new RTCPeerConnection({
         iceServers: [
-          { urls: 'stun:openrelay.metered.ca:80' },
-          { urls: 'stun:stun.relay.metered.ca:80' },
-          { urls: 'stun:stun.freeswitch.org:3478' },
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' },
+          { urls: 'stun:stun3.l.google.com:19302' },
+          { urls: 'stun:stun4.l.google.com:19302' },
+          { urls: 'stun:stun.stunprotocol.org:3478' },
+          { urls: 'stun:stun.nextcloud.com:443' },
           {
-            urls: 'turn:global.relay.metered.ca:443?transport=tcp',
+            urls: [
+              'turn:global.relay.metered.ca:80',
+              'turn:global.relay.metered.ca:443',
+              'turn:global.relay.metered.ca:80?transport=tcp',
+              'turns:global.relay.metered.ca:443?transport=tcp'
+            ],
             username: '8008f3d422fbe49ca4157b23',
             credential: 'E7rLb3LegFMDdjem'
           },
           {
-            urls: 'turn:relay1.expressturn.com:3478?transport=tcp',
+            urls: [
+              'turn:relay1.expressturn.com:3480?transport=udp',
+              'turn:relay1.expressturn.com:3480?transport=tcp'
+            ],
             username: '000000002066560922',
             credential: 'KbPraDRQJfdBPGf4zBA7GJp31qY='
           }
@@ -327,7 +312,7 @@
       };
 
       peerConnection.onicecandidateerror = (event) => {
-        console.error(`ICE candidate error for ${targetId}: address=${event.address}, port=${event.port}, errorCode=${event.errorCode}, errorText=${event.errorText}, url=${event.url}, network=${navigator.connection?.type || 'unknown'}, timestamp=${new Date().toISOString()}`);
+        console.error(`ICE candidate error for ${targetId}: address=${event.address}, port=${event.port}, errorCode=${event.errorCode}, errorText=${event.errorText}, url=${event.url}, network=${navigator.connection?.type || 'unknown'}`);
       };
 
       peerConnection.onicegatheringstatechange = () => {
@@ -416,7 +401,7 @@
       dataChannel.onmessage = null;
       dataChannel.onopen = null;
       dataChannel.onerror = null;
-      dataChannel.onclose = null;
+      dataChannel.onclose = () => {};
 
       dataChannel.onopen = () => {
         console.log(`Data channel opened with ${targetId} for code: ${code}, state: ${dataChannel.readyState}`);
@@ -555,7 +540,7 @@
       } else {
         console.log(`Queuing ICE candidate for ${targetId}`);
         const queue = candidatesQueues.get(targetId) || [];
-        queue.push({ type: 'candidate', candidate });
+        queue.push(candidate);
         candidatesQueues.set(targetId, queue);
       }
     }
@@ -632,7 +617,6 @@
         return;
       }
       username = usernameInput;
-      localStorage.setItem('username', username);
       codeDisplayElement.textContent = `Your code: ${code}`;
       codeDisplayElement.classList.remove('hidden');
       usernameContainer.classList.add('hidden');
@@ -641,6 +625,11 @@
       statusElement.textContent = 'Waiting for connection...';
       console.log(`Starting chat with username: ${username}, code: ${code}`);
       socket.send(JSON.stringify({ type: 'join', code, username }));
+      joinTimeout = setTimeout(() => {
+        console.log(`Join timeout: no other clients joined code ${code}`);
+        statusElement.textContent = 'No one joined. Try a new session.';
+        newSessionButton.click();
+      }, 10000);
     };
 
     document.getElementById('connectButton').onclick = () => {
@@ -655,7 +644,6 @@
         return;
       }
       username = usernameInput;
-      localStorage.setItem('username', username);
       code = inputCode;
       codeDisplayElement.textContent = `Using code: ${code}`;
       codeDisplayElement.classList.remove('hidden');
@@ -665,35 +653,38 @@
       statusElement.textContent = 'Connecting...';
       console.log(`Connecting with username: ${username}, code: ${code}`);
       socket.send(JSON.stringify({ type: 'join', code, username }));
+      joinTimeout = setTimeout(() => {
+        console.log(`Join timeout: failed to connect to code ${code}`);
+        statusElement.textContent = 'Connection failed. Try a new session.';
+        newSessionButton.click();
+      }, 10000);
     };
 
     document.getElementById('backButton').onclick = () => {
       usernameContainer.classList.add('hidden');
       initialContainer.classList.remove('hidden');
       statusElement.textContent = 'Start a new chat or connect to an existing one';
+      clearTimeout(joinTimeout);
     };
 
     document.getElementById('backButtonConnect').onclick = () => {
       connectContainer.classList.add('hidden');
       initialContainer.classList.remove('hidden');
       statusElement.textContent = 'Start a new chat or connect to an existing one';
+      clearTimeout(joinTimeout);
     };
 
     document.getElementById('sendButton').onclick = () => {
       const messageInput = document.getElementById('messageInput');
-      const message = messageInput.value.trim();
-      if (message) {
-        sendMessage(message);
-      }
+      const message = messageInput.value;
+      sendMessage(message);
     };
 
     document.getElementById('messageInput').addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
-        const message = event.target.value.trim();
-        if (message) {
-          sendMessage(message);
-        }
+        const message = event.target.value;
+        sendMessage(message);
       }
     });
 
@@ -709,6 +700,7 @@
       processedMessageIds.clear();
       processedAnswers.clear();
       usernames.clear();
+      username = null;
       isConnected = false;
       isInitiator = false;
       maxClients = 2;
@@ -721,8 +713,8 @@
       console.log('New session started');
       document.getElementById('messages').innerHTML = '';
       document.getElementById('messageInput').value = '';
-      document.getElementById('usernameInput').value = username;
-      document.getElementById('usernameConnectInput').value = username;
+      document.getElementById('usernameInput').value = '';
+      document.getElementById('usernameConnectInput').value = '';
       document.getElementById('codeInput').value = '';
       initialContainer.classList.remove('hidden');
       usernameContainer.classList.add('hidden');
