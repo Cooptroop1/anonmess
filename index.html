@@ -91,7 +91,7 @@
     let dataChannels = new Map();
     let connectionTimeouts = new Map();
     let retryCounts = new Map();
-    const maxRetries = 3; // Increased retries for ICE failures
+    const maxRetries = 3;
     let candidatesQueues = new Map();
     let processedMessageIds = new Set();
     let processedAnswers = new Set();
@@ -139,6 +139,7 @@
     function onSocketClose() {
       console.error('WebSocket closed, attempting reconnect in 5s');
       statusElement.textContent = 'Disconnected. Reconnecting...';
+      sendStats('close');
       setTimeout(reconnectWebSocket, 5000);
     }
 
@@ -171,7 +172,7 @@
           usernames.set(clientId, username);
           initializeMaxClientsUI();
           updateMaxClientsUI();
-          sendStats();
+          sendStats('code');
         }
         if (message.type === 'join') {
           totalClients = message.totalClients || totalClients;
@@ -181,7 +182,7 @@
           if (isInitiator && message.clientId !== clientId && !peerConnections.has(message.clientId)) {
             startPeerConnection(message.clientId, true);
           }
-          sendStats();
+          sendStats('join');
         }
         if (message.type === 'leave') {
           totalClients = message.totalClients || totalClients;
@@ -189,7 +190,11 @@
           usernames.delete(message.clientId);
           cleanupPeerConnection(message.clientId);
           updateMaxClientsUI();
-          sendStats();
+          sendStats('leave');
+        }
+        if (message.type === 'set-max-clients') {
+          maxClients = message.maxClients;
+          updateMaxClientsUI();
         }
         if (message.type === 'offer') {
           handleOffer(message.offer, message.clientId);
@@ -210,7 +215,7 @@
     socket.onclose = onSocketClose;
     socket.onmessage = onSocketMessage;
 
-    function sendStats() {
+    function sendStats(eventType = '') {
       if (socket.readyState === WebSocket.OPEN) {
         const stats = {
           type: 'stats',
@@ -220,14 +225,13 @@
           connections: Array.from(dataChannels.entries()).map(([id, dc]) => ({
             targetId: id,
             activeDataChannels: dc.readyState === 'open' ? 1 : 0
-          }))
+          })),
+          event: eventType
         };
         console.log('Sending stats:', stats);
         socket.send(JSON.stringify(stats));
       }
     }
-
-    setInterval(sendStats, 30000);
 
     function resetToInitial() {
       socket.send(JSON.stringify({ type: 'leave', code, clientId }));
@@ -272,7 +276,7 @@
         for (let n = 2; n <= 10; n++) {
           const label = document.createElement('label');
           label.className = 'text-white flex items-center';
-          const input = document.createElement撒('input');
+          const input = document.createElement('input');
           input.type = 'radio';
           input.name = 'maxClients';
           input.value = n;
@@ -380,7 +384,7 @@
           retryCounts.delete(targetId);
           clearTimeout(connectionTimeouts.get(targetId));
           updateMaxClientsUI();
-          sendStats();
+          sendStats('connect');
         }
       };
 
@@ -430,7 +434,7 @@
         clearTimeout(connectionTimeouts.get(targetId));
         retryCounts.delete(targetId);
         updateMaxClientsUI();
-        sendStats();
+        sendStats('data-open');
       };
 
       dataChannel.onmessage = (event) => {
@@ -489,7 +493,7 @@
         console.log(`Data channel closed with ${targetId}`);
         cleanupPeerConnection(targetId);
         messageRateLimits.delete(targetId);
-        sendStats();
+        sendStats('data-close');
       };
     }
 
@@ -577,7 +581,7 @@
       messageRateLimits.delete(targetId);
       isConnected = dataChannels.size > 0;
       updateMaxClientsUI();
-      sendStats();
+      sendStats('cleanup');
     }
 
     function sendMessage(content) {
