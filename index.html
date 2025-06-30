@@ -91,7 +91,7 @@
     let dataChannels = new Map();
     let connectionTimeouts = new Map();
     let retryCounts = new Map();
-    const maxRetries = 2;
+    const maxRetries = 3; // Increased retries for ICE failures
     let candidatesQueues = new Map();
     let processedMessageIds = new Set();
     let processedAnswers = new Set();
@@ -127,7 +127,7 @@
       console.log('WebSocket opened');
       statusElement.textContent = 'Start a new chat or connect to an existing one';
       socket.send(JSON.stringify({ type: 'connect', clientId }));
-      sendStats(); // Send initial stats
+      sendStats();
     }
 
     function onSocketError(error) {
@@ -174,7 +174,7 @@
           sendStats();
         }
         if (message.type === 'join') {
-          totalClients = message.totalClients;
+          totalClients = message.totalClients || totalClients;
           usernames.set(message.clientId, message.username);
           console.log(`Join: ${message.clientId} (${message.username}), total: ${totalClients}`);
           updateMaxClientsUI();
@@ -184,7 +184,7 @@
           sendStats();
         }
         if (message.type === 'leave') {
-          totalClients = message.totalClients;
+          totalClients = message.totalClients || totalClients;
           console.log(`Leave: ${message.clientId}, total: ${totalClients}`);
           usernames.delete(message.clientId);
           cleanupPeerConnection(message.clientId);
@@ -227,9 +227,10 @@
       }
     }
 
-    setInterval(sendStats, 30000); // Send stats every 30s
+    setInterval(sendStats, 30000);
 
     function resetToInitial() {
+      socket.send(JSON.stringify({ type: 'leave', code, clientId }));
       peerConnections.forEach((pc) => pc.close());
       dataChannels.forEach((dc) => dc.close());
       peerConnections.clear();
@@ -271,7 +272,7 @@
         for (let n = 2; n <= 10; n++) {
           const label = document.createElement('label');
           label.className = 'text-white flex items-center';
-          const input = document.createElement('input');
+          const input = document.createElement撒('input');
           input.type = 'radio';
           input.name = 'maxClients';
           input.value = n;
@@ -320,15 +321,11 @@
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' },
           {
-            urls: 'turn:global.relay.metered.ca:443?transport=tcp',
-            username: '8008f3d422fbe49ca4157b23',
-            credential: 'E7rLb3LegFMDdjem'
-          },
-          {
-            urls: 'turn:relay1.expressturn.com:3478?transport=tcp',
-            username: '000000002066560922',
-            credential: 'KbPraDRQJfdBPGf4zBA7GJp31qY='
+            urls: ['turn:turn.anyfirewall.com:443?transport=tcp', 'turn:turn.anyfirewall.com:3478?transport=udp'],
+            username: 'webrtc',
+            credential: 'webrtc'
           }
         ],
         iceTransportPolicy: 'all'
@@ -354,6 +351,14 @@
           console.debug(`Non-critical ICE error for ${targetId}: ${event.errorText}`);
         } else {
           console.error(`ICE candidate error for ${targetId}: ${event.errorText}, code=${event.errorCode}`);
+          if (event.errorCode === 701) {
+            const retryCount = retryCounts.get(targetId) || 0;
+            if (retryCount < maxRetries) {
+              retryCounts.set(targetId, retryCount + 1);
+              console.log(`Retrying connection with ${targetId}, attempt ${retryCount + 1}`);
+              startPeerConnection(targetId, isOfferer);
+            }
+          }
         }
       };
 
