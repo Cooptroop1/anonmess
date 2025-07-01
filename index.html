@@ -22,6 +22,11 @@
       user-select: text; /* Allows copying the code text */
     }
 
+    body {
+      min-height: 100vh;
+      padding-top: 150px; /* Increased top padding to create more space above white box */
+    }
+
     #messages {
       display: flex;
       flex-direction: column-reverse;
@@ -67,6 +72,9 @@
         width: 128px;
         height: 128px;
         z-index: 100; /* Ensure it stays above but scrolls with page */
+      }
+      body {
+        padding-top: 180px; /* Increased top padding for mobile to give more space */
       }
     }
     .message-bubble {
