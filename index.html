@@ -17,7 +17,7 @@
     .message-bubble {
       max-width: 70%;
       margin: 0.5rem 1rem;
-      padding: 0.25rem 1rem; /* Reduced top/bottom padding from 0.5rem to 0.25rem */
+      padding: 0.25rem 1rem;
       border-radius: 1rem;
       word-wrap: break-word;
     }
@@ -35,6 +35,14 @@
     }
     #sendButton {
       line-height: 1;
+    }
+    #messageInput {
+      resize: none;
+      overflow-y: auto;
+      min-height: 2.5rem; /* Matches single-line input height */
+      max-height: 7.5rem; /* 5 lines at ~1.5rem per line */
+      line-height: 1.5rem;
+      width: 100%;
     }
   </style>
 </head>
@@ -56,8 +64,8 @@
       <div id="chatContainer" class="hidden">
         <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mb-4 hover:bg-red-600 hidden">New Session</button>
         <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded"></div>
-        <div class="flex items-center gap-2">
-          <input id="messageInput" type="text" class="border border-gray-300 p-2 flex-grow rounded" placeholder="Type a message...">
+        <div class="flex items-start gap-2">
+          <textarea id="messageInput" class="border border-gray-300 p-2 flex-grow rounded" placeholder="Type a message..." rows="1"></textarea>
           <button id="sendButton" class="bg-blue-500 text-white w-10 h-10 flex items-center justify-center rounded-full hover:bg-blue-600">📤</button>
         </div>
       </div>
@@ -682,7 +690,7 @@
     };
 
     document.getElementById('messageInput').addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') {
+      if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault();
         const message = event.target.value.trim();
         if (message) {
