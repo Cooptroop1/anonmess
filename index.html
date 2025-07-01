@@ -12,21 +12,21 @@
       flex-direction: column-reverse;
       overflow-y: auto;
       scroll-behavior: auto;
-      z-index: 0; /* Bottom layer */
-      margin-bottom: 0.5rem; /* Gap below chat box */
+      z-index: 0;
+      margin-bottom: 0.5rem;
       border-radius: 0.5rem;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      position: relative; /* For logo positioning */
-      height: 256px; /* Explicit height */
-      background-color: #fce7f3; /* Default pink background */
-      background-image: none; /* Default no image */
-      background-size: 100% 100%; /* Stretch to fit box width and height */
-      background-position: center; /* Center the image */
-      background-repeat: no-repeat; /* Prevent tiling */
+      position: relative;
+      height: 256px;
+      background-color: #fce7f3;
+      background-image: none;
+      background-size: 100% 100%;
+      background-position: center;
+      background-repeat: no-repeat;
     }
     #messages.waiting {
-      background-color: transparent; /* Remove pink during waiting */
-      background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/logo.JPG?sanitize=true'); /* Logo as background */
+      background-color: transparent;
+      background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/logo.JPG?sanitize=true');
     }
     .corner-logo {
       position: fixed;
@@ -38,11 +38,11 @@
       background-size: contain;
       background-repeat: no-repeat;
       background-position: center;
-      z-index: 100; /* Above other content */
+      z-index: 100;
       transition: background-image 0.5s ease;
     }
     .corner-logo.wink {
-      background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/blob/main/corner%20logoWink.png?raw=true');
+      background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/corner%20logoWink.png?sanitize=true');
     }
     @media (max-width: 640px) {
       .corner-logo {
@@ -62,26 +62,26 @@
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
     .message-bubble.self {
-      background-color: #3b82f6; /* Blue for self */
+      background-color: #3b82f6;
       color: white;
       margin-left: auto;
       border-bottom-right-radius: 0.25rem;
     }
     .message-bubble.other {
-      background-color: #e5e7eb; /* Gray for others */
+      background-color: #e5e7eb;
       color: #1f2937;
       margin-right: auto;
       border-bottom-left-radius: 0.25rem;
     }
     #chatContainer.hidden {
-      display: none; /* Ensure hidden on start screen */
+      display: none;
       visibility: hidden;
     }
     #chatContainer {
       display: flex;
       flex-direction: column;
       gap: 0.5rem;
-      position: relative; /* For absolute positioning of input */
+      position: relative;
     }
     .input-container {
       display: flex;
@@ -89,30 +89,30 @@
       gap: 0.5rem;
       padding: 0 1rem;
       position: absolute;
-      bottom: -3rem; /* Position below chat box with gap */
+      bottom: -3rem;
       width: 100%;
       box-sizing: border-box;
-      z-index: 10; /* Top layer over messages */
+      z-index: 10;
     }
     .input-container.hidden {
-      display: none; /* Hide until connection */
+      display: none;
     }
     #messageInput {
       resize: none;
       overflow-y: auto;
-      height: 2.5rem; /* Single-line height */
-      max-height: 12.5rem; /* 5 lines at ~2.5rem per line */
+      height: 2.5rem;
+      max-height: 12.5rem;
       line-height: 1.5rem;
       width: 100%;
-      max-width: 100%; /* Match chat box width */
-      background-color: #3b82f6; /* Blue like self bubble */
+      max-width: 100%;
+      background-color: #3b82f6;
       color: white;
       border-radius: 1rem;
       padding: 0.5rem 1rem;
       border: none;
       box-sizing: border-box;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      transition: all 0.2s ease; /* Smooth height transition */
+      transition: all 0.2s ease;
     }
     @media (max-width: 640px) {
       #messageInput {
@@ -123,16 +123,16 @@
       }
     }
     #messageInput::-webkit-scrollbar {
-      display: none; /* Hide scrollbar */
+      display: none;
     }
     #messageInput {
-      -ms-overflow-style: none;  /* IE and Edge */
-      scrollbar-width: none;  /* Firefox */
+      -ms-overflow-style: none;
+      scrollbar-width: none;
     }
     #sendButton {
       width: 2.5rem;
-      height: 2.5rem; /* Match textarea height */
-      background-color: #2563eb; /* Slightly darker blue */
+      height: 2.5rem;
+      background-color: #2563eb;
       color: white;
       border-radius: 50%;
       display: flex;
@@ -148,7 +148,7 @@
   </style>
 </head>
 <body class="bg-black min-h-screen flex items-center justify-center">
-  <div class="corner-logo" id="cornerLogo"></div> <!-- Corner logo updated with ID -->
+  <div class="corner-logo" id="cornerLogo"></div>
   <div class="flex w-full max-w-lg">
     <div class="bg-white p-8 rounded-lg shadow-lg flex-grow">
       <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">Anonomoose Chat</h1>
@@ -165,9 +165,7 @@
       <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800 hidden"></div>
       <div id="chatContainer" class="hidden">
         <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mb-4 hover:bg-red-600 transition-colors hidden">New Session</button>
-        <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded">
-          <!-- Logo is now background, no need for #waitingLogo content -->
-        </div>
+        <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded"></div>
         <div class="input-container hidden">
           <textarea id="messageInput" placeholder="Type a message..." cols="30" maxlength="1000"></textarea>
           <button id="sendButton">📤</button>
@@ -246,17 +244,18 @@
     document.getElementById('usernameInput').value = username;
     document.getElementById('usernameConnectInput').value = username;
 
-    // Logo wink animation
-    let winkTimeout;
-    function triggerWink() {
-      if (winkTimeout) clearTimeout(winkTimeout); // Clear any existing timeout
+    // Logo cycle animation
+    let cycleTimeout;
+    function triggerCycle() {
+      if (cycleTimeout) clearTimeout(cycleTimeout);
       cornerLogo.classList.add('wink');
-      winkTimeout = setTimeout(() => {
+      cycleTimeout = setTimeout(() => {
         cornerLogo.classList.remove('wink');
-      }, 500); // Half-second wink
+      }, 500); // 0.5 seconds for wink
+      setTimeout(() => triggerCycle(), 60000); // Repeat every 60 seconds
     }
-    setInterval(triggerWink, 60000); // Every minute
-    triggerWink(); // Initial trigger
+    setInterval(triggerCycle, 60000); // Repeat every 60 seconds
+    triggerCycle(); // Initial trigger
 
     const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
     console.log('WebSocket created');
@@ -571,7 +570,7 @@
         chatContainer.classList.remove('hidden');
         newSessionButton.classList.remove('hidden');
         inputContainer.classList.remove('hidden');
-        messages.classList.remove('waiting'); /* Remove logo background on connection */
+        messages.classList.remove('waiting');
         clearTimeout(connectionTimeouts.get(targetId));
         retryCounts.delete(targetId);
         updateMaxClientsUI();
@@ -795,7 +794,7 @@
       connectContainer.classList.add('hidden');
       initialContainer.classList.add('hidden');
       chatContainer.classList.remove('hidden');
-      messages.classList.add('waiting'); /* Show logo background */
+      messages.classList.add('waiting');
       statusElement.textContent = 'Waiting for connection...';
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
@@ -822,7 +821,7 @@
       usernameContainer.classList.add('hidden');
       connectContainer.classList.add('hidden');
       chatContainer.classList.remove('hidden');
-      messages.classList.add('waiting'); /* Show logo background */
+      messages.classList.add('waiting');
       statusElement.textContent = 'Waiting for connection...';
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
@@ -853,12 +852,12 @@
 
     const messageInput = document.getElementById('messageInput');
     messageInput.addEventListener('input', () => {
-      const baseHeight = 2.5; /* rem */
+      const baseHeight = 2.5;
       const maxLines = 5;
-      const lineHeight = 1.5; /* rem, matches CSS line-height */
-      const padding = 1; /* rem, total vertical padding (0.5rem top + bottom) */
+      const lineHeight = 1.5;
+      const padding = 1;
       const scrollHeight = messageInput.scrollHeight;
-      const lines = Math.ceil((scrollHeight - padding * 16) / (lineHeight * 16)); /* Convert rem to px, ceil for line starts */
+      const lines = Math.ceil((scrollHeight - padding * 16) / (lineHeight * 16));
       const newHeight = Math.min(lines, maxLines) * baseHeight;
       messageInput.style.height = `${newHeight}rem`;
       if (lines > maxLines) {
