@@ -14,7 +14,9 @@
       scroll-behavior: auto;
       background-color: #fce7f3; /* Light pink for testing */
       z-index: 0; /* Bottom layer */
-      margin-bottom: 2.5rem; /* Space for input container */
+      margin-bottom: 3rem; /* Space for input container */
+      border-radius: 0.5rem;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
     .message-bubble {
       max-width: 70%;
@@ -22,6 +24,7 @@
       padding: 0.25rem 1rem;
       border-radius: 1rem;
       word-wrap: break-word;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
     .message-bubble.self {
       background-color: #3b82f6; /* Blue for self */
@@ -37,6 +40,7 @@
     }
     #chatContainer.hidden {
       display: none; /* Ensure hidden on start screen */
+      visibility: hidden;
     }
     #chatContainer {
       display: flex;
@@ -60,18 +64,19 @@
       height: 2.5rem; /* Single-line height */
       max-height: 12.5rem; /* 5 lines at ~2.5rem per line */
       line-height: 1.5rem;
-      flex-grow: 1;
+      width: 100%;
+      max-width: 100%; /* Match chat box width */
       background-color: #3b82f6; /* Blue like self bubble */
       color: white;
       border-radius: 1rem;
       padding: 0.5rem 1rem;
       border: none;
       box-sizing: border-box;
-      max-width: 100%; /* Fit within container */
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      transition: height 0.2s ease; /* Smooth height transition */
     }
     @media (max-width: 640px) {
       #messageInput {
-        max-width: 20rem; /* Narrower for mobile */
         padding: 0.5rem 0.75rem;
       }
       .input-container {
@@ -86,15 +91,17 @@
       scrollbar-width: none;  /* Firefox */
     }
     #sendButton {
-      width: 2.5rem;
-      height: 2.5rem;
+      width: 3rem;
+      height: 3rem;
       background-color: #2563eb; /* Slightly darker blue */
       color: white;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.2rem;
+      font-size: 1.4rem;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      transition: background-color 0.2s ease;
     }
     #sendButton:hover {
       background-color: #1d4ed8;
@@ -107,17 +114,17 @@
       <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">Anonymous Chat</h1>
       <div id="status" class="text-center mb-4 text-gray-600">Start a new chat or connect to an existing one</div>
       <div id="initialContainer">
-        <button id="startChatToggleButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full mb-2 hover:bg-blue-600">Start Chat</button>
-        <button id="connectToggleButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600">Connect to Chat</button>
+        <button id="startChatToggleButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full mb-2 hover:bg-blue-600 transition-colors">Start Chat</button>
+        <button id="connectToggleButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600 transition-colors">Connect to Chat</button>
       </div>
       <div id="usernameContainer" class="hidden">
         <input id="usernameInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)">
-        <button id="startChatButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600">Start Chat</button>
-        <button id="backButton" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600">Back</button>
+        <button id="startChatButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600 transition-colors">Start Chat</button>
+        <button id="backButton" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600 transition-colors">Back</button>
       </div>
       <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800 hidden"></div>
       <div id="chatContainer" class="hidden">
-        <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mb-4 hover:bg-red-600 hidden">New Session</button>
+        <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mb-4 hover:bg-red-600 transition-colors hidden">New Session</button>
         <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded"></div>
         <div class="input-container">
           <textarea id="messageInput" placeholder="Type a message..." cols="30" maxlength="1000"></textarea>
@@ -127,14 +134,14 @@
       <div id="connectContainer" class="hidden">
         <input id="usernameConnectInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)">
         <input id="codeInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter code (xxxx-xxxx-xxxx-xxxx)">
-        <button id="connectButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600">Connect</button>
-        <button id="backButtonConnect" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600">Back</button>
+        <button id="connectButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600 transition-colors">Connect</button>
+        <button id="backButtonConnect" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600 transition-colors">Back</button>
       </div>
       <div class="text-center mt-4">
         <a href="https://github.com/cooptroop1/anonmess/wiki/Troubleshooting" target="_blank" class="text-blue-500 hover:underline">Connection issues? Get help</a>
       </div>
     </div>
-    <div id="maxClientsContainer" class="hidden ml-4 flex flex-col justify-center bg-gray-800 p-4 rounded-lg">
+    <div id="maxClientsContainer" class="hidden ml-4 flex flex-col justify-center bg-gray-800 p-4 rounded-lg shadow-lg">
       <span class="text-white mb-2 font-bold">Max Users:</span>
       <div id="maxClientsRadios" class="flex flex-col space-y-2"></div>
     </div>
@@ -668,7 +675,6 @@
         const messageInput = document.getElementById('messageInput');
         messageInput.value = '';
         messageInput.style.height = '2.5rem';
-        messageInput.style.transform = 'none'; /* Reset upward shift */
         processedMessageIds.add(messageId);
       } else {
         statusElement.textContent = 'Error: No connections or username not set.';
@@ -759,7 +765,6 @@
       const lines = Math.ceil((scrollHeight - padding * 16) / (lineHeight * 16)); /* Convert rem to px, ceil for line starts */
       const newHeight = Math.min(lines, maxLines) * baseHeight;
       messageInput.style.height = `${newHeight}rem`;
-      messageInput.style.transform = lines > 1 ? `translateY(-${(newHeight - baseHeight) * 16}px)` : 'none'; /* Shift up for multi-line */
       if (lines > maxLines) {
         messageInput.scrollTop = messageInput.scrollHeight;
       }
@@ -800,7 +805,6 @@
       document.getElementById('messages').innerHTML = '';
       document.getElementById('messageInput').value = '';
       document.getElementById('messageInput').style.height = '2.5rem';
-      document.getElementById('messageInput').style.transform = 'none';
       document.getElementById('usernameInput').value = username;
       document.getElementById('usernameConnectInput').value = username;
       document.getElementById('codeInput').value = '';
