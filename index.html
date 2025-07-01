@@ -7,6 +7,16 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
   <link rel="icon" type="image/png" href="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f60e.png"/>
   <style>
+    /* Global cursor style: no pointer except for text inputs */
+    * {
+      cursor: default;
+    }
+    input[type="text"],
+    input[type="number"],
+    textarea {
+      cursor: text;
+    }
+
     #messages {
       display: flex;
       flex-direction: column-reverse;
