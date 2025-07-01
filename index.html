@@ -63,15 +63,10 @@
       .corner-logo {
         position: absolute;
         top: 10px;
-        left: 50%;
-        transform: translateX(-50%);
+        right: 10px;
         width: 128px;
         height: 128px;
-        z-index: 1000; /* Ensure it stays above chat on mobile */
-      }
-      #chatContainer.in-chat .corner-logo {
-        position: fixed; /* Keep logo fixed above chat box on mobile when in chat */
-        top: 10px;
+        z-index: 100; /* Ensure it stays above but scrolls with page */
       }
     }
     .message-bubble {
@@ -103,10 +98,6 @@
       flex-direction: column;
       gap: 0.5rem;
       position: relative;
-    }
-    #chatContainer.in-chat {
-      position: relative;
-      z-index: 0; /* Ensure chat stays below fixed logo on mobile */
     }
     .input-container {
       display: flex;
@@ -610,7 +601,6 @@
         newSessionButton.classList.remove('hidden');
         inputContainer.classList.remove('hidden');
         messages.classList.remove('waiting');
-        chatContainer.classList.add('in-chat'); // Add in-chat class when chat is active
         clearTimeout(connectionTimeouts.get(targetId));
         retryCounts.delete(targetId);
         updateMaxClientsUI();
@@ -674,7 +664,6 @@
         if (dataChannels.size === 0) {
           inputContainer.classList.add('hidden');
           messages.classList.add('waiting');
-          chatContainer.classList.remove('in-chat'); // Remove in-chat class when disconnected
         }
       };
     }
@@ -782,7 +771,6 @@
       if (!isConnected) {
         inputContainer.classList.add('hidden');
         messages.classList.add('waiting');
-        chatContainer.classList.remove('in-chat'); // Remove in-chat class when disconnected
       }
     }
 
@@ -879,7 +867,6 @@
       messages.classList.remove('waiting');
       codeDisplayElement.classList.add('hidden');
       copyCodeButton.classList.add('hidden');
-      chatContainer.classList.remove('in-chat'); // Remove in-chat class when going back
     };
 
     document.getElementById('backButtonConnect').onclick = () => {
@@ -889,7 +876,6 @@
       messages.classList.remove('waiting');
       codeDisplayElement.classList.add('hidden');
       copyCodeButton.classList.add('hidden');
-      chatContainer.classList.remove('in-chat'); // Remove in-chat class when going back
     };
 
     document.getElementById('sendButton').onclick = () => {
@@ -962,7 +948,6 @@
       maxClientsContainer.classList.add('hidden');
       inputContainer.classList.add('hidden');
       messages.classList.remove('waiting');
-      chatContainer.classList.remove('in-chat'); // Remove in-chat class for new session
     };
 
     document.getElementById('usernameInput').addEventListener('keydown', (event) => {
