@@ -39,6 +39,10 @@
       background-repeat: no-repeat;
       background-position: center;
       z-index: 100; /* Above other content */
+      transition: background-image 0.5s ease;
+    }
+    .corner-logo.wink {
+      background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/blob/main/corner%20logoWink.png?raw=true');
     }
     @media (max-width: 640px) {
       .corner-logo {
@@ -144,7 +148,7 @@
   </style>
 </head>
 <body class="bg-black min-h-screen flex items-center justify-center">
-  <div class="corner-logo"></div> <!-- Corner logo updated here -->
+  <div class="corner-logo" id="cornerLogo"></div> <!-- Corner logo updated with ID -->
   <div class="flex w-full max-w-lg">
     <div class="bg-white p-8 rounded-lg shadow-lg flex-grow">
       <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">Anonomoose Chat</h1>
@@ -237,9 +241,22 @@
     const maxClientsContainer = document.getElementById('maxClientsContainer');
     const inputContainer = document.querySelector('.input-container');
     const messages = document.getElementById('messages');
+    const cornerLogo = document.getElementById('cornerLogo');
     statusElement.textContent = 'Start a new chat or connect to an existing one';
     document.getElementById('usernameInput').value = username;
     document.getElementById('usernameConnectInput').value = username;
+
+    // Logo wink animation
+    let winkTimeout;
+    function triggerWink() {
+      if (winkTimeout) clearTimeout(winkTimeout); // Clear any existing timeout
+      cornerLogo.classList.add('wink');
+      winkTimeout = setTimeout(() => {
+        cornerLogo.classList.remove('wink');
+      }, 500); // Half-second wink
+    }
+    setInterval(triggerWink, 60000); // Every minute
+    triggerWink(); // Initial trigger
 
     const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
     console.log('WebSocket created');
