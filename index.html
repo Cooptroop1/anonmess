@@ -12,29 +12,24 @@
       flex-direction: column-reverse;
       overflow-y: auto;
       scroll-behavior: auto;
-      background-color: #fce7f3; /* Light pink for testing */
       z-index: 0; /* Bottom layer */
       margin-bottom: 0.5rem; /* Gap below chat box */
       border-radius: 0.5rem;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       position: relative; /* For logo positioning */
-      height: 256px; /* Explicit height for reference */
+      height: 256px; /* Explicit height */
+      background-color: #fce7f3; /* Default pink background */
+      background-image: none; /* Default no image */
+      background-size: cover; /* Fit image to box */
+      background-position: center; /* Center the image */
+      background-repeat: no-repeat; /* Prevent tiling */
+    }
+    #messages.waiting {
+      background-color: transparent; /* Remove pink during waiting */
+      background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/logo.JPG?sanitize=true'); /* Logo as background */
     }
     #waitingLogo {
-      display: none; /* Hidden by default */
-      justify-content: center;
-      align-items: center;
-      height: 100%;
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-    }
-    #waitingLogo img {
-      max-width: 100%; /* Fit within #messages width */
-      max-height: 256px; /* Match #messages height */
-      object-fit: contain; /* Scale proportionally */
+      display: none; /* No longer needed as image is background */
     }
     .message-bubble {
       max-width: 70%;
@@ -148,10 +143,7 @@
       <div id="chatContainer" class="hidden">
         <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mb-4 hover:bg-red-600 transition-colors hidden">New Session</button>
         <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded">
-          <div id="waitingLogo" class="hidden">
-            <img src="logo.JPG" alt="Waiting Logo">
-            <!-- Fallback: <img src="https://raw.githubusercontent.com/Cooptroop1/anonmess/main/logo.JPG" alt="Waiting Logo"> -->
-          </div>
+          <!-- Logo is now background, no need for #waitingLogo content -->
         </div>
         <div class="input-container hidden">
           <textarea id="messageInput" placeholder="Type a message..." cols="30" maxlength="1000"></textarea>
@@ -225,7 +217,7 @@
     const newSessionButton = document.getElementById('newSessionButton');
     const maxClientsContainer = document.getElementById('maxClientsContainer');
     const inputContainer = document.querySelector('.input-container');
-    const waitingLogo = document.getElementById('waitingLogo');
+    const messages = document.getElementById('messages');
     statusElement.textContent = 'Start a new chat or connect to an existing one';
     document.getElementById('usernameInput').value = username;
     document.getElementById('usernameConnectInput').value = username;
@@ -281,7 +273,7 @@
             newSessionButton.classList.add('hidden');
             maxClientsContainer.classList.add('hidden');
             inputContainer.classList.add('hidden');
-            waitingLogo.classList.add('hidden');
+            messages.classList.remove('waiting');
           }
           return;
         }
@@ -321,7 +313,7 @@
           updateMaxClientsUI();
           if (totalClients <= 1) {
             inputContainer.classList.add('hidden');
-            waitingLogo.classList.remove('hidden');
+            messages.classList.add('waiting');
           }
         }
         if (message.type === 'max-clients') {
@@ -385,9 +377,9 @@
       });
       maxClientsContainer.classList.toggle('hidden', !isInitiator);
       if (!isConnected) {
-        waitingLogo.classList.remove('hidden');
+        messages.classList.add('waiting');
       } else {
-        waitingLogo.classList.add('hidden');
+        messages.classList.remove('waiting');
       }
     }
 
@@ -535,7 +527,7 @@
         chatContainer.classList.remove('hidden');
         newSessionButton.classList.remove('hidden');
         inputContainer.classList.remove('hidden');
-        waitingLogo.classList.add('hidden'); /* Hide logo on connection */
+        messages.classList.remove('waiting'); /* Remove logo background on connection */
         clearTimeout(connectionTimeouts.get(targetId));
         retryCounts.delete(targetId);
         updateMaxClientsUI();
@@ -598,7 +590,7 @@
         messageRateLimits.delete(targetId);
         if (dataChannels.size === 0) {
           inputContainer.classList.add('hidden');
-          waitingLogo.classList.remove('hidden');
+          messages.classList.add('waiting');
         }
       };
     }
@@ -703,7 +695,7 @@
       updateMaxClientsUI();
       if (!isConnected) {
         inputContainer.classList.add('hidden');
-        waitingLogo.classList.remove('hidden');
+        messages.classList.add('waiting');
       }
     }
 
@@ -757,7 +749,7 @@
       connectContainer.classList.add('hidden');
       initialContainer.classList.add('hidden');
       chatContainer.classList.remove('hidden');
-      waitingLogo.classList.remove('hidden'); /* Show logo */
+      messages.classList.add('waiting'); /* Show logo background */
       statusElement.textContent = 'Waiting for connection...';
       socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
     };
@@ -782,7 +774,7 @@
       usernameContainer.classList.add('hidden');
       connectContainer.classList.add('hidden');
       chatContainer.classList.remove('hidden');
-      waitingLogo.classList.remove('hidden'); /* Show logo */
+      messages.classList.add('waiting'); /* Show logo background */
       statusElement.textContent = 'Waiting for connection...';
       socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
     };
@@ -791,14 +783,14 @@
       usernameContainer.classList.add('hidden');
       initialContainer.classList.remove('hidden');
       statusElement.textContent = 'Start a new chat or connect to an existing one';
-      waitingLogo.classList.add('hidden');
+      messages.classList.remove('waiting');
     };
 
     document.getElementById('backButtonConnect').onclick = () => {
       connectContainer.classList.add('hidden');
       initialContainer.classList.remove('hidden');
       statusElement.textContent = 'Start a new chat or connect to an existing one';
-      waitingLogo.classList.add('hidden');
+      messages.classList.remove('waiting');
     };
 
     document.getElementById('sendButton').onclick = () => {
@@ -856,7 +848,7 @@
       codeDisplayElement.textContent = '';
       codeDisplayElement.classList.add('hidden');
       statusElement.textContent = 'Start a new chat or connect to an existing one';
-      document.getElementById('messages').innerHTML = '<div id="waitingLogo" class="hidden"><img src="logo.JPG" alt="Waiting Logo"></div>';
+      document.getElementById('messages').innerHTML = '';
       document.getElementById('messageInput').value = '';
       document.getElementById('messageInput').style.height = '2.5rem';
       document.getElementById('usernameInput').value = username;
@@ -869,7 +861,7 @@
       newSessionButton.classList.add('hidden');
       maxClientsContainer.classList.add('hidden');
       inputContainer.classList.add('hidden');
-      waitingLogo.classList.add('hidden');
+      messages.classList.remove('waiting');
     };
 
     document.getElementById('usernameInput').addEventListener('keydown', (event) => {
