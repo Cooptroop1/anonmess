@@ -14,7 +14,7 @@
       scroll-behavior: auto;
       background-color: #fce7f3; /* Light pink for testing */
       z-index: 0; /* Bottom layer */
-      margin-bottom: 3rem; /* Space for input container */
+      margin-bottom: 0.5rem; /* Gap below chat box */
       border-radius: 0.5rem;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
@@ -54,9 +54,13 @@
       gap: 0.5rem;
       padding: 0 1rem;
       position: absolute;
-      bottom: 0;
+      bottom: -3rem; /* Position below chat box with gap */
       width: 100%;
+      box-sizing: border-box;
       z-index: 10; /* Top layer over messages */
+    }
+    .input-container.hidden {
+      display: none; /* Hide until connection */
     }
     #messageInput {
       resize: none;
@@ -73,7 +77,7 @@
       border: none;
       box-sizing: border-box;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      transition: height 0.2s ease; /* Smooth height transition */
+      transition: all 0.2s ease; /* Smooth height transition */
     }
     @media (max-width: 640px) {
       #messageInput {
@@ -91,17 +95,17 @@
       scrollbar-width: none;  /* Firefox */
     }
     #sendButton {
-      width: 3rem;
-      height: 3rem;
+      width: 2.5rem;
+      height: 2.5rem; /* Match textarea height */
       background-color: #2563eb; /* Slightly darker blue */
       color: white;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.4rem;
+      font-size: 1.2rem;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      transition: background-color 0.2s ease;
+      transition: all 0.2s ease;
     }
     #sendButton:hover {
       background-color: #1d4ed8;
@@ -126,7 +130,7 @@
       <div id="chatContainer" class="hidden">
         <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mb-4 hover:bg-red-600 transition-colors hidden">New Session</button>
         <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded"></div>
-        <div class="input-container">
+        <div class="input-container hidden">
           <textarea id="messageInput" placeholder="Type a message..." cols="30" maxlength="1000"></textarea>
           <button id="sendButton">📤</button>
         </div>
@@ -197,6 +201,7 @@
     const chatContainer = document.getElementById('chatContainer');
     const newSessionButton = document.getElementById('newSessionButton');
     const maxClientsContainer = document.getElementById('maxClientsContainer');
+    const inputContainer = document.querySelector('.input-container');
     statusElement.textContent = 'Start a new chat or connect to an existing one';
     document.getElementById('usernameInput').value = username;
     document.getElementById('usernameConnectInput').value = username;
@@ -251,6 +256,7 @@
             chatContainer.classList.add('hidden');
             newSessionButton.classList.add('hidden');
             maxClientsContainer.classList.add('hidden');
+            inputContainer.classList.add('hidden');
           }
           return;
         }
@@ -288,6 +294,9 @@
           usernames.delete(message.clientId);
           cleanupPeerConnection(message.clientId);
           updateMaxClientsUI();
+          if (totalClients <= 1) {
+            inputContainer.classList.add('hidden');
+          }
         }
         if (message.type === 'max-clients') {
           maxClients = message.maxClients;
@@ -494,6 +503,7 @@
         connectContainer.classList.add('hidden');
         chatContainer.classList.remove('hidden');
         newSessionButton.classList.remove('hidden');
+        inputContainer.classList.remove('hidden'); /* Show input when connected */
         clearTimeout(connectionTimeouts.get(targetId));
         retryCounts.delete(targetId);
         updateMaxClientsUI();
@@ -554,6 +564,9 @@
         console.log(`Data channel closed with ${targetId}`);
         cleanupPeerConnection(targetId);
         messageRateLimits.delete(targetId);
+        if (dataChannels.size === 0) {
+          inputContainer.classList.add('hidden');
+        }
       };
     }
 
@@ -655,6 +668,9 @@
       messageRateLimits.delete(targetId);
       isConnected = dataChannels.size > 0;
       updateMaxClientsUI();
+      if (!isConnected) {
+        inputContainer.classList.add('hidden');
+      }
     }
 
     function sendMessage(content) {
@@ -814,6 +830,7 @@
       chatContainer.classList.add('hidden');
       newSessionButton.classList.add('hidden');
       maxClientsContainer.classList.add('hidden');
+      inputContainer.classList.add('hidden');
     };
 
     document.getElementById('usernameInput').addEventListener('keydown', (event) => {
