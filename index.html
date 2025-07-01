@@ -311,18 +311,16 @@
       };
 
       peerConnection.onicecandidateerror = (event) => {
-        if (event.errorCode === 701 && peerConnection.connectionState === 'connected') {
-          console.debug(`Non-critical ICE error for ${targetId}: ${event.errorText}`);
-        } else {
-          console.error(`ICE candidate error for ${targetId}: ${event.errorText}, code=${event.errorCode}`);
-          if (event.errorCode === 701) {
-            const retryCount = retryCounts.get(targetId) || 0;
-            if (retryCount < maxRetries) {
-              retryCounts.set(targetId, retryCount + 1);
-              console.log(`Retrying connection with ${targetId}, attempt ${retryCount + 1}`);
-              startPeerConnection(targetId, isOfferer);
-            }
+        console.error(`ICE candidate error for ${targetId}: ${event.errorText}, code=${event.errorCode}`);
+        if (event.errorCode !== 701) {
+          const retryCount = retryCounts.get(targetId) || 0;
+          if (retryCount < maxRetries) {
+            retryCounts.set(targetId, retryCount + 1);
+            console.log(`Retrying connection with ${targetId}, attempt ${retryCount + 1}`);
+            startPeerConnection(targetId, isOfferer);
           }
+        } else {
+          console.log(`Ignoring ICE 701 error for ${targetId}, continuing connection`);
         }
       };
 
@@ -490,9 +488,9 @@
     async function handleAnswer(answer, targetId) {
       console.log(`Handling answer from ${targetId} for code: ${code}`);
       if (!peerConnections.has(targetId)) {
-        console.log(`No peer connection for ${targetId}, queuing answer`);
-        candidatesQueues.get(targetId).push({ type: 'answer', answer });
+        console.log(`No peer connection for ${targetId}, starting new one and queuing answer`);
         startPeerConnection(targetId, false);
+        candidatesQueues.get(targetId).push({ type: 'answer', answer });
         return;
       }
       const peerConnection = peerConnections.get(targetId);
@@ -509,7 +507,13 @@
         await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
         const queue = candidatesQueues.get(targetId) || [];
         queue.forEach(item => {
-          if (item.type === 'candidate') handleCandidate(item.candidate, targetId);
+          if (item.type === 'answer') {
+            peerConnection.setRemoteDescription(new RTCSessionDescription(item.answer)).catch(error => {
+              console.error(`Error applying queued answer from ${targetId}:`, error);
+            });
+          } else if (item.type === 'candidate') {
+            handleCandidate(item.candidate, targetId);
+          }
         });
         candidatesQueues.set(targetId, []);
       } catch (error) {
