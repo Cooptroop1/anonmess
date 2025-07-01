@@ -7,14 +7,16 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
   <link rel="icon" type="image/png" href="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f60e.png"/>
   <style>
-    /* Global cursor style: no pointer except for text inputs */
+    /* Global cursor and selection style: no pointer or caret on non-inputs */
     * {
       cursor: default;
+      user-select: none; /* Prevents text selection and caret */
     }
     input[type="text"],
     input[type="number"],
     textarea {
       cursor: text;
+      user-select: text; /* Allows selection and caret in inputs */
     }
 
     #messages {
