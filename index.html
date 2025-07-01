@@ -20,16 +20,13 @@
       height: 256px; /* Explicit height */
       background-color: #fce7f3; /* Default pink background */
       background-image: none; /* Default no image */
-      background-size: cover; /* Fit image to box */
+      background-size: contain; /* Fit entire image, no cropping */
       background-position: center; /* Center the image */
       background-repeat: no-repeat; /* Prevent tiling */
     }
     #messages.waiting {
       background-color: transparent; /* Remove pink during waiting */
       background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/logo.JPG?sanitize=true'); /* Logo as background */
-    }
-    #waitingLogo {
-      display: none; /* No longer needed as image is background */
     }
     .message-bubble {
       max-width: 70%;
@@ -228,7 +225,9 @@
     socket.onopen = () => {
       console.log('WebSocket opened');
       statusElement.textContent = 'Start a new chat or connect to an existing one';
-      socket.send(JSON.stringify({ type: 'connect', clientId }));
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'connect', clientId }));
+      }
     };
 
     socket.onerror = (error) => {
@@ -242,10 +241,12 @@
         const newSocket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
         newSocket.onopen = () => {
           console.log('Reconnected, sending connect');
-          newSocket.send(JSON.stringify({ type: 'connect', clientId }));
-          if (code && username) {
-            console.log('Rejoining with code:', code);
-            newSocket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+          if (newSocket.readyState === WebSocket.OPEN) {
+            newSocket.send(JSON.stringify({ type: 'connect', clientId }));
+            if (code && username) {
+              console.log('Rejoining with code:', code);
+              newSocket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+            }
           }
         };
         newSocket.onerror = socket.onerror;
@@ -437,7 +438,9 @@
       peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
           console.log(`Sending ICE candidate to ${targetId} for code: ${code}`);
-          socket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate, code, targetId, clientId }));
+          if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate, code, targetId, clientId }));
+          }
         }
       };
 
@@ -496,7 +499,9 @@
           return peerConnection.setLocalDescription(offer);
         }).then(() => {
           console.log(`Sending offer to ${targetId} for code: ${code}`);
-          socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code, targetId, clientId }));
+          if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code, targetId, clientId }));
+          }
         }).catch(error => {
           console.error(`Error creating offer for ${targetId}:`, error);
         });
@@ -610,7 +615,9 @@
         await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
-        socket.send(JSON.stringify({ type: 'answer', answer: peerConnection.localDescription, code, targetId, clientId }));
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ type: 'answer', answer: peerConnection.localDescription, code, targetId, clientId }));
+        }
         const queue = candidatesQueues.get(targetId) || [];
         queue.forEach(candidate => {
           handleCandidate(candidate, targetId);
@@ -751,7 +758,9 @@
       chatContainer.classList.remove('hidden');
       messages.classList.add('waiting'); /* Show logo background */
       statusElement.textContent = 'Waiting for connection...';
-      socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+      }
     };
 
     document.getElementById('connectButton').onclick = () => {
@@ -776,7 +785,9 @@
       chatContainer.classList.remove('hidden');
       messages.classList.add('waiting'); /* Show logo background */
       statusElement.textContent = 'Waiting for connection...';
-      socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+      }
     };
 
     document.getElementById('backButton').onclick = () => {
