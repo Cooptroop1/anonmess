@@ -18,6 +18,9 @@
       cursor: text;
       user-select: text; /* Allows selection and caret in inputs */
     }
+    #codeDisplay {
+      user-select: text; /* Allows copying the code text */
+    }
 
     #messages {
       display: flex;
@@ -157,6 +160,17 @@
     #sendButton:hover {
       background-color: #1d4ed8;
     }
+    #copyCodeButton {
+      background-color: #10b981;
+      color: white;
+      padding: 0.25rem 0.75rem;
+      border-radius: 0.375rem;
+      margin-top: 0.5rem;
+      cursor: pointer; /* Ensure pointer cursor for button */
+    }
+    #copyCodeButton:hover {
+      background-color: #059669;
+    }
   </style>
 </head>
 <body class="bg-black min-h-screen flex items-center justify-center">
@@ -175,6 +189,7 @@
         <button id="backButton" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600 transition-colors">Back</button>
       </div>
       <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800 hidden"></div>
+      <button id="copyCodeButton" class="hidden">Copy Code</button>
       <div id="chatContainer" class="hidden">
         <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mb-4 hover:bg-red-600 transition-colors hidden">New Session</button>
         <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded"></div>
@@ -243,6 +258,7 @@
 
     const statusElement = document.getElementById('status');
     const codeDisplayElement = document.getElementById('codeDisplay');
+    const copyCodeButton = document.getElementById('copyCodeButton');
     const initialContainer = document.getElementById('initialContainer');
     const usernameContainer = document.getElementById('usernameContainer');
     const connectContainer = document.getElementById('connectContainer');
@@ -320,6 +336,7 @@
             usernameContainer.classList.add('hidden');
             connectContainer.classList.add('hidden');
             codeDisplayElement.classList.add('hidden');
+            copyCodeButton.classList.add('hidden');
             chatContainer.classList.add('hidden');
             newSessionButton.classList.add('hidden');
             maxClientsContainer.classList.add('hidden');
@@ -802,6 +819,7 @@
       localStorage.setItem('username', username);
       codeDisplayElement.textContent = `Your code: ${code}`;
       codeDisplayElement.classList.remove('hidden');
+      copyCodeButton.classList.remove('hidden');
       usernameContainer.classList.add('hidden');
       connectContainer.classList.add('hidden');
       initialContainer.classList.add('hidden');
@@ -829,6 +847,7 @@
       code = inputCode;
       codeDisplayElement.textContent = `Using code: ${code}`;
       codeDisplayElement.classList.remove('hidden');
+      copyCodeButton.classList.remove('hidden');
       initialContainer.classList.add('hidden');
       usernameContainer.classList.add('hidden');
       connectContainer.classList.add('hidden');
@@ -845,6 +864,8 @@
       initialContainer.classList.remove('hidden');
       statusElement.textContent = 'Start a new chat or connect to an existing one';
       messages.classList.remove('waiting');
+      codeDisplayElement.classList.add('hidden');
+      copyCodeButton.classList.add('hidden');
     };
 
     document.getElementById('backButtonConnect').onclick = () => {
@@ -852,6 +873,8 @@
       initialContainer.classList.remove('hidden');
       statusElement.textContent = 'Start a new chat or connect to an existing one';
       messages.classList.remove('waiting');
+      codeDisplayElement.classList.add('hidden');
+      copyCodeButton.classList.add('hidden');
     };
 
     document.getElementById('sendButton').onclick = () => {
@@ -908,6 +931,7 @@
       code = generateCode();
       codeDisplayElement.textContent = '';
       codeDisplayElement.classList.add('hidden');
+      copyCodeButton.classList.add('hidden');
       statusElement.textContent = 'Start a new chat or connect to an existing one';
       document.getElementById('messages').innerHTML = '';
       document.getElementById('messageInput').value = '';
@@ -945,6 +969,18 @@
         document.getElementById('connectButton').click();
       }
     });
+
+    copyCodeButton.onclick = () => {
+      const codeText = codeDisplayElement.textContent.replace('Your code: ', '').replace('Using code: ', '');
+      navigator.clipboard.writeText(codeText).then(() => {
+        copyCodeButton.textContent = 'Copied!';
+        setTimeout(() => {
+          copyCodeButton.textContent = 'Copy Code';
+        }, 2000);
+      }).catch(err => {
+        console.error('Failed to copy text: ', err);
+      });
+    };
   </script>
 </body>
 </html>
