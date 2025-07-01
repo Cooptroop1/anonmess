@@ -40,6 +40,15 @@
       background-position: center;
       z-index: 100; /* Above other content */
     }
+    @media (max-width: 640px) {
+      .corner-logo {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        width: 64px; /* Reduced size for mobile to avoid overlap */
+        height: 64px;
+      }
+    }
     .message-bubble {
       max-width: 70%;
       margin: 0.5rem 1rem;
@@ -139,7 +148,7 @@
   <div class="flex w-full max-w-lg">
     <div class="bg-white p-8 rounded-lg shadow-lg flex-grow">
       <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">Anonomoose Chat</h1>
-      <div id="status" class="text-center mb-4 text-gray-600">Start a new chat or connect to an existing one with Anonomoose Chat</div>
+      <div id="status" class="text-center mb-4 text-gray-600">Start a new chat or connect to an existing one</div>
       <div id="initialContainer">
         <button id="startChatToggleButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full mb-2 hover:bg-blue-600 transition-colors">Start Chat</button>
         <button id="connectToggleButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600 transition-colors">Connect to Chat</button>
@@ -228,7 +237,7 @@
     const maxClientsContainer = document.getElementById('maxClientsContainer');
     const inputContainer = document.querySelector('.input-container');
     const messages = document.getElementById('messages');
-    statusElement.textContent = 'Start a new chat or connect to an existing one with Anonomoose Chat';
+    statusElement.textContent = 'Start a new chat or connect to an existing one';
     document.getElementById('usernameInput').value = username;
     document.getElementById('usernameConnectInput').value = username;
 
@@ -237,7 +246,7 @@
 
     socket.onopen = () => {
       console.log('WebSocket opened');
-      statusElement.textContent = 'Start a new chat or connect to an existing one with Anonomoose Chat';
+      statusElement.textContent = 'Start a new chat or connect to an existing one';
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: 'connect', clientId }));
       }
@@ -383,7 +392,7 @@
     }
 
     function updateMaxClientsUI() {
-      statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection... with Anonomoose Chat';
+      statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...';
       const inputs = document.querySelectorAll('input[name="maxClients"]');
       inputs.forEach(input => {
         input.checked = parseInt(input.value) === maxClients;
@@ -746,13 +755,13 @@
     document.getElementById('startChatToggleButton').onclick = () => {
       initialContainer.classList.add('hidden');
       usernameContainer.classList.remove('hidden');
-      statusElement.textContent = 'Enter a username to start a chat with Anonomoose Chat';
+      statusElement.textContent = 'Enter a username to start a chat';
     };
 
     document.getElementById('connectToggleButton').onclick = () => {
       initialContainer.classList.add('hidden');
       connectContainer.classList.remove('hidden');
-      statusElement.textContent = 'Enter a username and code to join a chat with Anonomoose Chat';
+      statusElement.textContent = 'Enter a username and code to join a chat';
     };
 
     document.getElementById('startChatButton').onclick = () => {
@@ -770,7 +779,7 @@
       initialContainer.classList.add('hidden');
       chatContainer.classList.remove('hidden');
       messages.classList.add('waiting'); /* Show logo background */
-      statusElement.textContent = 'Waiting for connection... with Anonomoose Chat';
+      statusElement.textContent = 'Waiting for connection...';
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
       }
@@ -797,7 +806,7 @@
       connectContainer.classList.add('hidden');
       chatContainer.classList.remove('hidden');
       messages.classList.add('waiting'); /* Show logo background */
-      statusElement.textContent = 'Waiting for connection... with Anonomoose Chat';
+      statusElement.textContent = 'Waiting for connection...';
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
       }
@@ -806,14 +815,14 @@
     document.getElementById('backButton').onclick = () => {
       usernameContainer.classList.add('hidden');
       initialContainer.classList.remove('hidden');
-      statusElement.textContent = 'Start a new chat or connect to an existing one with Anonomoose Chat';
+      statusElement.textContent = 'Start a new chat or connect to an existing one';
       messages.classList.remove('waiting');
     };
 
     document.getElementById('backButtonConnect').onclick = () => {
       connectContainer.classList.add('hidden');
       initialContainer.classList.remove('hidden');
-      statusElement.textContent = 'Start a new chat or connect to an existing one with Anonomoose Chat';
+      statusElement.textContent = 'Start a new chat or connect to an existing one';
       messages.classList.remove('waiting');
     };
 
@@ -871,7 +880,7 @@
       code = generateCode();
       codeDisplayElement.textContent = '';
       codeDisplayElement.classList.add('hidden');
-      statusElement.textContent = 'Start a new chat or connect to an existing one with Anonomoose Chat';
+      statusElement.textContent = 'Start a new chat or connect to an existing one';
       document.getElementById('messages').innerHTML = '';
       document.getElementById('messageInput').value = '';
       document.getElementById('messageInput').style.height = '2.5rem';
