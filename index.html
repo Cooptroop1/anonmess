@@ -14,6 +14,7 @@
       scroll-behavior: auto;
       background-color: #fce7f3; /* Light pink for testing */
       z-index: 0; /* Bottom layer */
+      margin-bottom: 2.5rem; /* Space for input container */
     }
     .message-bubble {
       max-width: 70%;
@@ -41,12 +42,16 @@
       display: flex;
       flex-direction: column;
       gap: 0.5rem;
+      position: relative; /* For absolute positioning of input */
     }
     .input-container {
       display: flex;
       align-items: flex-start;
       gap: 0.5rem;
       padding: 0 1rem;
+      position: absolute;
+      bottom: 0;
+      width: 100%;
       z-index: 10; /* Top layer over messages */
     }
     #messageInput {
@@ -62,6 +67,16 @@
       padding: 0.5rem 1rem;
       border: none;
       box-sizing: border-box;
+      max-width: 100%; /* Fit within container */
+    }
+    @media (max-width: 640px) {
+      #messageInput {
+        max-width: 20rem; /* Narrower for mobile */
+        padding: 0.5rem 0.75rem;
+      }
+      .input-container {
+        padding: 0 0.5rem;
+      }
     }
     #messageInput::-webkit-scrollbar {
       display: none; /* Hide scrollbar */
@@ -653,6 +668,7 @@
         const messageInput = document.getElementById('messageInput');
         messageInput.value = '';
         messageInput.style.height = '2.5rem';
+        messageInput.style.transform = 'none'; /* Reset upward shift */
         processedMessageIds.add(messageId);
       } else {
         statusElement.textContent = 'Error: No connections or username not set.';
@@ -743,6 +759,7 @@
       const lines = Math.ceil((scrollHeight - padding * 16) / (lineHeight * 16)); /* Convert rem to px, ceil for line starts */
       const newHeight = Math.min(lines, maxLines) * baseHeight;
       messageInput.style.height = `${newHeight}rem`;
+      messageInput.style.transform = lines > 1 ? `translateY(-${(newHeight - baseHeight) * 16}px)` : 'none'; /* Shift up for multi-line */
       if (lines > maxLines) {
         messageInput.scrollTop = messageInput.scrollHeight;
       }
@@ -783,6 +800,7 @@
       document.getElementById('messages').innerHTML = '';
       document.getElementById('messageInput').value = '';
       document.getElementById('messageInput').style.height = '2.5rem';
+      document.getElementById('messageInput').style.transform = 'none';
       document.getElementById('usernameInput').value = username;
       document.getElementById('usernameConnectInput').value = username;
       document.getElementById('codeInput').value = '';
