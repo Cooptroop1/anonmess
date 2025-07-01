@@ -272,7 +272,7 @@
     document.getElementById('usernameInput').value = username;
     document.getElementById('usernameConnectInput').value = username;
 
-    // Logo cycle animation
+    // Logo cycle animation (start with normal logo, wink every 60 seconds)
     let cycleTimeout;
     function triggerCycle() {
       if (cycleTimeout) clearTimeout(cycleTimeout);
@@ -282,8 +282,8 @@
       }, 500); // 0.5 seconds for wink
       setTimeout(() => triggerCycle(), 60000); // Repeat every 60 seconds
     }
-    setInterval(triggerCycle, 60000); // Repeat every 60 seconds
-    triggerCycle(); // Initial trigger
+    setTimeout(() => triggerCycle(), 60000); // Start first wink after 60 seconds
+    // Initial state is normal logo, no wink on load
 
     const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
     console.log('WebSocket created');
