@@ -13,6 +13,7 @@
       overflow-y: auto;
       scroll-behavior: auto;
       background-color: #fce7f3; /* Light pink for testing */
+      z-index: 0; /* Bottom layer */
     }
     .message-bubble {
       max-width: 70%;
@@ -33,9 +34,20 @@
       margin-right: auto;
       border-bottom-left-radius: 0.25rem;
     }
+    #chatContainer.hidden {
+      display: none; /* Ensure hidden on start screen */
+    }
     #chatContainer {
-      position: relative;
-      padding-bottom: 3rem; /* Space for input overlay */
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .input-container {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      padding: 0 1rem;
+      z-index: 10; /* Top layer over messages */
     }
     #messageInput {
       resize: none;
@@ -43,17 +55,13 @@
       height: 2.5rem; /* Single-line height */
       max-height: 12.5rem; /* 5 lines at ~2.5rem per line */
       line-height: 1.5rem;
-      width: calc(100% - 4.5rem); /* Account for send button */
-      box-sizing: border-box;
-      position: absolute;
-      bottom: 0.5rem;
-      left: 1rem;
-      z-index: 10;
+      flex-grow: 1;
       background-color: #3b82f6; /* Blue like self bubble */
       color: white;
       border-radius: 1rem;
       padding: 0.5rem 1rem;
       border: none;
+      box-sizing: border-box;
     }
     #messageInput::-webkit-scrollbar {
       display: none; /* Hide scrollbar */
@@ -63,10 +71,6 @@
       scrollbar-width: none;  /* Firefox */
     }
     #sendButton {
-      position: absolute;
-      bottom: 0.5rem;
-      right: 1rem;
-      z-index: 11;
       width: 2.5rem;
       height: 2.5rem;
       background-color: #2563eb; /* Slightly darker blue */
@@ -100,8 +104,8 @@
       <div id="chatContainer" class="hidden">
         <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mb-4 hover:bg-red-600 hidden">New Session</button>
         <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded"></div>
-        <div class="relative">
-          <textarea id="messageInput" class="flex-grow" placeholder="Type a message..." cols="30" maxlength="1000"></textarea>
+        <div class="input-container">
+          <textarea id="messageInput" placeholder="Type a message..." cols="30" maxlength="1000"></textarea>
           <button id="sendButton">📤</button>
         </div>
       </div>
@@ -680,6 +684,7 @@
       usernameContainer.classList.add('hidden');
       connectContainer.classList.add('hidden');
       initialContainer.classList.add('hidden');
+      chatContainer.classList.remove('hidden');
       statusElement.textContent = 'Waiting for connection...';
       socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
     };
@@ -703,6 +708,7 @@
       initialContainer.classList.add('hidden');
       usernameContainer.classList.add('hidden');
       connectContainer.classList.add('hidden');
+      chatContainer.classList.remove('hidden');
       statusElement.textContent = 'Connecting...';
       socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
     };
@@ -731,7 +737,10 @@
     messageInput.addEventListener('input', () => {
       const baseHeight = 2.5; /* rem */
       const maxLines = 5;
-      const lines = messageInput.value.split('\n').length;
+      const lineHeight = 1.5; /* rem, matches CSS line-height */
+      const padding = 1; /* rem, total vertical padding (0.5rem top + bottom) */
+      const scrollHeight = messageInput.scrollHeight;
+      const lines = Math.ceil((scrollHeight - padding * 16) / (lineHeight * 16)); /* Convert rem to px, ceil for line starts */
       const newHeight = Math.min(lines, maxLines) * baseHeight;
       messageInput.style.height = `${newHeight}rem`;
       if (lines > maxLines) {
