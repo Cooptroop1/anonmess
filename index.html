@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Anonomoose Chat</title>
+  <title>My Anonomoose Chat</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
   <link rel="icon" type="image/png" href="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f60e.png"/>
   <style>
@@ -27,6 +27,18 @@
     #messages.waiting {
       background-color: transparent; /* Remove pink during waiting */
       background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/logo.JPG?sanitize=true'); /* Logo as background */
+    }
+    .corner-logo {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      width: 64px;
+      height: 64px;
+      background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/corner%20logo.JPG?sanitize=true');
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+      z-index: 100; /* Above other content */
     }
     .message-bubble {
       max-width: 70%;
@@ -123,10 +135,11 @@
   </style>
 </head>
 <body class="bg-black min-h-screen flex items-center justify-center">
+  <div class="corner-logo"></div> <!-- Corner logo added here -->
   <div class="flex w-full max-w-lg">
     <div class="bg-white p-8 rounded-lg shadow-lg flex-grow">
-      <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">Anonymous Chat</h1>
-      <div id="status" class="text-center mb-4 text-gray-600">Start a new chat or connect to an existing one</div>
+      <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">My Anonomoose Chat</h1>
+      <div id="status" class="text-center mb-4 text-gray-600">Start a new chat or connect to an existing one with My Anonomoose Chat</div>
       <div id="initialContainer">
         <button id="startChatToggleButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full mb-2 hover:bg-blue-600 transition-colors">Start Chat</button>
         <button id="connectToggleButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600 transition-colors">Connect to Chat</button>
@@ -215,7 +228,7 @@
     const maxClientsContainer = document.getElementById('maxClientsContainer');
     const inputContainer = document.querySelector('.input-container');
     const messages = document.getElementById('messages');
-    statusElement.textContent = 'Start a new chat or connect to an existing one';
+    statusElement.textContent = 'Start a new chat or connect to an existing one with My Anonomoose Chat';
     document.getElementById('usernameInput').value = username;
     document.getElementById('usernameConnectInput').value = username;
 
@@ -224,7 +237,7 @@
 
     socket.onopen = () => {
       console.log('WebSocket opened');
-      statusElement.textContent = 'Start a new chat or connect to an existing one';
+      statusElement.textContent = 'Start a new chat or connect to an existing one with My Anonomoose Chat';
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: 'connect', clientId }));
       }
@@ -370,7 +383,7 @@
     }
 
     function updateMaxClientsUI() {
-      statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...';
+      statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection... with My Anonomoose Chat';
       const inputs = document.querySelectorAll('input[name="maxClients"]');
       inputs.forEach(input => {
         input.checked = parseInt(input.value) === maxClients;
@@ -733,13 +746,13 @@
     document.getElementById('startChatToggleButton').onclick = () => {
       initialContainer.classList.add('hidden');
       usernameContainer.classList.remove('hidden');
-      statusElement.textContent = 'Enter a username to start a chat';
+      statusElement.textContent = 'Enter a username to start a chat with My Anonomoose Chat';
     };
 
     document.getElementById('connectToggleButton').onclick = () => {
       initialContainer.classList.add('hidden');
       connectContainer.classList.remove('hidden');
-      statusElement.textContent = 'Enter a username and code to join a chat';
+      statusElement.textContent = 'Enter a username and code to join a chat with My Anonomoose Chat';
     };
 
     document.getElementById('startChatButton').onclick = () => {
@@ -757,7 +770,7 @@
       initialContainer.classList.add('hidden');
       chatContainer.classList.remove('hidden');
       messages.classList.add('waiting'); /* Show logo background */
-      statusElement.textContent = 'Waiting for connection...';
+      statusElement.textContent = 'Waiting for connection... with My Anonomoose Chat';
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
       }
@@ -784,7 +797,7 @@
       connectContainer.classList.add('hidden');
       chatContainer.classList.remove('hidden');
       messages.classList.add('waiting'); /* Show logo background */
-      statusElement.textContent = 'Waiting for connection...';
+      statusElement.textContent = 'Waiting for connection... with My Anonomoose Chat';
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
       }
@@ -793,14 +806,14 @@
     document.getElementById('backButton').onclick = () => {
       usernameContainer.classList.add('hidden');
       initialContainer.classList.remove('hidden');
-      statusElement.textContent = 'Start a new chat or connect to an existing one';
+      statusElement.textContent = 'Start a new chat or connect to an existing one with My Anonomoose Chat';
       messages.classList.remove('waiting');
     };
 
     document.getElementById('backButtonConnect').onclick = () => {
       connectContainer.classList.add('hidden');
       initialContainer.classList.remove('hidden');
-      statusElement.textContent = 'Start a new chat or connect to an existing one';
+      statusElement.textContent = 'Start a new chat or connect to an existing one with My Anonomoose Chat';
       messages.classList.remove('waiting');
     };
 
@@ -858,7 +871,7 @@
       code = generateCode();
       codeDisplayElement.textContent = '';
       codeDisplayElement.classList.add('hidden');
-      statusElement.textContent = 'Start a new chat or connect to an existing one';
+      statusElement.textContent = 'Start a new chat or connect to an existing one with My Anonomoose Chat';
       document.getElementById('messages').innerHTML = '';
       document.getElementById('messageInput').value = '';
       document.getElementById('messageInput').style.height = '2.5rem';
