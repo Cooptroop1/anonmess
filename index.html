@@ -172,10 +172,11 @@
     #copyCodeButton {
       background-color: #10b981;
       color: white;
-      padding: 0.25rem 0.75rem;
+      padding: 0.2rem 0.6rem; /* Reduced padding to make it smaller */
       border-radius: 0.375rem;
       margin-top: 0.5rem;
       cursor: pointer; /* Ensure pointer cursor for button */
+      float: right; /* Move to the right */
     }
     #copyCodeButton:hover {
       background-color: #059669;
@@ -990,6 +991,24 @@
         console.error('Failed to copy text: ', err);
       });
     };
+
+    // Add back button functionality after starting a new chat
+    const backButtonAfterCode = document.createElement('button');
+    backButtonAfterCode.textContent = 'Back';
+    backButtonAfterCode.className = 'bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600 transition-colors';
+    backButtonAfterCode.onclick = () => {
+      codeDisplayElement.classList.add('hidden');
+      copyCodeButton.classList.add('hidden');
+      usernameContainer.classList.remove('hidden');
+      chatContainer.classList.add('hidden');
+      messages.classList.remove('waiting');
+      statusElement.textContent = 'Enter a username to start a chat';
+    };
+    document.getElementById('startChatButton').addEventListener('click', () => {
+      if (!codeDisplayElement.classList.contains('hidden')) {
+        document.querySelector('.bg-white').appendChild(backButtonAfterCode);
+      }
+    });
   </script>
 </body>
 </html>
