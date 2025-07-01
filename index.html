@@ -39,7 +39,7 @@
     #messageInput {
       resize: none;
       overflow-y: auto;
-      min-height: 2.5rem; /* Single-line height */
+      height: 2.5rem; /* Single-line height */
       max-height: 7.5rem; /* 5 lines at ~1.5rem per line */
       line-height: 1.5rem;
       width: 100%;
@@ -611,7 +611,10 @@
         messageDiv.textContent = `${username}: ${content}`;
         messages.prepend(messageDiv);
         messages.scrollTop = messages.scrollHeight;
-        document.getElementById('messageInput').value = '';
+        const messageInput = document.getElementById('messageInput');
+        messageInput.value = '';
+        messageInput.rows = 1;
+        messageInput.style.height = '2.5rem';
         processedMessageIds.add(messageId);
       } else {
         statusElement.textContent = 'Error: No connections or username not set.';
@@ -692,9 +695,12 @@
 
     const messageInput = document.getElementById('messageInput');
     messageInput.addEventListener('input', () => {
-      const lines = messageInput.value.split('\n').length;
+      const lineHeight = 1.5; /* rem */
       const maxLines = 5;
-      messageInput.rows = Math.min(lines, maxLines);
+      const lines = messageInput.value.split('\n').length;
+      const newRows = Math.min(lines, maxLines);
+      messageInput.rows = newRows;
+      messageInput.style.height = `${newRows * lineHeight + 1}rem`; /* +1rem for padding */
       if (lines > maxLines) {
         messageInput.scrollTop = messageInput.scrollHeight;
       }
@@ -735,6 +741,7 @@
       document.getElementById('messages').innerHTML = '';
       document.getElementById('messageInput').value = '';
       document.getElementById('messageInput').rows = 1;
+      document.getElementById('messageInput').style.height = '2.5rem';
       document.getElementById('usernameInput').value = username;
       document.getElementById('usernameConnectInput').value = username;
       document.getElementById('codeInput').value = '';
