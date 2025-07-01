@@ -42,8 +42,28 @@
       height: 2.5rem; /* Single-line height */
       max-height: 7.5rem; /* 5 lines at ~1.5rem per line */
       line-height: 1.5rem;
-      width: 100%;
+      width: calc(100% - 3rem); /* Account for send button */
       box-sizing: border-box;
+      position: absolute;
+      bottom: 0.5rem;
+      left: 1rem;
+      z-index: 10;
+      background-color: #3b82f6; /* Blue like self bubble */
+      color: white;
+      border-radius: 1rem;
+      padding: 0.5rem 1rem;
+      border: none;
+    }
+    #messageInput::-webkit-scrollbar {
+      display: none; /* Hide scrollbar */
+    }
+    #messageInput {
+      -ms-overflow-style: none;  /* IE and Edge */
+      scrollbar-width: none;  /* Firefox */
+    }
+    #chatContainer {
+      position: relative;
+      padding-bottom: 3rem; /* Space for input overlay */
     }
   </style>
 </head>
@@ -66,7 +86,7 @@
         <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mb-4 hover:bg-red-600 hidden">New Session</button>
         <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded"></div>
         <div class="flex items-start gap-2">
-          <textarea id="messageInput" class="border border-gray-300 p-2 flex-grow rounded" placeholder="Type a message..." rows="1" cols="30" maxlength="1000"></textarea>
+          <textarea id="messageInput" class="flex-grow" placeholder="Type a message..." cols="30" maxlength="1000"></textarea>
           <button id="sendButton" class="bg-blue-500 text-white w-10 h-10 flex items-center justify-center rounded-full hover:bg-blue-600">📤</button>
         </div>
       </div>
@@ -613,7 +633,6 @@
         messages.scrollTop = messages.scrollHeight;
         const messageInput = document.getElementById('messageInput');
         messageInput.value = '';
-        messageInput.rows = 1;
         messageInput.style.height = '2.5rem';
         processedMessageIds.add(messageId);
       } else {
@@ -698,9 +717,8 @@
       const lineHeight = 1.5; /* rem */
       const maxLines = 5;
       const lines = messageInput.value.split('\n').length;
-      const newRows = Math.min(lines, maxLines);
-      messageInput.rows = newRows;
-      messageInput.style.height = `${newRows * lineHeight + 1}rem`; /* +1rem for padding */
+      const newHeight = Math.min(lines, maxLines) * lineHeight + 1; /* +1rem for padding */
+      messageInput.style.height = `${newHeight}rem`;
       if (lines > maxLines) {
         messageInput.scrollTop = messageInput.scrollHeight;
       }
@@ -740,7 +758,6 @@
       statusElement.textContent = 'Start a new chat or connect to an existing one';
       document.getElementById('messages').innerHTML = '';
       document.getElementById('messageInput').value = '';
-      document.getElementById('messageInput').rows = 1;
       document.getElementById('messageInput').style.height = '2.5rem';
       document.getElementById('usernameInput').value = username;
       document.getElementById('usernameConnectInput').value = username;
