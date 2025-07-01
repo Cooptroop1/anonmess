@@ -17,6 +17,23 @@
       margin-bottom: 0.5rem; /* Gap below chat box */
       border-radius: 0.5rem;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      position: relative; /* For logo positioning */
+    }
+    #waitingLogo {
+      display: none; /* Hidden by default */
+      justify-content: center;
+      align-items: center;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+    }
+    #waitingLogo img {
+      width: 100px;
+      height: 100px;
+      object-fit: contain; /* Scale to fit while preserving aspect ratio */
     }
     .message-bubble {
       max-width: 70%;
@@ -129,7 +146,11 @@
       <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800 hidden"></div>
       <div id="chatContainer" class="hidden">
         <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mb-4 hover:bg-red-600 transition-colors hidden">New Session</button>
-        <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded"></div>
+        <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded">
+          <div id="waitingLogo" class="hidden">
+            <img src="https://via.placeholder.com/100x100.png?text=RightLogo" alt="Waiting Logo">
+          </div>
+        </div>
         <div class="input-container hidden">
           <textarea id="messageInput" placeholder="Type a message..." cols="30" maxlength="1000"></textarea>
           <button id="sendButton">📤</button>
@@ -202,6 +223,7 @@
     const newSessionButton = document.getElementById('newSessionButton');
     const maxClientsContainer = document.getElementById('maxClientsContainer');
     const inputContainer = document.querySelector('.input-container');
+    const waitingLogo = document.getElementById('waitingLogo');
     statusElement.textContent = 'Start a new chat or connect to an existing one';
     document.getElementById('usernameInput').value = username;
     document.getElementById('usernameConnectInput').value = username;
@@ -257,6 +279,7 @@
             newSessionButton.classList.add('hidden');
             maxClientsContainer.classList.add('hidden');
             inputContainer.classList.add('hidden');
+            waitingLogo.classList.add('hidden');
           }
           return;
         }
@@ -296,6 +319,7 @@
           updateMaxClientsUI();
           if (totalClients <= 1) {
             inputContainer.classList.add('hidden');
+            waitingLogo.classList.remove('hidden');
           }
         }
         if (message.type === 'max-clients') {
@@ -358,6 +382,11 @@
         input.disabled = !isInitiator;
       });
       maxClientsContainer.classList.toggle('hidden', !isInitiator);
+      if (!isConnected) {
+        waitingLogo.classList.remove('hidden');
+      } else {
+        waitingLogo.classList.add('hidden');
+      }
     }
 
     function setMaxClients(n) {
@@ -503,7 +532,8 @@
         connectContainer.classList.add('hidden');
         chatContainer.classList.remove('hidden');
         newSessionButton.classList.remove('hidden');
-        inputContainer.classList.remove('hidden'); /* Show input when connected */
+        inputContainer.classList.remove('hidden');
+        waitingLogo.classList.add('hidden'); /* Hide logo on connection */
         clearTimeout(connectionTimeouts.get(targetId));
         retryCounts.delete(targetId);
         updateMaxClientsUI();
@@ -566,6 +596,7 @@
         messageRateLimits.delete(targetId);
         if (dataChannels.size === 0) {
           inputContainer.classList.add('hidden');
+          waitingLogo.classList.remove('hidden');
         }
       };
     }
@@ -670,6 +701,7 @@
       updateMaxClientsUI();
       if (!isConnected) {
         inputContainer.classList.add('hidden');
+        waitingLogo.classList.remove('hidden');
       }
     }
 
@@ -723,6 +755,7 @@
       connectContainer.classList.add('hidden');
       initialContainer.classList.add('hidden');
       chatContainer.classList.remove('hidden');
+      waitingLogo.classList.remove('hidden'); /* Show logo */
       statusElement.textContent = 'Waiting for connection...';
       socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
     };
@@ -747,7 +780,8 @@
       usernameContainer.classList.add('hidden');
       connectContainer.classList.add('hidden');
       chatContainer.classList.remove('hidden');
-      statusElement.textContent = 'Connecting...';
+      waitingLogo.classList.remove('hidden'); /* Show logo */
+      statusElement.textContent = 'Waiting for connection...';
       socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
     };
 
@@ -755,12 +789,14 @@
       usernameContainer.classList.add('hidden');
       initialContainer.classList.remove('hidden');
       statusElement.textContent = 'Start a new chat or connect to an existing one';
+      waitingLogo.classList.add('hidden');
     };
 
     document.getElementById('backButtonConnect').onclick = () => {
       connectContainer.classList.add('hidden');
       initialContainer.classList.remove('hidden');
       statusElement.textContent = 'Start a new chat or connect to an existing one';
+      waitingLogo.classList.add('hidden');
     };
 
     document.getElementById('sendButton').onclick = () => {
@@ -818,7 +854,7 @@
       codeDisplayElement.textContent = '';
       codeDisplayElement.classList.add('hidden');
       statusElement.textContent = 'Start a new chat or connect to an existing one';
-      document.getElementById('messages').innerHTML = '';
+      document.getElementById('messages').innerHTML = '<div id="waitingLogo" class="hidden"><img src="https://via.placeholder.com/100x100.png?text=RightLogo" alt="Waiting Logo"></div>';
       document.getElementById('messageInput').value = '';
       document.getElementById('messageInput').style.height = '2.5rem';
       document.getElementById('usernameInput').value = username;
@@ -831,6 +867,7 @@
       newSessionButton.classList.add('hidden');
       maxClientsContainer.classList.add('hidden');
       inputContainer.classList.add('hidden');
+      waitingLogo.classList.add('hidden');
     };
 
     document.getElementById('usernameInput').addEventListener('keydown', (event) => {
