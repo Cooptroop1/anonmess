@@ -489,11 +489,13 @@
 
     async function handleAnswer(answer, targetId) {
       console.log(`Handling answer from ${targetId} for code: ${code}`);
-      const peerConnection = peerConnections.get(targetId);
-      if (!peerConnection) {
-        console.warn(`No peer connection for ${targetId}`);
+      if (!peerConnections.has(targetId)) {
+        console.log(`No peer connection for ${targetId}, queuing answer`);
+        candidatesQueues.get(targetId).push({ type: 'answer', answer });
+        startPeerConnection(targetId, false);
         return;
       }
+      const peerConnection = peerConnections.get(targetId);
       if (answer.type !== 'answer') {
         console.error(`Invalid answer type from ${targetId}:`, answer.type);
         return;
