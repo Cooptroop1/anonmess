@@ -12,6 +12,26 @@
       flex-direction: column-reverse;
       overflow-y: auto;
       scroll-behavior: auto;
+      background-color: #fce7f3; /* Light pink for testing */
+    }
+    .message-bubble {
+      max-width: 70%;
+      margin: 0.5rem 1rem;
+      padding: 0.75rem 1rem;
+      border-radius: 1rem;
+      word-wrap: break-word;
+    }
+    .message-bubble.self {
+      background-color: #3b82f6; /* Blue for self */
+      color: white;
+      margin-left: auto;
+      border-bottom-right-radius: 0.25rem;
+    }
+    .message-bubble.other {
+      background-color: #e5e7eb; /* Gray for others */
+      color: #1f2937;
+      margin-right: auto;
+      border-bottom-left-radius: 0.25rem;
     }
     #sendButton {
       line-height: 1;
@@ -35,7 +55,7 @@
       <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800 hidden"></div>
       <div id="chatContainer" class="hidden">
         <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mb-4 hover:bg-red-600 hidden">New Session</button>
-        <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded bg-white"></div>
+        <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded"></div>
         <div class="flex items-center gap-2">
           <input id="messageInput" type="text" class="border border-gray-300 p-2 flex-grow rounded" placeholder="Type a message...">
           <button id="sendButton" class="bg-blue-500 text-white w-10 h-10 flex items-center justify-center rounded-full hover:bg-blue-600">📤</button>
@@ -391,7 +411,7 @@
             startPeerConnection(targetId, isOfferer);
           }
         }
-      }, 30000); // Increased to 30s
+      }, 30000);
       connectionTimeouts.set(targetId, timeout);
     }
 
@@ -442,9 +462,8 @@
         const senderUsername = usernames.get(targetId) || data.username;
         const messages = document.getElementById('messages');
         const isSelf = senderUsername === username;
-        const className = isSelf ? 'text-blue-600' : 'text-gray-600';
         const messageDiv = document.createElement('div');
-        messageDiv.className = className;
+        messageDiv.className = `message-bubble ${isSelf ? 'self' : 'other'}`;
         messageDiv.textContent = `${senderUsername}: ${data.content}`;
         messages.prepend(messageDiv);
         messages.scrollTop = messages.scrollHeight;
@@ -579,7 +598,7 @@
         });
         const messages = document.getElementById('messages');
         const messageDiv = document.createElement('div');
-        messageDiv.className = 'text-blue-600';
+        messageDiv.className = 'message-bubble self';
         messageDiv.textContent = `${username}: ${content}`;
         messages.prepend(messageDiv);
         messages.scrollTop = messages.scrollHeight;
