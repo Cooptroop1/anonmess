@@ -10,21 +10,21 @@
     /* Global cursor and selection style: no pointer or caret on non-inputs */
     * {
       cursor: default;
-      user-select: none; /* Prevents text selection and caret */
+      user-select: none;
     }
     input[type="text"],
     input[type="number"],
     textarea {
       cursor: text;
-      user-select: text; /* Allows selection and caret in inputs */
+      user-select: text;
     }
     #codeDisplay {
-      user-select: text; /* Allows copying the code text */
+      user-select: text;
     }
 
     body {
       min-height: 100vh;
-      padding-top: 150px; /* Increased top padding to create more space above white box */
+      padding-top: 150px;
     }
 
     #messages {
@@ -76,15 +76,15 @@
       border-radius: 10%;
       font-size: 1.5rem;
       font-weight: bold;
-      display: flex;
+      display: none;
       align-items: center;
       justify-content: center;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       transition: background-color 0.2s ease;
-      display: none; /* Hidden by default, shown only when connected */
+      z-index: 100;
     }
     #chatContainer #newSessionButton {
-      display: flex; /* Show only when chatContainer is active and connected */
+      display: flex;
     }
     #newSessionButton:hover {
       background-color: #dc2626;
@@ -215,7 +215,6 @@
   </style>
 </head>
 <body class="bg-black min-h-screen flex items-center justify-center">
-  <button id="newSessionButton" class="hidden">New Session</button>
   <div class="corner-logo" id="cornerLogo"></div>
   <div class="flex w-full max-w-lg">
     <div class="bg-white p-8 rounded-lg shadow-lg flex-grow">
@@ -233,6 +232,7 @@
       <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800 hidden"></div>
       <button id="copyCodeButton" class="hidden">Copy Code</button>
       <div id="chatContainer" class="hidden">
+        <button id="newSessionButton">New Session</button>
         <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded"></div>
         <div class="input-container hidden">
           <textarea id="messageInput" placeholder="Type a message..." cols="30" maxlength="1000"></textarea>
@@ -320,11 +320,10 @@
       cornerLogo.classList.add('wink');
       cycleTimeout = setTimeout(() => {
         cornerLogo.classList.remove('wink');
-      }, 500); // 0.5 seconds for wink
-      setTimeout(() => triggerCycle(), 60000); // Repeat every 60 seconds
+      }, 500);
+      setTimeout(() => triggerCycle(), 60000);
     }
-    setTimeout(() => triggerCycle(), 60000); // Start first wink after 60 seconds
-    // Initial state is normal logo, no wink on load
+    setTimeout(() => triggerCycle(), 60000);
 
     const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
     console.log('WebSocket created');
@@ -487,8 +486,10 @@
       maxClientsContainer.classList.toggle('hidden', !isInitiator);
       if (!isConnected) {
         messages.classList.add('waiting');
+        newSessionButton.style.display = 'none';
       } else {
         messages.classList.remove('waiting');
+        newSessionButton.style.display = 'flex';
       }
     }
 
@@ -638,7 +639,6 @@
         usernameContainer.classList.add('hidden');
         connectContainer.classList.add('hidden');
         chatContainer.classList.remove('hidden');
-        newSessionButton.classList.remove('hidden');
         inputContainer.classList.remove('hidden');
         messages.classList.remove('waiting');
         clearTimeout(connectionTimeouts.get(targetId));
@@ -704,7 +704,7 @@
         if (dataChannels.size === 0) {
           inputContainer.classList.add('hidden');
           messages.classList.add('waiting');
-          newSessionButton.classList.add('hidden'); // Hide when disconnected
+          newSessionButton.style.display = 'none';
         }
       };
     }
@@ -812,7 +812,7 @@
       if (!isConnected) {
         inputContainer.classList.add('hidden');
         messages.classList.add('waiting');
-        newSessionButton.classList.add('hidden'); // Hide when disconnected
+        newSessionButton.style.display = 'none';
       }
     }
 
@@ -986,7 +986,7 @@
       usernameContainer.classList.add('hidden');
       connectContainer.classList.add('hidden');
       chatContainer.classList.add('hidden');
-      newSessionButton.classList.add('hidden');
+      newSessionButton.style.display = 'none';
       maxClientsContainer.classList.add('hidden');
       inputContainer.classList.add('hidden');
       messages.classList.remove('waiting');
