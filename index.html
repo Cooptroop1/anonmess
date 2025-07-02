@@ -1,6 +1,3 @@
-
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -391,7 +388,8 @@
           usernames.delete(message.clientId);
           cleanupPeerConnection(message.clientId);
           updateMaxClientsUI();
-          if (totalClients <= 1) {
+          if (totalClients <= 1 && isConnected) {
+            messages.innerHTML = ''; // Clear chat when only one connection remains
             inputContainer.classList.add('hidden');
             messages.classList.add('waiting');
           }
@@ -782,6 +780,7 @@
       if (!isConnected) {
         inputContainer.classList.add('hidden');
         messages.classList.add('waiting');
+        messages.innerHTML = ''; // Clear chat on connection lost
       }
     }
 
