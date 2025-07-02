@@ -250,7 +250,11 @@
     }
 
     let code = generateCode();
-    let clientId = generateMessageId();
+    let clientId = localStorage.getItem('clientId');
+    if (!clientId) {
+      clientId = generateMessageId();
+      localStorage.setItem('clientId', clientId);
+    }
     let isInitiator = false;
     let isConnected = false;
     let maxClients = 2;
