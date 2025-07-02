@@ -19,6 +19,9 @@
       cursor: text;
       user-select: text; /* Allows selection and caret in inputs */
     }
+    #codeDisplay {
+      user-select: text; /* Allows copying the code text */
+    }
 
     #messages {
       display: flex;
@@ -42,7 +45,7 @@
       background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/logo.JPG?sanitize=true');
     }
     .corner-logo {
-      position: fixed;
+      position: absolute;
       top: 10px;
       right: 10px;
       width: 256px;
@@ -61,9 +64,15 @@
       .corner-logo {
         position: absolute;
         top: 10px;
-        right: 10px;
+        left: 50%;
+        transform: translateX(-50%);
         width: 128px;
         height: 128px;
+        z-index: 1000; /* Ensure it stays above chat on mobile */
+      }
+      #chatContainer.in-chat .corner-logo {
+        position: fixed; /* Keep logo fixed above chat box on mobile when in chat */
+        top: 10px;
       }
     }
     .message-bubble {
@@ -95,6 +104,10 @@
       flex-direction: column;
       gap: 0.5rem;
       position: relative;
+    }
+    #chatContainer.in-chat {
+      position: relative;
+      z-index: 0; /* Ensure chat stays below fixed logo on mobile */
     }
     .input-container {
       display: flex;
@@ -158,6 +171,17 @@
     #sendButton:hover {
       background-color: #1d4ed8;
     }
+    #copyCodeButton {
+      background-color: #10b981;
+      color: white;
+      padding: 0.25rem 0.75rem;
+      border-radius: 0.375rem;
+      margin-top: 0.5rem;
+      cursor: pointer; /* Ensure pointer cursor for button */
+    }
+    #copyCodeButton:hover {
+      background-color: #059669;
+    }
   </style>
 </head>
 <body class="bg-black min-h-screen flex items-center justify-center">
@@ -176,6 +200,7 @@
         <button id="backButton" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600 transition-colors">Back</button>
       </div>
       <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800 hidden"></div>
+      <button id="copyCodeButton" class="hidden">Copy Code</button>
       <div id="chatContainer" class="hidden">
         <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mb-4 hover:bg-red-600 transition-colors hidden">New Session</button>
         <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded"></div>
@@ -244,6 +269,7 @@
 
     const statusElement = document.getElementById('status');
     const codeDisplayElement = document.getElementById('codeDisplay');
+    const copyCodeButton = document.getElementById('copyCodeButton');
     const initialContainer = document.getElementById('initialContainer');
     const usernameContainer = document.getElementById('usernameContainer');
     const connectContainer = document.getElementById('connectContainer');
@@ -257,7 +283,7 @@
     document.getElementById('usernameInput').value = username;
     document.getElementById('usernameConnectInput').value = username;
 
-    // Logo cycle animation
+    // Logo cycle animation (start with normal logo, wink every 60 seconds)
     let cycleTimeout;
     function triggerCycle() {
       if (cycleTimeout) clearTimeout(cycleTimeout);
@@ -267,8 +293,8 @@
       }, 500); // 0.5 seconds for wink
       setTimeout(() => triggerCycle(), 60000); // Repeat every 60 seconds
     }
-    setInterval(triggerCycle, 60000); // Repeat every 60 seconds
-    triggerCycle(); // Initial trigger
+    setTimeout(() => triggerCycle(), 60000); // Start first wink after 60 seconds
+    // Initial state is normal logo, no wink on load
 
     const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
     console.log('WebSocket created');
@@ -321,6 +347,7 @@
             usernameContainer.classList.add('hidden');
             connectContainer.classList.add('hidden');
             codeDisplayElement.classList.add('hidden');
+            copyCodeButton.classList.add('hidden');
             chatContainer.classList.add('hidden');
             newSessionButton.classList.add('hidden');
             maxClientsContainer.classList.add('hidden');
@@ -584,6 +611,7 @@
         newSessionButton.classList.remove('hidden');
         inputContainer.classList.remove('hidden');
         messages.classList.remove('waiting');
+        chatContainer.classList.add('in-chat'); // Add in-chat class when chat is active
         clearTimeout(connectionTimeouts.get(targetId));
         retryCounts.delete(targetId);
         updateMaxClientsUI();
@@ -647,6 +675,7 @@
         if (dataChannels.size === 0) {
           inputContainer.classList.add('hidden');
           messages.classList.add('waiting');
+          chatContainer.classList.remove('in-chat'); // Remove in-chat class when disconnected
         }
       };
     }
@@ -754,6 +783,7 @@
       if (!isConnected) {
         inputContainer.classList.add('hidden');
         messages.classList.add('waiting');
+        chatContainer.classList.remove('in-chat'); // Remove in-chat class when disconnected
       }
     }
 
@@ -803,6 +833,7 @@
       localStorage.setItem('username', username);
       codeDisplayElement.textContent = `Your code: ${code}`;
       codeDisplayElement.classList.remove('hidden');
+      copyCodeButton.classList.remove('hidden');
       usernameContainer.classList.add('hidden');
       connectContainer.classList.add('hidden');
       initialContainer.classList.add('hidden');
@@ -830,6 +861,7 @@
       code = inputCode;
       codeDisplayElement.textContent = `Using code: ${code}`;
       codeDisplayElement.classList.remove('hidden');
+      copyCodeButton.classList.remove('hidden');
       initialContainer.classList.add('hidden');
       usernameContainer.classList.add('hidden');
       connectContainer.classList.add('hidden');
@@ -846,6 +878,9 @@
       initialContainer.classList.remove('hidden');
       statusElement.textContent = 'Start a new chat or connect to an existing one';
       messages.classList.remove('waiting');
+      codeDisplayElement.classList.add('hidden');
+      copyCodeButton.classList.add('hidden');
+      chatContainer.classList.remove('in-chat'); // Remove in-chat class when going back
     };
 
     document.getElementById('backButtonConnect').onclick = () => {
@@ -853,6 +888,9 @@
       initialContainer.classList.remove('hidden');
       statusElement.textContent = 'Start a new chat or connect to an existing one';
       messages.classList.remove('waiting');
+      codeDisplayElement.classList.add('hidden');
+      copyCodeButton.classList.add('hidden');
+      chatContainer.classList.remove('in-chat'); // Remove in-chat class when going back
     };
 
     document.getElementById('sendButton').onclick = () => {
@@ -909,6 +947,7 @@
       code = generateCode();
       codeDisplayElement.textContent = '';
       codeDisplayElement.classList.add('hidden');
+      copyCodeButton.classList.add('hidden');
       statusElement.textContent = 'Start a new chat or connect to an existing one';
       document.getElementById('messages').innerHTML = '';
       document.getElementById('messageInput').value = '';
@@ -924,6 +963,7 @@
       maxClientsContainer.classList.add('hidden');
       inputContainer.classList.add('hidden');
       messages.classList.remove('waiting');
+      chatContainer.classList.remove('in-chat'); // Remove in-chat class for new session
     };
 
     document.getElementById('usernameInput').addEventListener('keydown', (event) => {
@@ -946,6 +986,18 @@
         document.getElementById('connectButton').click();
       }
     });
+
+    copyCodeButton.onclick = () => {
+      const codeText = codeDisplayElement.textContent.replace('Your code: ', '').replace('Using code: ', '');
+      navigator.clipboard.writeText(codeText).then(() => {
+        copyCodeButton.textContent = 'Copied!';
+        setTimeout(() => {
+          copyCodeButton.textContent = 'Copy Code';
+        }, 2000);
+      }).catch(err => {
+        console.error('Failed to copy text: ', err);
+      });
+    };
   </script>
 </body>
 </html>
