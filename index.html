@@ -898,17 +898,7 @@
 
     const messageInput = document.getElementById('messageInput');
     messageInput.addEventListener('input', () => {
-      const baseHeight = 2.5;
-      const maxLines = 5;
-      const lineHeight = 1.5;
-      const padding = 1;
-      const scrollHeight = messageInput.scrollHeight;
-      const lines = Math.ceil((scrollHeight - padding * 16) / (lineHeight * 16));
-      const newHeight = Math.min(lines, maxLines) * baseHeight;
-      messageInput.style.height = `${newHeight}rem`;
-      if (lines > maxLines) {
-        messageInput.scrollTop = messageInput.scrollHeight;
-      }
+      // Removed dynamic height adjustment to keep size fixed
     });
 
     messageInput.addEventListener('keydown', (event) => {
