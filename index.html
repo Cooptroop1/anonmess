@@ -1,6 +1,4 @@
 
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -20,14 +18,6 @@
     textarea {
       cursor: text;
       user-select: text; /* Allows selection and caret in inputs */
-    }
-    #codeDisplay {
-      user-select: text; /* Allows copying the code text */
-    }
-
-    body {
-      min-height: 100vh;
-      padding-top: 150px; /* Increased top padding to create more space above white box */
     }
 
     #messages {
@@ -52,7 +42,7 @@
       background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/logo.JPG?sanitize=true');
     }
     .corner-logo {
-      position: absolute;
+      position: fixed;
       top: 10px;
       right: 10px;
       width: 256px;
@@ -74,10 +64,6 @@
         right: 10px;
         width: 128px;
         height: 128px;
-        z-index: 100; /* Ensure it stays above but scrolls with page */
-      }
-      body {
-        padding-top: 180px; /* Increased top padding for mobile to give more space */
       }
     }
     .message-bubble {
@@ -172,17 +158,6 @@
     #sendButton:hover {
       background-color: #1d4ed8;
     }
-    #copyCodeButton {
-      background-color: #10b981;
-      color: white;
-      padding: 0.25rem 0.75rem;
-      border-radius: 0.375rem;
-      margin-top: 0.5rem;
-      cursor: pointer; /* Ensure pointer cursor for button */
-    }
-    #copyCodeButton:hover {
-      background-color: #059669;
-    }
   </style>
 </head>
 <body class="bg-black min-h-screen flex items-center justify-center">
@@ -201,7 +176,6 @@
         <button id="backButton" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600 transition-colors">Back</button>
       </div>
       <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800 hidden"></div>
-      <button id="copyCodeButton" class="hidden">Copy Code</button>
       <div id="chatContainer" class="hidden">
         <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mb-4 hover:bg-red-600 transition-colors hidden">New Session</button>
         <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded"></div>
@@ -270,7 +244,6 @@
 
     const statusElement = document.getElementById('status');
     const codeDisplayElement = document.getElementById('codeDisplay');
-    const copyCodeButton = document.getElementById('copyCodeButton');
     const initialContainer = document.getElementById('initialContainer');
     const usernameContainer = document.getElementById('usernameContainer');
     const connectContainer = document.getElementById('connectContainer');
@@ -284,7 +257,7 @@
     document.getElementById('usernameInput').value = username;
     document.getElementById('usernameConnectInput').value = username;
 
-    // Logo cycle animation (start with normal logo, wink every 60 seconds)
+    // Logo cycle animation
     let cycleTimeout;
     function triggerCycle() {
       if (cycleTimeout) clearTimeout(cycleTimeout);
@@ -294,8 +267,8 @@
       }, 500); // 0.5 seconds for wink
       setTimeout(() => triggerCycle(), 60000); // Repeat every 60 seconds
     }
-    setTimeout(() => triggerCycle(), 60000); // Start first wink after 60 seconds
-    // Initial state is normal logo, no wink on load
+    setInterval(triggerCycle, 60000); // Repeat every 60 seconds
+    triggerCycle(); // Initial trigger
 
     const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
     console.log('WebSocket created');
@@ -348,7 +321,6 @@
             usernameContainer.classList.add('hidden');
             connectContainer.classList.add('hidden');
             codeDisplayElement.classList.add('hidden');
-            copyCodeButton.classList.add('hidden');
             chatContainer.classList.add('hidden');
             newSessionButton.classList.add('hidden');
             maxClientsContainer.classList.add('hidden');
@@ -831,7 +803,6 @@
       localStorage.setItem('username', username);
       codeDisplayElement.textContent = `Your code: ${code}`;
       codeDisplayElement.classList.remove('hidden');
-      copyCodeButton.classList.remove('hidden');
       usernameContainer.classList.add('hidden');
       connectContainer.classList.add('hidden');
       initialContainer.classList.add('hidden');
@@ -859,7 +830,6 @@
       code = inputCode;
       codeDisplayElement.textContent = `Using code: ${code}`;
       codeDisplayElement.classList.remove('hidden');
-      copyCodeButton.classList.remove('hidden');
       initialContainer.classList.add('hidden');
       usernameContainer.classList.add('hidden');
       connectContainer.classList.add('hidden');
@@ -876,8 +846,6 @@
       initialContainer.classList.remove('hidden');
       statusElement.textContent = 'Start a new chat or connect to an existing one';
       messages.classList.remove('waiting');
-      codeDisplayElement.classList.add('hidden');
-      copyCodeButton.classList.add('hidden');
     };
 
     document.getElementById('backButtonConnect').onclick = () => {
@@ -885,8 +853,6 @@
       initialContainer.classList.remove('hidden');
       statusElement.textContent = 'Start a new chat or connect to an existing one';
       messages.classList.remove('waiting');
-      codeDisplayElement.classList.add('hidden');
-      copyCodeButton.classList.add('hidden');
     };
 
     document.getElementById('sendButton').onclick = () => {
@@ -943,7 +909,6 @@
       code = generateCode();
       codeDisplayElement.textContent = '';
       codeDisplayElement.classList.add('hidden');
-      copyCodeButton.classList.add('hidden');
       statusElement.textContent = 'Start a new chat or connect to an existing one';
       document.getElementById('messages').innerHTML = '';
       document.getElementById('messageInput').value = '';
@@ -981,18 +946,6 @@
         document.getElementById('connectButton').click();
       }
     });
-
-    copyCodeButton.onclick = () => {
-      const codeText = codeDisplayElement.textContent.replace('Your code: ', '').replace('Using code: ', '');
-      navigator.clipboard.writeText(codeText).then(() => {
-        copyCodeButton.textContent = 'Copied!';
-        setTimeout(() => {
-          copyCodeButton.textContent = 'Copy Code';
-        }, 2000);
-      }).catch(err => {
-        console.error('Failed to copy text: ', err);
-      });
-    };
   </script>
 </body>
 </html>
