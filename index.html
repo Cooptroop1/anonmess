@@ -184,12 +184,8 @@
     #newSessionButton {
       background-color: #ef4444; /* Note: New session button red */
       color: white;
-      width: 2.5rem;
-      height: 2.5rem;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      padding: 0.25rem 0.75rem;
+      border-radius: 0.375rem;
       margin-top: 0.5rem;
       cursor: pointer;
     }
@@ -222,7 +218,7 @@
           <textarea id="messageInput" placeholder="Type a message..." cols="30" maxlength="1000"></textarea>
           <button id="sendButton">📤</button>
         </div>
-        <button id="newSessionButtonConnected" class="bg-ef4444 text-white w-10 h-10 rounded-full flex items-center justify-center mt-2 hover:bg-dc2626 hidden">New</button>
+        <button id="newSessionButtonConnected" class="bg-ef4444 text-white px-2 py-1 rounded-md flex items-center justify-center mt-2 hover:bg-dc2626 hidden">New Session</button>
       </div>
       <div id="connectContainer" class="hidden">
         <input id="usernameConnectInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)">
