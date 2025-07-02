@@ -1,4 +1,6 @@
 
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -25,11 +27,7 @@
 
     body {
       min-height: 100vh;
-      padding-top: 100px; /* Reduced to push content down, enabling scroll */
-      background-color: #000;
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
+      padding-top: 150px; /* Increased top padding to create more space above white box */
     }
 
     #messages {
@@ -42,21 +40,16 @@
       border-radius: 0.5rem;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       position: relative;
-      height: 512px; /* Doubled from 256px to 512px */
-      background-color: transparent; /* Default to transparent */
+      height: 256px;
+      background-color: #fce7f3;
       background-image: none;
       background-size: 100% 100%;
       background-position: center;
       background-repeat: no-repeat;
     }
-    #chatContainer #messages { /* Apply pink background only when in chatContainer */
-      background-color: #fce7f3;
-    }
     #messages.waiting {
       background-color: transparent;
       background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/logo.JPG?sanitize=true');
-      background-size: contain;
-      background-position: center;
     }
     .corner-logo {
       position: absolute;
@@ -76,17 +69,15 @@
     }
     @media (max-width: 640px) {
       .corner-logo {
+        position: absolute;
         top: 10px;
         right: 10px;
         width: 128px;
         height: 128px;
-        z-index: 100;
+        z-index: 100; /* Ensure it stays above but scrolls with page */
       }
       body {
-        padding-top: 120px; /* Adjusted for mobile */
-      }
-      #messages {
-        height: 400px; /* Doubled from 200px to 400px for mobile */
+        padding-top: 180px; /* Increased top padding for mobile to give more space */
       }
     }
     .message-bubble {
@@ -118,7 +109,6 @@
       flex-direction: column;
       gap: 0.5rem;
       position: relative;
-      min-height: 100vh; /* Ensure full height for scrolling */
     }
     .input-container {
       display: flex;
@@ -188,7 +178,7 @@
       padding: 0.25rem 0.75rem;
       border-radius: 0.375rem;
       margin-top: 0.5rem;
-      cursor: pointer;
+      cursor: pointer; /* Ensure pointer cursor for button */
     }
     #copyCodeButton:hover {
       background-color: #059669;
