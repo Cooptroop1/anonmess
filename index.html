@@ -203,6 +203,7 @@
       <button id="copyCodeButton" class="hidden">Copy Code</button>
       <div id="chatContainer" class="hidden">
         <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-1/2 mb-4 rounded hover:bg-red-600 transition-colors hidden">New Session</button>
+        <button id="randomChatButton" class="bg-purple-500 text-white px-4 py-2 rounded w-1/2 mb-4 hover:bg-purple-600 transition-colors">Random Chat</button>
         <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded"></div>
         <div class="input-container hidden">
           <textarea id="messageInput" placeholder="Type a message..." cols="30" maxlength="1000"></textarea>
@@ -279,6 +280,7 @@
     const connectContainer = document.getElementById('connectContainer');
     const chatContainer = document.getElementById('chatContainer');
     const newSessionButton = document.getElementById('newSessionButton');
+    const randomChatButton = document.getElementById('randomChatButton');
     const maxClientsContainer = document.getElementById('maxClientsContainer');
     const inputContainer = document.querySelector('.input-container');
     const messages = document.getElementById('messages');
@@ -354,6 +356,7 @@
             copyCodeButton.classList.add('hidden');
             chatContainer.classList.add('hidden');
             newSessionButton.classList.add('hidden');
+            randomChatButton.classList.add('hidden');
             maxClientsContainer.classList.add('hidden');
             inputContainer.classList.add('hidden');
             messages.classList.remove('waiting');
@@ -613,6 +616,7 @@
         connectContainer.classList.add('hidden');
         chatContainer.classList.remove('hidden');
         newSessionButton.classList.remove('hidden');
+        randomChatButton.classList.remove('hidden');
         inputContainer.classList.remove('hidden');
         messages.classList.remove('waiting');
         clearTimeout(connectionTimeouts.get(targetId));
@@ -937,6 +941,7 @@
       codeDisplayElement.textContent = '';
       codeDisplayElement.classList.add('hidden');
       copyCodeButton.classList.add('hidden');
+      randomChatButton.classList.add('hidden');
       statusElement.textContent = 'Start a new chat or connect to an existing one';
       document.getElementById('messages').innerHTML = '';
       document.getElementById('messageInput').value = '';
@@ -952,6 +957,15 @@
       maxClientsContainer.classList.add('hidden');
       inputContainer.classList.add('hidden');
       messages.classList.remove('waiting');
+    };
+
+    document.getElementById('randomChatButton').onclick = () => {
+      if (code && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'submit-random', code, clientId }));
+        alert('Your chat code has been submitted for random matching!');
+      } else {
+        alert('Cannot submit code: not connected or no code available.');
+      }
     };
 
     document.getElementById('usernameInput').addEventListener('keydown', (event) => {
@@ -986,6 +1000,16 @@
         console.error('Failed to copy text: ', err);
       });
     };
+
+    window.addEventListener('load', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const action = urlParams.get('action');
+      const joinCode = urlParams.get('code');
+      if (action === 'connect' && joinCode && validateCode(joinCode)) {
+        document.getElementById('codeInput').value = joinCode;
+        document.getElementById('connectButton').click();
+      }
+    });
   </script>
 </body>
 </html>
