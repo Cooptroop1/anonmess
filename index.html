@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -10,21 +11,21 @@
     /* Global cursor and selection style: no pointer or caret on non-inputs */
     * {
       cursor: default;
-      user-select: none;
+      user-select: none; /* Prevents text selection and caret */
     }
     input[type="text"],
     input[type="number"],
     textarea {
       cursor: text;
-      user-select: text;
+      user-select: text; /* Allows selection and caret in inputs */
     }
     #codeDisplay {
-      user-select: text;
+      user-select: text; /* Allows copying the code text */
     }
 
     body {
       min-height: 100vh;
-      padding-top: 130px;
+      padding-top: 130px; /* Increased top padding to create more space above white box */
     }
 
     #messages {
@@ -66,14 +67,15 @@
     }
     @media (max-width: 640px) {
       .corner-logo {
+        position: absolute;
         top: 10px;
         right: 10px;
         width: 128px;
         height: 128px;
-        z-index: 100;
+        z-index: 100; /* Ensure it stays above but scrolls with page */
       }
       body {
-        padding-top: 180px;
+        padding-top: 180px; /* Increased top padding for mobile to give more space */
       }
     }
     .message-bubble {
@@ -110,7 +112,7 @@
       display: flex;
       align-items: flex-start;
       gap: 0.5rem;
-      padding: 0 2rem;
+      padding: 0 0rem;    /* Changed from 0 1rem to 0 2rem to match p-8 padding */
       position: absolute;
       bottom: -3rem;
       width: 100%;
@@ -126,12 +128,12 @@
       height: 2.5rem;
       max-height: 12.5rem;
       line-height: 1.5rem;
-      width: 100%;
-      max-width: 100%;
+      width: 100%;        /* Changed from 110% to 100% to match container width */
+      max-width: 100%;    /* Changed from 110% to 100% to match container width */
       background-color: #3b82f6;
       color: white;
       border-radius: 1rem;
-      padding: 0.5rem 1rem;
+      padding: 0.5rem 1rem; /* Keep padding to match #messages internal spacing */
       border: none;
       box-sizing: border-box;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -175,37 +177,11 @@
       border-radius: 0.375rem;
       margin-top: 0.5rem;
       margin-bottom: 0.5rem;
-      cursor: pointer;
-      width: auto;
+      cursor: pointer; /* Ensure pointer cursor for button */
+      width: 50%; /* Adds 50% width */
     }
     #copyCodeButton:hover {
       background-color: #059669;
-    }
-    .action-buttons {
-      display: flex;
-      flex-direction: row;
-      gap: 0.5rem;
-      margin-top: 0.5rem;
-      margin-bottom: 0.5rem;
-    }
-    .action-buttons button {
-      background-color: #10b981;
-      color: white;
-      padding: 0.35rem 0.9rem;
-      border-radius: 0.375rem;
-      cursor: pointer;
-      width: auto;
-    }
-    .action-buttons button:hover {
-      background-color: #059669;
-    }
-    @media (max-width: 640px) {
-      .action-buttons {
-        flex-direction: column;
-      }
-      .action-buttons button {
-        width: 100%;
-      }
     }
   </style>
 </head>
@@ -226,8 +202,8 @@
       </div>
       <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800 hidden"></div>
       <button id="copyCodeButton" class="hidden">Copy Code</button>
-      <div id="actionButtons" class="action-buttons hidden"></div>
       <div id="chatContainer" class="hidden">
+        <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-1/2 mb-4 rounded hover:bg-red-600 transition-colors hidden">New Session</button>
         <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded"></div>
         <div class="input-container hidden">
           <textarea id="messageInput" placeholder="Type a message..." cols="30" maxlength="1000"></textarea>
@@ -303,26 +279,27 @@
     const usernameContainer = document.getElementById('usernameContainer');
     const connectContainer = document.getElementById('connectContainer');
     const chatContainer = document.getElementById('chatContainer');
+    const newSessionButton = document.getElementById('newSessionButton');
     const maxClientsContainer = document.getElementById('maxClientsContainer');
     const inputContainer = document.querySelector('.input-container');
     const messages = document.getElementById('messages');
     const cornerLogo = document.getElementById('cornerLogo');
-    const actionButtons = document.getElementById('actionButtons');
     statusElement.textContent = 'Start a new chat or connect to an existing one';
     document.getElementById('usernameInput').value = username;
     document.getElementById('usernameConnectInput').value = username;
 
-    // Logo cycle animation
+    // Logo cycle animation (start with normal logo, wink every 60 seconds)
     let cycleTimeout;
     function triggerCycle() {
       if (cycleTimeout) clearTimeout(cycleTimeout);
       cornerLogo.classList.add('wink');
       cycleTimeout = setTimeout(() => {
         cornerLogo.classList.remove('wink');
-      }, 500);
-      setTimeout(() => triggerCycle(), 60000);
+      }, 500); // 0.5 seconds for wink
+      setTimeout(() => triggerCycle(), 60000); // Repeat every 60 seconds
     }
-    setTimeout(() => triggerCycle(), 60000);
+    setTimeout(() => triggerCycle(), 60000); // Start first wink after 60 seconds
+    // Initial state is normal logo, no wink on load
 
     const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
     console.log('WebSocket created');
@@ -376,8 +353,8 @@
             connectContainer.classList.add('hidden');
             codeDisplayElement.classList.add('hidden');
             copyCodeButton.classList.add('hidden');
-            actionButtons.classList.add('hidden');
             chatContainer.classList.add('hidden');
+            newSessionButton.classList.add('hidden');
             maxClientsContainer.classList.add('hidden');
             inputContainer.classList.add('hidden');
             messages.classList.remove('waiting');
@@ -559,6 +536,8 @@
             console.log(`Retrying connection with ${targetId}, attempt ${retryCount + 1}`);
             startPeerConnection(targetId, isOfferer);
           }
+        } else {
+          console.log(`Ignoring ICE 701 error for ${targetId}, continuing connection`);
         }
       };
 
@@ -634,7 +613,7 @@
         usernameContainer.classList.add('hidden');
         connectContainer.classList.add('hidden');
         chatContainer.classList.remove('hidden');
-        maxClientsContainer.classList.remove('hidden');
+        newSessionButton.classList.remove('hidden');
         inputContainer.classList.remove('hidden');
         messages.classList.remove('waiting');
         clearTimeout(connectionTimeouts.get(targetId));
@@ -857,29 +836,14 @@
       codeDisplayElement.textContent = `Your code: ${code}`;
       codeDisplayElement.classList.remove('hidden');
       copyCodeButton.classList.remove('hidden');
-      actionButtons.innerHTML = `
-        <button id="copyCodeButton">Copy Code</button>
-        <button id="sendRandomButton">Send to Random Room</button>
-        <button id="joinRandomButton">Join Random Chat</button>
-      `;
-      actionButtons.classList.remove('hidden');
       usernameContainer.classList.add('hidden');
       connectContainer.classList.add('hidden');
       initialContainer.classList.add('hidden');
       chatContainer.classList.remove('hidden');
-      maxClientsContainer.classList.remove('hidden');
-      inputContainer.classList.remove('hidden');
       messages.classList.add('waiting');
       statusElement.textContent = 'Waiting for connection...';
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
-      } else {
-        console.warn('WebSocket not open, retrying join in 1s');
-        setTimeout(() => {
-          if (socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
-          }
-        }, 1000);
       }
     };
 
@@ -900,29 +864,14 @@
       codeDisplayElement.textContent = `Using code: ${code}`;
       codeDisplayElement.classList.remove('hidden');
       copyCodeButton.classList.remove('hidden');
-      actionButtons.innerHTML = `
-        <button id="copyCodeButton">Copy Code</button>
-        <button id="sendRandomButton">Send to Random Room</button>
-        <button id="joinRandomButton">Join Random Chat</button>
-      `;
-      actionButtons.classList.remove('hidden');
       initialContainer.classList.add('hidden');
       usernameContainer.classList.add('hidden');
       connectContainer.classList.add('hidden');
       chatContainer.classList.remove('hidden');
-      maxClientsContainer.classList.remove('hidden');
-      inputContainer.classList.remove('hidden');
       messages.classList.add('waiting');
       statusElement.textContent = 'Waiting for connection...';
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
-      } else {
-        console.warn('WebSocket not open, retrying join in 1s');
-        setTimeout(() => {
-          if (socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
-          }
-        }, 1000);
       }
     };
 
@@ -933,10 +882,6 @@
       messages.classList.remove('waiting');
       codeDisplayElement.classList.add('hidden');
       copyCodeButton.classList.add('hidden');
-      actionButtons.classList.add('hidden');
-      chatContainer.classList.add('hidden');
-      maxClientsContainer.classList.add('hidden');
-      inputContainer.classList.add('hidden');
     };
 
     document.getElementById('backButtonConnect').onclick = () => {
@@ -946,10 +891,6 @@
       messages.classList.remove('waiting');
       codeDisplayElement.classList.add('hidden');
       copyCodeButton.classList.add('hidden');
-      actionButtons.classList.add('hidden');
-      chatContainer.classList.add('hidden');
-      maxClientsContainer.classList.add('hidden');
-      inputContainer.classList.add('hidden');
     };
 
     document.getElementById('sendButton').onclick = () => {
@@ -962,7 +903,7 @@
 
     const messageInput = document.getElementById('messageInput');
     messageInput.addEventListener('input', () => {
-      // Removed dynamic height adjustment
+      // Removed dynamic height adjustment to keep size fixed
     });
 
     messageInput.addEventListener('keydown', (event) => {
@@ -975,34 +916,44 @@
       }
     });
 
-    document.addEventListener('click', (event) => {
-      if (event.target.id === 'copyCodeButton') {
-        const codeText = codeDisplayElement.textContent.replace('Your code: ', '').replace('Using code: ', '');
-        navigator.clipboard.writeText(codeText).then(() => {
-          event.target.textContent = 'Copied!';
-          setTimeout(() => {
-            event.target.textContent = 'Copy Code';
-          }, 2000);
-        }).catch(err => {
-          console.error('Failed to copy text: ', err);
-        });
-      }
-      if (event.target.id === 'sendRandomButton') {
-        if (code && socket.readyState === WebSocket.OPEN) {
-          socket.send(JSON.stringify({ type: 'submit-random', code, clientId }));
-          alert('Your chat code has been submitted for random matching!');
-        } else {
-          alert('Cannot submit code: not connected or no code available.');
-        }
-      }
-      if (event.target.id === 'joinRandomButton') {
-        if (code) {
-          window.location.href = `random.html?myCode=${encodeURIComponent(code)}`;
-        } else {
-          alert('Please start or join a chat first to access random chat selection.');
-        }
-      }
-    });
+    document.getElementById('newSessionButton').onclick = () => {
+      socket.send(JSON.stringify({ type: 'leave', code, clientId }));
+      peerConnections.forEach((pc) => pc.close());
+      dataChannels.forEach((dc) => dc.close());
+      peerConnections.clear();
+      dataChannels.clear();
+      candidatesQueues.clear();
+      connectionTimeouts.forEach((timeout) => clearTimeout(timeout));
+      connectionTimeouts.clear();
+      retryCounts.clear();
+      processedMessageIds.clear();
+      processedAnswers.clear();
+      usernames.clear();
+      messageRateLimits.clear();
+      isConnected = false;
+      isInitiator = false;
+      maxClients = 2;
+      totalClients = 0;
+      code = generateCode();
+      codeDisplayElement.textContent = '';
+      codeDisplayElement.classList.add('hidden');
+      copyCodeButton.classList.add('hidden');
+      statusElement.textContent = 'Start a new chat or connect to an existing one';
+      document.getElementById('messages').innerHTML = '';
+      document.getElementById('messageInput').value = '';
+      document.getElementById('messageInput').style.height = '2.5rem';
+      document.getElementById('usernameInput').value = username;
+      document.getElementById('usernameConnectInput').value = username;
+      document.getElementById('codeInput').value = '';
+      initialContainer.classList.remove('hidden');
+      usernameContainer.classList.add('hidden');
+      connectContainer.classList.add('hidden');
+      chatContainer.classList.add('hidden');
+      newSessionButton.classList.add('hidden');
+      maxClientsContainer.classList.add('hidden');
+      inputContainer.classList.add('hidden');
+      messages.classList.remove('waiting');
+    };
 
     document.getElementById('usernameInput').addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
@@ -1025,29 +976,17 @@
       }
     });
 
-    window.addEventListener('load', () => {
-      console.log('Page loaded');
-      const urlParams = new URLSearchParams(window.location.search);
-      const action = urlParams.get('action');
-      const joinCode = urlParams.get('code');
-      if (action === 'connect' && joinCode && validateCode(joinCode)) {
-        console.log(`Attempting to connect with code: ${joinCode}`);
-        document.getElementById('codeInput').value = joinCode;
-        document.getElementById('usernameConnectInput').value = username || '';
+    copyCodeButton.onclick = () => {
+      const codeText = codeDisplayElement.textContent.replace('Your code: ', '').replace('Using code: ', '');
+      navigator.clipboard.writeText(codeText).then(() => {
+        copyCodeButton.textContent = 'Copied!';
         setTimeout(() => {
-          console.log('Triggering connect button click');
-          const connectButton = document.getElementById('connectButton');
-          if (connectButton) {
-            connectButton.click();
-          } else {
-            console.error('Connect button not found');
-          }
-        }, 500);
-      } else if (action === 'connect' && (!joinCode || !validateCode(joinCode))) {
-        console.error(`Invalid code format or missing code: ${joinCode}`);
-        statusElement.textContent = 'Invalid chat code. Please try again or start a new chat.';
-      }
-    });
+          copyCodeButton.textContent = 'Copy Code';
+        }, 2000);
+      }).catch(err => {
+        console.error('Failed to copy text: ', err);
+      });
+    };
   </script>
 </body>
 </html>
