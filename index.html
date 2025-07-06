@@ -10,21 +10,21 @@
     /* Global cursor and selection style: no pointer or caret on non-inputs */
     * {
       cursor: default;
-      user-select: none; /* Prevents text selection and caret */
+      user-select: none;
     }
     input[type="text"],
     input[type="number"],
     textarea {
       cursor: text;
-      user-select: text; /* Allows selection and caret in inputs */
+      user-select: text;
     }
     #codeDisplay {
-      user-select: text; /* Allows copying the code text */
+      user-select: text;
     }
 
     body {
       min-height: 100vh;
-      padding-top: 130px; /* Increased top padding to create more space above white box */
+      padding-top: 130px;
     }
 
     #messages {
@@ -66,15 +66,14 @@
     }
     @media (max-width: 640px) {
       .corner-logo {
-        position: absolute;
         top: 10px;
         right: 10px;
         width: 128px;
         height: 128px;
-        z-index: 100; /* Ensure it stays above but scrolls with page */
+        z-index: 100;
       }
       body {
-        padding-top: 180px; /* Increased top padding for mobile to give more space */
+        padding-top: 180px;
       }
     }
     .message-bubble {
@@ -111,7 +110,7 @@
       display: flex;
       align-items: flex-start;
       gap: 0.5rem;
-      padding: 0 0rem;    /* Changed from 0 1rem to 0 2rem to match p-8 padding */
+      padding: 0 2rem;
       position: absolute;
       bottom: -3rem;
       width: 100%;
@@ -127,12 +126,12 @@
       height: 2.5rem;
       max-height: 12.5rem;
       line-height: 1.5rem;
-      width: 100%;        /* Changed from 110% to 100% to match container width */
-      max-width: 100%;    /* Changed from 110% to 100% to match container width */
+      width: 100%;
+      max-width: 100%;
       background-color: #3b82f6;
       color: white;
       border-radius: 1rem;
-      padding: 0.5rem 1rem; /* Keep padding to match #messages internal spacing */
+      padding: 0.5rem 1rem;
       border: none;
       box-sizing: border-box;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -176,11 +175,35 @@
       border-radius: 0.375rem;
       margin-top: 0.5rem;
       margin-bottom: 0.5rem;
-      cursor: pointer; /* Ensure pointer cursor for button */
-      width: 50%; /* Adds 50% width */
+      cursor: pointer;
+      width: 50%;
     }
     #copyCodeButton:hover {
       background-color: #059669;
+    }
+    .preview-container {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 200px;
+      padding: 10px;
+      background-color: #fff;
+      border-left: 1px solid #ccc;
+      border-bottom: 1px solid #ccc;
+      border-radius: 0 0 0 10px;
+      box-shadow: -2px 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    .preview-container button {
+      display: block;
+      width: 100%;
+      margin-bottom: 10px;
+      padding: 5px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .preview-container .hidden {
+      display: none;
     }
   </style>
 </head>
@@ -202,9 +225,6 @@
       <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800 hidden"></div>
       <button id="copyCodeButton" class="hidden">Copy Code</button>
       <div id="chatContainer" class="hidden">
-        <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-1/2 mb-4 rounded hover:bg-red-600 transition-colors hidden">New Session</button>
-        <button id="randomChatButton" class="bg-purple-500 text-white px-4 py-2 rounded w-1/2 mb-4 hover:bg-purple-600 transition-colors">Random Chat</button>
-        <button id="joinRandomChatButton" class="bg-yellow-500 text-white px-4 py-2 rounded w-1/2 mb-4 hover:bg-yellow-600 transition-colors">Join Random Chat</button>
         <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded"></div>
         <div class="input-container hidden">
           <textarea id="messageInput" placeholder="Type a message..." cols="30" maxlength="1000"></textarea>
@@ -224,6 +244,11 @@
     <div id="maxClientsContainer" class="hidden ml-4 flex flex-col justify-center bg-gray-800 p-4 rounded-lg shadow-lg">
       <span class="text-white mb-2 font-bold">Max<br>Users:</span>
       <div id="maxClientsRadios" class="flex flex-col space-y-2"></div>
+    </div>
+    <div id="previewContainer" class="preview-container hidden">
+      <button id="newSessionButton" class="bg-red-500 text-white hover:bg-red-600 transition-colors">New Session</button>
+      <button id="randomChatButton" class="bg-purple-500 text-white hover:bg-purple-600 transition-colors">Random Chat</button>
+      <button id="joinRandomChatButton" class="bg-yellow-500 text-white hover:bg-yellow-600 transition-colors">Join Random Chat</button>
     </div>
   </div>
   <script>
@@ -284,6 +309,7 @@
     const randomChatButton = document.getElementById('randomChatButton');
     const joinRandomChatButton = document.getElementById('joinRandomChatButton');
     const maxClientsContainer = document.getElementById('maxClientsContainer');
+    const previewContainer = document.getElementById('previewContainer');
     const inputContainer = document.querySelector('.input-container');
     const messages = document.getElementById('messages');
     const cornerLogo = document.getElementById('cornerLogo');
@@ -291,18 +317,17 @@
     document.getElementById('usernameInput').value = username;
     document.getElementById('usernameConnectInput').value = username;
 
-    // Logo cycle animation (start with normal logo, wink every 60 seconds)
+    // Logo cycle animation
     let cycleTimeout;
     function triggerCycle() {
       if (cycleTimeout) clearTimeout(cycleTimeout);
       cornerLogo.classList.add('wink');
       cycleTimeout = setTimeout(() => {
         cornerLogo.classList.remove('wink');
-      }, 500); // 0.5 seconds for wink
-      setTimeout(() => triggerCycle(), 60000); // Repeat every 60 seconds
+      }, 500);
+      setTimeout(() => triggerCycle(), 60000);
     }
-    setTimeout(() => triggerCycle(), 60000); // Start first wink after 60 seconds
-    // Initial state is normal logo, no wink on load
+    setTimeout(() => triggerCycle(), 60000);
 
     const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
     console.log('WebSocket created');
@@ -357,9 +382,7 @@
             codeDisplayElement.classList.add('hidden');
             copyCodeButton.classList.add('hidden');
             chatContainer.classList.add('hidden');
-            newSessionButton.classList.add('hidden');
-            randomChatButton.classList.add('hidden');
-            joinRandomChatButton.classList.add('hidden');
+            previewContainer.classList.add('hidden');
             maxClientsContainer.classList.add('hidden');
             inputContainer.classList.add('hidden');
             messages.classList.remove('waiting');
@@ -541,8 +564,6 @@
             console.log(`Retrying connection with ${targetId}, attempt ${retryCount + 1}`);
             startPeerConnection(targetId, isOfferer);
           }
-        } else {
-          console.log(`Ignoring ICE 701 error for ${targetId}, continuing connection`);
         }
       };
 
@@ -618,9 +639,8 @@
         usernameContainer.classList.add('hidden');
         connectContainer.classList.add('hidden');
         chatContainer.classList.remove('hidden');
-        newSessionButton.classList.remove('hidden');
-        randomChatButton.classList.remove('hidden');
-        joinRandomChatButton.classList.remove('hidden');
+        previewContainer.classList.remove('hidden');
+        maxClientsContainer.classList.remove('hidden');
         inputContainer.classList.remove('hidden');
         messages.classList.remove('waiting');
         clearTimeout(connectionTimeouts.get(targetId));
@@ -847,6 +867,9 @@
       connectContainer.classList.add('hidden');
       initialContainer.classList.add('hidden');
       chatContainer.classList.remove('hidden');
+      previewContainer.classList.remove('hidden');
+      maxClientsContainer.classList.remove('hidden');
+      inputContainer.classList.remove('hidden');
       messages.classList.add('waiting');
       statusElement.textContent = 'Waiting for connection...';
       if (socket.readyState === WebSocket.OPEN) {
@@ -875,6 +898,9 @@
       usernameContainer.classList.add('hidden');
       connectContainer.classList.add('hidden');
       chatContainer.classList.remove('hidden');
+      previewContainer.classList.remove('hidden');
+      maxClientsContainer.classList.remove('hidden');
+      inputContainer.classList.remove('hidden');
       messages.classList.add('waiting');
       statusElement.textContent = 'Waiting for connection...';
       if (socket.readyState === WebSocket.OPEN) {
@@ -910,7 +936,7 @@
 
     const messageInput = document.getElementById('messageInput');
     messageInput.addEventListener('input', () => {
-      // Removed dynamic height adjustment to keep size fixed
+      // Removed dynamic height adjustment
     });
 
     messageInput.addEventListener('keydown', (event) => {
@@ -945,8 +971,7 @@
       codeDisplayElement.textContent = '';
       codeDisplayElement.classList.add('hidden');
       copyCodeButton.classList.add('hidden');
-      randomChatButton.classList.add('hidden');
-      joinRandomChatButton.classList.add('hidden');
+      previewContainer.classList.add('hidden');
       statusElement.textContent = 'Start a new chat or connect to an existing one';
       document.getElementById('messages').innerHTML = '';
       document.getElementById('messageInput').value = '';
@@ -958,7 +983,6 @@
       usernameContainer.classList.add('hidden');
       connectContainer.classList.add('hidden');
       chatContainer.classList.add('hidden');
-      newSessionButton.classList.add('hidden');
       maxClientsContainer.classList.add('hidden');
       inputContainer.classList.add('hidden');
       messages.classList.remove('waiting');
