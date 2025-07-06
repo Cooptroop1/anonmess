@@ -1,0 +1,992 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anonomoose Chat</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+  <link rel="icon" type="image/png" href="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f60e.png"/>
+  <style>
+    /* Global cursor and selection style: no pointer or caret on non-inputs */
+    * {
+      cursor: default;
+      user-select: none; /* Prevents text selection and caret */
+    }
+    input[type="text"],
+    input[type="number"],
+    textarea {
+      cursor: text;
+      user-select: text; /* Allows selection and caret in inputs */
+    }
+    #codeDisplay {
+      user-select: text; /* Allows copying the code text */
+    }
+
+    body {
+      min-height: 100vh;
+      padding-top: 130px; /* Increased top padding to create more space above white box */
+    }
+
+    #messages {
+      display: flex;
+      flex-direction: column-reverse;
+      overflow-y: auto;
+      scroll-behavior: auto;
+      z-index: 0;
+      margin-bottom: 0.5rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      position: relative;
+      height: 296px;
+      background-color: #fce7f3;
+      background-image: none;
+      background-size: 100% 100%;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+    #messages.waiting {
+      background-color: transparent;
+      background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/logo.JPG?sanitize=true');
+    }
+    .corner-logo {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 256px;
+      height: 256px;
+      background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/corner%20logo.png?sanitize=true');
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+      z-index: 100;
+      transition: background-image 0.5s ease;
+    }
+    .corner-logo.wink {
+      background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/corner%20logoWink.png?sanitize=true');
+    }
+    @media (max-width: 640px) {
+      .corner-logo {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        width: 128px;
+        height: 128px;
+        z-index: 100; /* Ensure it stays above but scrolls with page */
+      }
+      body {
+        padding-top: 180px; /* Increased top padding for mobile to give more space */
+      }
+    }
+    .message-bubble {
+      max-width: 70%;
+      margin: 0.5rem 1rem;
+      padding: 0.25rem 1rem;
+      border-radius: 1rem;
+      word-wrap: break-word;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+    .message-bubble.self {
+      background-color: #3b82f6;
+      color: white;
+      margin-left: auto;
+      border-bottom-right-radius: 0.25rem;
+    }
+    .message-bubble.other {
+      background-color: #10b981;
+      color: white;
+      margin-right: auto;
+      border-bottom-left-radius: 0.25rem;
+    }
+    #chatContainer.hidden {
+      display: none;
+      visibility: hidden;
+    }
+    #chatContainer {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      position: relative;
+    }
+    .input-container {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      padding: 0 0rem;    /* Changed from 0 1rem to 0 2rem to match p-8 padding */
+      position: absolute;
+      bottom: -3rem;
+      width: 100%;
+      box-sizing: border-box;
+      z-index: 10;
+    }
+    .input-container.hidden {
+      display: none;
+    }
+    #messageInput {
+      resize: none;
+      overflow-y: auto;
+      height: 2.5rem;
+      max-height: 12.5rem;
+      line-height: 1.5rem;
+      width: 100%;        /* Changed from 110% to 100% to match container width */
+      max-width: 100%;    /* Changed from 110% to 100% to match container width */
+      background-color: #3b82f6;
+      color: white;
+      border-radius: 1rem;
+      padding: 0.5rem 1rem; /* Keep padding to match #messages internal spacing */
+      border: none;
+      box-sizing: border-box;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      transition: all 0.2s ease;
+    }
+    @media (max-width: 640px) {
+      #messageInput {
+        padding: 0.5rem 0.75rem;
+      }
+      .input-container {
+        padding: 0 0.5rem;
+      }
+    }
+    #messageInput::-webkit-scrollbar {
+      display: none;
+    }
+    #messageInput {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    #sendButton {
+      width: 2.5rem;
+      height: 2.5rem;
+      background-color: #2563eb;
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      transition: all 0.2s ease;
+    }
+    #sendButton:hover {
+      background-color: #1d4ed8;
+    }
+    #copyCodeButton {
+      background-color: #10b981;
+      color: white;
+      padding: 0.35rem 0.9rem;
+      border-radius: 0.375rem;
+      margin-top: 0.5rem;
+      margin-bottom: 0.5rem;
+      cursor: pointer; /* Ensure pointer cursor for button */
+      width: 50%; /* Adds 50% width */
+    }
+    #copyCodeButton:hover {
+      background-color: #059669;
+    }
+  </style>
+</head>
+<body class="bg-black min-h-screen flex items-center justify-center">
+  <div class="corner-logo" id="cornerLogo"></div>
+  <div class="flex w-full max-w-lg">
+    <div class="bg-white p-8 rounded-lg shadow-lg flex-grow">
+      <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">Anonomoose Chat</h1>
+      <div id="status" class="text-center mb-4 text-gray-600">Start a new chat or connect to an existing one</div>
+      <div id="initialContainer">
+        <button id="startChatToggleButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full mb-2 hover:bg-blue-600 transition-colors">Start Chat</button>
+        <button id="connectToggleButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600 transition-colors">Connect to Chat</button>
+      </div>
+      <div id="usernameContainer" class="hidden">
+        <input id="usernameInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)">
+        <button id="startChatButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600 transition-colors">Start Chat</button>
+        <button id="backButton" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600 transition-colors">Back</button>
+      </div>
+      <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800 hidden"></div>
+      <button id="copyCodeButton" class="hidden">Copy Code</button>
+      <div id="chatContainer" class="hidden">
+        <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-1/2 mb-4 rounded hover:bg-red-600 transition-colors hidden">New Session</button>
+        <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded"></div>
+        <div class="input-container hidden">
+          <textarea id="messageInput" placeholder="Type a message..." cols="30" maxlength="1000"></textarea>
+          <button id="sendButton">📤</button>
+        </div>
+      </div>
+      <div id="connectContainer" class="hidden">
+        <input id="usernameConnectInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)">
+        <input id="codeInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter code (xxxx-xxxx-xxxx-xxxx)">
+        <button id="connectButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600 transition-colors">Connect</button>
+        <button id="backButtonConnect" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600 transition-colors">Back</button>
+      </div>
+      <div class="text-center mt-4">
+        <a href="https://github.com/cooptroop1/anonmess/wiki/Troubleshooting" target="_blank" class="text-blue-500 hover:underline">Connection issues? Get help</a>
+      </div>
+    </div>
+    <div id="maxClientsContainer" class="hidden ml-4 flex flex-col justify-center bg-gray-800 p-4 rounded-lg shadow-lg">
+      <span class="text-white mb-2 font-bold">Max<br>Users:</span>
+      <div id="maxClientsRadios" class="flex flex-col space-y-2"></div>
+    </div>
+  </div>
+  <script>
+    function generateCode() {
+      const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+      let result = '';
+      for (let i = 0; i < 16; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+        if (i % 4 === 3 && i < 15) result += '-';
+      }
+      return result;
+    }
+
+    function generateMessageId() {
+      return Math.random().toString(36).substr(2, 9);
+    }
+
+    function validateUsername(username) {
+      const regex = /^[a-zA-Z0-9]{1,16}$/;
+      return username && regex.test(username);
+    }
+
+    function validateCode(code) {
+      const regex = /^[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}$/;
+      return code && regex.test(code);
+    }
+
+    let code = generateCode();
+    let clientId = localStorage.getItem('clientId');
+    if (!clientId) {
+      clientId = generateMessageId();
+      localStorage.setItem('clientId', clientId);
+    }
+    let isInitiator = false;
+    let isConnected = false;
+    let maxClients = 2;
+    let totalClients = 0;
+    let peerConnections = new Map();
+    let dataChannels = new Map();
+    let connectionTimeouts = new Map();
+    let retryCounts = new Map();
+    const maxRetries = 2;
+    let candidatesQueues = new Map();
+    let processedMessageIds = new Set();
+    let processedAnswers = new Set();
+    let username = localStorage.getItem('username') || '';
+    let usernames = new Map();
+    const messageRateLimits = new Map();
+
+    const statusElement = document.getElementById('status');
+    const codeDisplayElement = document.getElementById('codeDisplay');
+    const copyCodeButton = document.getElementById('copyCodeButton');
+    const initialContainer = document.getElementById('initialContainer');
+    const usernameContainer = document.getElementById('usernameContainer');
+    const connectContainer = document.getElementById('connectContainer');
+    const chatContainer = document.getElementById('chatContainer');
+    const newSessionButton = document.getElementById('newSessionButton');
+    const maxClientsContainer = document.getElementById('maxClientsContainer');
+    const inputContainer = document.querySelector('.input-container');
+    const messages = document.getElementById('messages');
+    const cornerLogo = document.getElementById('cornerLogo');
+    statusElement.textContent = 'Start a new chat or connect to an existing one';
+    document.getElementById('usernameInput').value = username;
+    document.getElementById('usernameConnectInput').value = username;
+
+    // Logo cycle animation (start with normal logo, wink every 60 seconds)
+    let cycleTimeout;
+    function triggerCycle() {
+      if (cycleTimeout) clearTimeout(cycleTimeout);
+      cornerLogo.classList.add('wink');
+      cycleTimeout = setTimeout(() => {
+        cornerLogo.classList.remove('wink');
+      }, 500); // 0.5 seconds for wink
+      setTimeout(() => triggerCycle(), 60000); // Repeat every 60 seconds
+    }
+    setTimeout(() => triggerCycle(), 60000); // Start first wink after 60 seconds
+    // Initial state is normal logo, no wink on load
+
+    const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
+    console.log('WebSocket created');
+
+    socket.onopen = () => {
+      console.log('WebSocket opened');
+      statusElement.textContent = 'Start a new chat or connect to an existing one';
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'connect', clientId }));
+      }
+    };
+
+    socket.onerror = (error) => {
+      console.error('WebSocket error:', error);
+      connectionTimeouts.forEach((timeout) => clearTimeout(timeout));
+    };
+
+    socket.onclose = () => {
+      console.error('WebSocket closed, attempting reconnect');
+      setTimeout(() => {
+        const newSocket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
+        newSocket.onopen = () => {
+          console.log('Reconnected, sending connect');
+          if (newSocket.readyState === WebSocket.OPEN) {
+            newSocket.send(JSON.stringify({ type: 'connect', clientId }));
+            if (code && username) {
+              console.log('Rejoining with code:', code);
+              newSocket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+            }
+          }
+        };
+        newSocket.onerror = socket.onerror;
+        newSocket.onclose = socket.onclose;
+        newSocket.onmessage = socket.onmessage;
+        Object.defineProperty(window, 'socket', { value: newSocket, writable: true });
+      }, 5000);
+    };
+
+    socket.onmessage = (event) => {
+      console.log('Received WebSocket message:', event.data);
+      try {
+        const message = JSON.parse(event.data);
+        console.log('Parsed message:', message);
+        if (message.type === 'error') {
+          statusElement.textContent = message.message;
+          console.error('Server error:', message.message);
+          if (message.message.includes('Chat is full') || message.message.includes('Username already taken') || message.message.includes('Initiator offline')) {
+            socket.close();
+            initialContainer.classList.remove('hidden');
+            usernameContainer.classList.add('hidden');
+            connectContainer.classList.add('hidden');
+            codeDisplayElement.classList.add('hidden');
+            copyCodeButton.classList.add('hidden');
+            chatContainer.classList.add('hidden');
+            newSessionButton.classList.add('hidden');
+            maxClientsContainer.classList.add('hidden');
+            inputContainer.classList.add('hidden');
+            messages.classList.remove('waiting');
+          }
+          return;
+        }
+        if (message.type === 'init') {
+          clientId = message.clientId;
+          maxClients = message.maxClients;
+          isInitiator = message.isInitiator;
+          totalClients = 1;
+          console.log(`Initialized client ${clientId}, username: ${username}, maxClients: ${maxClients}, isInitiator: ${isInitiator}`);
+          usernames.set(clientId, username);
+          initializeMaxClientsUI();
+          updateMaxClientsUI();
+        }
+        if (message.type === 'initiator-changed') {
+          console.log(`Initiator changed to ${message.newInitiator} for code: ${code}`);
+          isInitiator = message.newInitiator === clientId;
+          initializeMaxClientsUI();
+          updateMaxClientsUI();
+        }
+        if (message.type === 'join-notify' && message.code === code) {
+          totalClients = message.totalClients;
+          console.log(`Join-notify received for code: ${code}, client: ${message.clientId}, total: ${totalClients}, username: ${message.username}`);
+          if (message.username) {
+            usernames.set(message.clientId, message.username);
+          }
+          updateMaxClientsUI();
+          if (isInitiator && message.clientId !== clientId && !peerConnections.has(message.clientId)) {
+            console.log(`Initiating peer connection with client ${message.clientId}`);
+            startPeerConnection(message.clientId, true);
+          }
+        }
+        if (message.type === 'client-disconnected') {
+          totalClients = message.totalClients;
+          console.log(`Client ${message.clientId} disconnected from code: ${code}, total: ${totalClients}`);
+          usernames.delete(message.clientId);
+          cleanupPeerConnection(message.clientId);
+          updateMaxClientsUI();
+          if (totalClients <= 1) {
+            inputContainer.classList.add('hidden');
+            messages.classList.add('waiting');
+          }
+        }
+        if (message.type === 'max-clients') {
+          maxClients = message.maxClients;
+          console.log(`Max clients updated to ${maxClients} for code: ${code}`);
+          updateMaxClientsUI();
+        }
+        if (message.type === 'offer' && message.clientId !== clientId) {
+          console.log(`Received offer from ${message.clientId} for code: ${code}`);
+          handleOffer(message.offer, message.clientId);
+        }
+        if (message.type === 'answer' && message.clientId !== clientId) {
+          console.log(`Received answer from ${message.clientId} for code: ${code}`);
+          handleAnswer(message.answer, message.clientId);
+        }
+        if (message.type === 'candidate' && message.clientId !== clientId) {
+          console.log(`Received ICE candidate from ${message.clientId} for code: ${code}`);
+          handleCandidate(message.candidate, message.clientId);
+        }
+      } catch (error) {
+        console.error('Error parsing message:', error);
+      }
+    };
+
+    function initializeMaxClientsUI() {
+      const maxClientsRadios = document.getElementById('maxClientsRadios');
+      maxClientsRadios.innerHTML = '';
+      if (isInitiator) {
+        maxClientsContainer.classList.remove('hidden');
+        for (let n = 2; n <= 10; n++) {
+          const label = document.createElement('label');
+          label.className = 'text-white flex items-center';
+          const input = document.createElement('input');
+          input.type = 'radio';
+          input.name = 'maxClients';
+          input.value = n;
+          input.className = 'mr-2';
+          input.checked = n === maxClients;
+          input.addEventListener('change', () => {
+            if (isInitiator) {
+              setMaxClients(n);
+            }
+          });
+          const span = document.createElement('span');
+          span.textContent = n;
+          label.appendChild(input);
+          label.appendChild(span);
+          maxClientsRadios.appendChild(label);
+        }
+      } else {
+        maxClientsContainer.classList.add('hidden');
+      }
+    }
+
+    function updateMaxClientsUI() {
+      statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...';
+      const inputs = document.querySelectorAll('input[name="maxClients"]');
+      inputs.forEach(input => {
+        input.checked = parseInt(input.value) === maxClients;
+        input.disabled = !isInitiator;
+      });
+      maxClientsContainer.classList.toggle('hidden', !isInitiator);
+      if (!isConnected) {
+        messages.classList.add('waiting');
+      } else {
+        messages.classList.remove('waiting');
+      }
+    }
+
+    function setMaxClients(n) {
+      if (isInitiator && clientId && socket.readyState === WebSocket.OPEN) {
+        maxClients = n;
+        socket.send(JSON.stringify({ type: 'set-max-clients', maxClients: n, code, clientId }));
+        updateMaxClientsUI();
+      }
+    }
+
+    function startPeerConnection(targetId, isOfferer) {
+      console.log(`Starting peer connection with ${targetId} for code: ${code}, offerer: ${isOfferer}`);
+      if (peerConnections.has(targetId)) {
+        console.log(`Cleaning up existing connection with ${targetId}`);
+        cleanupPeerConnection(targetId);
+      }
+      const peerConnection = new RTCPeerConnection({
+        iceServers: [
+          { urls: "stun:stun.relay.metered.ca:80" },
+          {
+            urls: "turn:global.relay.metered.ca:80",
+            username: "8008f3d422fbe49ca4157b23",
+            credential: "E7rLb3LegFMDdjem"
+          },
+          {
+            urls: "turn:global.relay.metered.ca:80?transport=tcp",
+            username: "8008f3d422fbe49ca4157b23",
+            credential: "E7rLb3LegFMDdjem"
+          },
+          {
+            urls: "turn:global.relay.metered.ca:443",
+            username: "8008f3d422fbe49ca4157b23",
+            credential: "E7rLb3LegFMDdjem"
+          },
+          {
+            urls: "turns:global.relay.metered.ca:443?transport=tcp",
+            username: "8008f3d422fbe49ca4157b23",
+            credential: "E7rLb3LegFMDdjem"
+          }
+        ],
+        iceTransportPolicy: 'all'
+      });
+      peerConnections.set(targetId, peerConnection);
+      candidatesQueues.set(targetId, []);
+
+      let dataChannel;
+      if (isOfferer) {
+        dataChannel = peerConnection.createDataChannel('chat');
+        console.log(`Created data channel for ${targetId}`);
+        setupDataChannel(dataChannel, targetId);
+        dataChannels.set(targetId, dataChannel);
+      }
+
+      peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+          console.log(`Sending ICE candidate to ${targetId} for code: ${code}`);
+          if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate, code, targetId, clientId }));
+          }
+        }
+      };
+
+      peerConnection.onicecandidateerror = (event) => {
+        console.error(`ICE candidate error for ${targetId}: ${event.errorText}, code=${event.errorCode}`);
+        if (event.errorCode !== 701) {
+          const retryCount = retryCounts.get(targetId) || 0;
+          if (retryCount < maxRetries) {
+            retryCounts.set(targetId, retryCount + 1);
+            console.log(`Retrying connection with ${targetId}, attempt ${retryCount + 1}`);
+            startPeerConnection(targetId, isOfferer);
+          }
+        } else {
+          console.log(`Ignoring ICE 701 error for ${targetId}, continuing connection`);
+        }
+      };
+
+      peerConnection.onicegatheringstatechange = () => {
+        console.log(`ICE gathering state for ${targetId}: ${peerConnection.iceGatheringState}`);
+      };
+
+      peerConnection.onconnectionstatechange = () => {
+        console.log(`Connection state for ${targetId}: ${peerConnection.connectionState}`);
+        if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
+          console.log(`Connection failed with ${targetId}`);
+          cleanupPeerConnection(targetId);
+          const retryCount = retryCounts.get(targetId) || 0;
+          if (retryCount < maxRetries) {
+            retryCounts.set(targetId, retryCount + 1);
+            console.log(`Retrying connection attempt ${retryCount + 1} with ${targetId}`);
+            startPeerConnection(targetId, isOfferer);
+          }
+        } else if (peerConnection.connectionState === 'connected') {
+          console.log(`WebRTC connection established with ${targetId} for code: ${code}`);
+          isConnected = true;
+          retryCounts.delete(targetId);
+          clearTimeout(connectionTimeouts.get(targetId));
+          updateMaxClientsUI();
+        }
+      };
+
+      peerConnection.ondatachannel = (event) => {
+        console.log(`Received data channel from ${targetId}`);
+        if (dataChannels.has(targetId)) {
+          console.log(`Closing existing data channel for ${targetId}`);
+          const existingChannel = dataChannels.get(targetId);
+          existingChannel.close();
+        }
+        dataChannel = event.channel;
+        setupDataChannel(dataChannel, targetId);
+        dataChannels.set(targetId, dataChannel);
+      };
+
+      if (isOfferer) {
+        peerConnection.createOffer().then(offer => {
+          return peerConnection.setLocalDescription(offer);
+        }).then(() => {
+          console.log(`Sending offer to ${targetId} for code: ${code}`);
+          if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code, targetId, clientId }));
+          }
+        }).catch(error => {
+          console.error(`Error creating offer for ${targetId}:`, error);
+        });
+      }
+
+      const timeout = setTimeout(() => {
+        if (!dataChannels.get(targetId) || dataChannels.get(targetId).readyState !== 'open') {
+          console.log(`Connection timed out with ${targetId}`);
+          cleanupPeerConnection(targetId);
+          const retryCount = retryCounts.get(targetId) || 0;
+          if (retryCount < maxRetries) {
+            retryCounts.set(targetId, retryCount + 1);
+            console.log(`Retrying connection attempt ${retryCount + 1} with ${targetId}`);
+            startPeerConnection(targetId, isOfferer);
+          }
+        }
+      }, 30000);
+      connectionTimeouts.set(targetId, timeout);
+    }
+
+    function setupDataChannel(dataChannel, targetId) {
+      dataChannel.onopen = () => {
+        console.log(`Data channel opened with ${targetId} for code: ${code}, state: ${dataChannel.readyState}`);
+        isConnected = true;
+        initialContainer.classList.add('hidden');
+        usernameContainer.classList.add('hidden');
+        connectContainer.classList.add('hidden');
+        chatContainer.classList.remove('hidden');
+        newSessionButton.classList.remove('hidden');
+        inputContainer.classList.remove('hidden');
+        messages.classList.remove('waiting');
+        clearTimeout(connectionTimeouts.get(targetId));
+        retryCounts.delete(targetId);
+        updateMaxClientsUI();
+      };
+
+      dataChannel.onmessage = (event) => {
+        const now = performance.now();
+        const rateLimit = messageRateLimits.get(targetId) || { count: 0, startTime: now };
+        if (now - rateLimit.startTime >= 1000) {
+          rateLimit.count = 0;
+          rateLimit.startTime = now;
+        }
+        rateLimit.count += 1;
+        messageRateLimits.set(targetId, rateLimit);
+        if (rateLimit.count > 10) {
+          console.warn(`Rate limit exceeded for ${targetId}: ${rateLimit.count} messages in 1s`);
+          return;
+        }
+
+        let data;
+        try {
+          data = JSON.parse(event.data);
+        } catch (e) {
+          console.error(`Invalid message from ${targetId}:`, event.data);
+          return;
+        }
+        if (!data.messageId || !data.content || !data.username) {
+          console.log(`Invalid message from ${targetId}:`, data);
+          return;
+        }
+        if (processedMessageIds.has(data.messageId)) {
+          console.log(`Duplicate message ${data.messageId} from ${targetId}`);
+          return;
+        }
+        processedMessageIds.add(data.messageId);
+        const senderUsername = usernames.get(targetId) || data.username;
+        const messages = document.getElementById('messages');
+        const isSelf = senderUsername === username;
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message-bubble ${isSelf ? 'self' : 'other'}`;
+        messageDiv.textContent = `${senderUsername}: ${data.content}`;
+        messages.prepend(messageDiv);
+        messages.scrollTop = messages.scrollHeight;
+        if (isInitiator) {
+          dataChannels.forEach((dc, id) => {
+            if (id !== targetId && dc.readyState === 'open') {
+              dc.send(JSON.stringify(data));
+            }
+          });
+        }
+      };
+
+      dataChannel.onerror = (error) => {
+        console.error(`Data channel error with ${targetId}:`, error);
+      };
+
+      dataChannel.onclose = () => {
+        console.log(`Data channel closed with ${targetId}`);
+        cleanupPeerConnection(targetId);
+        messageRateLimits.delete(targetId);
+        if (dataChannels.size === 0) {
+          inputContainer.classList.add('hidden');
+          messages.classList.add('waiting');
+        }
+      };
+    }
+
+    async function handleOffer(offer, targetId) {
+      console.log(`Handling offer from ${targetId} for code: ${code}`);
+      if (offer.type !== 'offer') {
+        console.error(`Invalid offer type from ${targetId}:`, offer.type);
+        return;
+      }
+      if (!peerConnections.has(targetId)) {
+        console.log(`No existing peer connection for ${targetId}, starting new one`);
+        startPeerConnection(targetId, false);
+      }
+      const peerConnection = peerConnections.get(targetId);
+      try {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ type: 'answer', answer: peerConnection.localDescription, code, targetId, clientId }));
+        }
+        const queue = candidatesQueues.get(targetId) || [];
+        queue.forEach(candidate => {
+          handleCandidate(candidate, targetId);
+        });
+        candidatesQueues.set(targetId, []);
+      } catch (error) {
+        console.error(`Error handling offer from ${targetId}:`, error);
+      }
+    }
+
+    async function handleAnswer(answer, targetId) {
+      console.log(`Handling answer from ${targetId} for code: ${code}`);
+      if (!peerConnections.has(targetId)) {
+        console.log(`No peer connection for ${targetId}, starting new one and queuing answer`);
+        startPeerConnection(targetId, false);
+        candidatesQueues.get(targetId).push({ type: 'answer', answer });
+        return;
+      }
+      const peerConnection = peerConnections.get(targetId);
+      if (answer.type !== 'answer') {
+        console.error(`Invalid answer type from ${targetId}:`, answer.type);
+        return;
+      }
+      if (peerConnection.signalingState !== 'have-local-offer') {
+        console.log(`Queuing answer from ${targetId}`);
+        candidatesQueues.get(targetId).push({ type: 'answer', answer });
+        return;
+      }
+      try {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+        const queue = candidatesQueues.get(targetId) || [];
+        queue.forEach(item => {
+          if (item.type === 'answer') {
+            peerConnection.setRemoteDescription(new RTCSessionDescription(item.answer)).catch(error => {
+              console.error(`Error applying queued answer from ${targetId}:`, error);
+            });
+          } else if (item.type === 'candidate') {
+            handleCandidate(item.candidate, targetId);
+          }
+        });
+        candidatesQueues.set(targetId, []);
+      } catch (error) {
+        console.error(`Error handling answer from ${targetId}:`, error);
+      }
+    }
+
+    function handleCandidate(candidate, targetId) {
+      console.log(`Handling ICE candidate from ${targetId} for code: ${code}`);
+      const peerConnection = peerConnections.get(targetId);
+      if (peerConnection && peerConnection.remoteDescription) {
+        peerConnection.addIceCandidate(new RTCIceCandidate(candidate)).catch(error => {
+          console.error(`Error adding ICE candidate from ${targetId}:`, error);
+        });
+      } else {
+        const queue = candidatesQueues.get(targetId) || [];
+        queue.push({ type: 'candidate', candidate });
+        candidatesQueues.set(targetId, queue);
+      }
+    }
+
+    function cleanupPeerConnection(targetId) {
+      const peerConnection = peerConnections.get(targetId);
+      const dataChannel = dataChannels.get(targetId);
+      if (dataChannel && dataChannel.readyState === 'open') {
+        console.log(`Skipping cleanup for ${targetId}: data channel is open`);
+        return;
+      }
+      if (peerConnection) {
+        peerConnection.close();
+        peerConnections.delete(targetId);
+      }
+      if (dataChannel) {
+        dataChannel.close();
+        dataChannels.delete(targetId);
+      }
+      candidatesQueues.delete(targetId);
+      clearTimeout(connectionTimeouts.get(targetId));
+      connectionTimeouts.delete(targetId);
+      retryCounts.delete(targetId);
+      messageRateLimits.delete(targetId);
+      isConnected = dataChannels.size > 0;
+      updateMaxClientsUI();
+      if (!isConnected) {
+        inputContainer.classList.add('hidden');
+        messages.classList.add('waiting');
+      }
+    }
+
+    function sendMessage(content) {
+      if (content && dataChannels.size > 0 && username) {
+        const messageId = generateMessageId();
+        const message = { messageId, content, username };
+        dataChannels.forEach((dataChannel, targetId) => {
+          if (dataChannel.readyState === 'open') {
+            dataChannel.send(JSON.stringify(message));
+          }
+        });
+        const messages = document.getElementById('messages');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message-bubble self';
+        messageDiv.textContent = `${username}: ${content}`;
+        messages.prepend(messageDiv);
+        messages.scrollTop = messages.scrollHeight;
+        const messageInput = document.getElementById('messageInput');
+        messageInput.value = '';
+        messageInput.style.height = '2.5rem';
+        processedMessageIds.add(messageId);
+      } else {
+        statusElement.textContent = 'Error: No connections or username not set.';
+      }
+    }
+
+    document.getElementById('startChatToggleButton').onclick = () => {
+      initialContainer.classList.add('hidden');
+      usernameContainer.classList.remove('hidden');
+      statusElement.textContent = 'Enter a username to start a chat';
+    };
+
+    document.getElementById('connectToggleButton').onclick = () => {
+      initialContainer.classList.add('hidden');
+      connectContainer.classList.remove('hidden');
+      statusElement.textContent = 'Enter a username and code to join a chat';
+    };
+
+    document.getElementById('startChatButton').onclick = () => {
+      const usernameInput = document.getElementById('usernameInput').value.trim();
+      if (!validateUsername(usernameInput)) {
+        statusElement.textContent = 'Invalid username: 1-16 alphanumeric characters.';
+        return;
+      }
+      username = usernameInput;
+      localStorage.setItem('username', username);
+      codeDisplayElement.textContent = `Your code: ${code}`;
+      codeDisplayElement.classList.remove('hidden');
+      copyCodeButton.classList.remove('hidden');
+      usernameContainer.classList.add('hidden');
+      connectContainer.classList.add('hidden');
+      initialContainer.classList.add('hidden');
+      chatContainer.classList.remove('hidden');
+      messages.classList.add('waiting');
+      statusElement.textContent = 'Waiting for connection...';
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+      }
+    };
+
+    document.getElementById('connectButton').onclick = () => {
+      const usernameInput = document.getElementById('usernameConnectInput').value.trim();
+      const inputCode = document.getElementById('codeInput').value.trim();
+      if (!validateUsername(usernameInput)) {
+        statusElement.textContent = 'Invalid username: 1-16 alphanumeric characters.';
+        return;
+      }
+      if (!validateCode(inputCode)) {
+        statusElement.textContent = 'Invalid code format: xxxx-xxxx-xxxx-xxxx.';
+        return;
+      }
+      username = usernameInput;
+      localStorage.setItem('username', username);
+      code = inputCode;
+      codeDisplayElement.textContent = `Using code: ${code}`;
+      codeDisplayElement.classList.remove('hidden');
+      copyCodeButton.classList.remove('hidden');
+      initialContainer.classList.add('hidden');
+      usernameContainer.classList.add('hidden');
+      connectContainer.classList.add('hidden');
+      chatContainer.classList.remove('hidden');
+      messages.classList.add('waiting');
+      statusElement.textContent = 'Waiting for connection...';
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+      }
+    };
+
+    document.getElementById('backButton').onclick = () => {
+      usernameContainer.classList.add('hidden');
+      initialContainer.classList.remove('hidden');
+      statusElement.textContent = 'Start a new chat or connect to an existing one';
+      messages.classList.remove('waiting');
+      codeDisplayElement.classList.add('hidden');
+      copyCodeButton.classList.add('hidden');
+    };
+
+    document.getElementById('backButtonConnect').onclick = () => {
+      connectContainer.classList.add('hidden');
+      initialContainer.classList.remove('hidden');
+      statusElement.textContent = 'Start a new chat or connect to an existing one';
+      messages.classList.remove('waiting');
+      codeDisplayElement.classList.add('hidden');
+      copyCodeButton.classList.add('hidden');
+    };
+
+    document.getElementById('sendButton').onclick = () => {
+      const messageInput = document.getElementById('messageInput');
+      const message = messageInput.value.trim();
+      if (message) {
+        sendMessage(message);
+      }
+    };
+
+    const messageInput = document.getElementById('messageInput');
+    messageInput.addEventListener('input', () => {
+      // Removed dynamic height adjustment to keep size fixed
+    });
+
+    messageInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        const message = event.target.value.trim();
+        if (message) {
+          sendMessage(message);
+        }
+      }
+    });
+
+    document.getElementById('newSessionButton').onclick = () => {
+      socket.send(JSON.stringify({ type: 'leave', code, clientId }));
+      peerConnections.forEach((pc) => pc.close());
+      dataChannels.forEach((dc) => dc.close());
+      peerConnections.clear();
+      dataChannels.clear();
+      candidatesQueues.clear();
+      connectionTimeouts.forEach((timeout) => clearTimeout(timeout));
+      connectionTimeouts.clear();
+      retryCounts.clear();
+      processedMessageIds.clear();
+      processedAnswers.clear();
+      usernames.clear();
+      messageRateLimits.clear();
+      isConnected = false;
+      isInitiator = false;
+      maxClients = 2;
+      totalClients = 0;
+      code = generateCode();
+      codeDisplayElement.textContent = '';
+      codeDisplayElement.classList.add('hidden');
+      copyCodeButton.classList.add('hidden');
+      statusElement.textContent = 'Start a new chat or connect to an existing one';
+      document.getElementById('messages').innerHTML = '';
+      document.getElementById('messageInput').value = '';
+      document.getElementById('messageInput').style.height = '2.5rem';
+      document.getElementById('usernameInput').value = username;
+      document.getElementById('usernameConnectInput').value = username;
+      document.getElementById('codeInput').value = '';
+      initialContainer.classList.remove('hidden');
+      usernameContainer.classList.add('hidden');
+      connectContainer.classList.add('hidden');
+      chatContainer.classList.add('hidden');
+      newSessionButton.classList.add('hidden');
+      maxClientsContainer.classList.add('hidden');
+      inputContainer.classList.add('hidden');
+      messages.classList.remove('waiting');
+    };
+
+    document.getElementById('usernameInput').addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        document.getElementById('startChatButton').click();
+      }
+    });
+
+    document.getElementById('usernameConnectInput').addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        document.getElementById('codeInput').focus();
+      }
+    });
+
+    document.getElementById('codeInput').addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        document.getElementById('connectButton').click();
+      }
+    });
+
+    copyCodeButton.onclick = () => {
+      const codeText = codeDisplayElement.textContent.replace('Your code: ', '').replace('Using code: ', '');
+      navigator.clipboard.writeText(codeText).then(() => {
+        copyCodeButton.textContent = 'Copied!';
+        setTimeout(() => {
+          copyCodeButton.textContent = 'Copy Code';
+        }, 2000);
+      }).catch(err => {
+        console.error('Failed to copy text: ', err);
+      });
+    };
+  </script>
+</body>
+</html>
