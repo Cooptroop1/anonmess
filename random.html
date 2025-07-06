@@ -46,6 +46,7 @@
   <script>
     const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
     const codeList = document.getElementById('codeList');
+    let myCode = new URLSearchParams(window.location.search).get('myCode') || sessionStorage.getItem('myCode');
 
     socket.onopen = () => {
       console.log('Random chat WebSocket opened');
@@ -59,10 +60,16 @@
         data.codes.forEach((code, index) => {
           const li = document.createElement('li');
           li.className = 'code-item';
-          li.textContent = `${index + 1}. ${code}`;
-          li.onclick = () => {
-            window.location.href = `index.html?code=${code}&action=connect`;
-          };
+          if (code === myCode) {
+            li.style.color = 'red';
+            li.style.cursor = 'not-allowed';
+            li.onclick = () => alert('Cannot join your own chat!');
+          } else {
+            li.textContent = `${index + 1}. ${code}`;
+            li.onclick = () => {
+              window.location.href = `index.html?code=${code}&action=connect`;
+            };
+          }
           codeList.appendChild(li);
         });
       }
@@ -78,6 +85,11 @@
         Object.defineProperty(window, 'socket', { value: newSocket, writable: true });
       }, 5000);
     };
+
+    // Store myCode when navigating from index.html
+    if (window.location.search.includes('myCode')) {
+      sessionStorage.setItem('myCode', myCode);
+    }
   </script>
 </body>
 </html>
