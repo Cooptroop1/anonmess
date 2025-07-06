@@ -67,7 +67,7 @@
           } else {
             li.textContent = `${index + 1}. ${code}`;
             li.onclick = () => {
-              window.location.href = `index.html?code=${code}&action=connect`;
+              window.location.href = `/index.html?code=${encodeURIComponent(code)}&action=connect`;
             };
           }
           codeList.appendChild(li);
