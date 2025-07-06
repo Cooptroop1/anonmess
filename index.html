@@ -192,7 +192,8 @@
       border-bottom: 1px solid #ccc;
       border-radius: 0 0 0 10px;
       box-shadow: -2px 2px 4px rgba(0, 0, 0, 0.1);
-      z-index: 200; /* Above the logo */
+      z-index: 200;
+      display: block !important; /* Force visibility for debugging */
     }
     .preview-container button {
       display: block;
@@ -877,7 +878,7 @@
       connectContainer.classList.add('hidden');
       initialContainer.classList.add('hidden');
       chatContainer.classList.remove('hidden');
-      previewContainer.classList.remove('hidden'); // Show preview after start
+      previewContainer.classList.remove('hidden'); // Ensure preview appears
       console.log('Preview container shown after start');
       maxClientsContainer.classList.remove('hidden');
       inputContainer.classList.remove('hidden');
@@ -885,6 +886,13 @@
       statusElement.textContent = 'Waiting for connection...';
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+      } else {
+        console.warn('WebSocket not open, retrying join in 1s');
+        setTimeout(() => {
+          if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+          }
+        }, 1000);
       }
     };
 
@@ -909,7 +917,7 @@
       usernameContainer.classList.add('hidden');
       connectContainer.classList.add('hidden');
       chatContainer.classList.remove('hidden');
-      previewContainer.classList.remove('hidden'); // Show preview after connect
+      previewContainer.classList.remove('hidden'); // Ensure preview appears
       console.log('Preview container shown after connect');
       maxClientsContainer.classList.remove('hidden');
       inputContainer.classList.remove('hidden');
@@ -917,6 +925,13 @@
       statusElement.textContent = 'Waiting for connection...';
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+      } else {
+        console.warn('WebSocket not open, retrying join in 1s');
+        setTimeout(() => {
+          if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+          }
+        }, 1000);
       }
     };
 
@@ -1064,7 +1079,16 @@
         console.log(`Attempting to connect with code: ${joinCode}`);
         document.getElementById('codeInput').value = joinCode;
         document.getElementById('usernameConnectInput').value = username || '';
-        document.getElementById('connectButton').click();
+        // Delay to ensure DOM is ready and WebSocket is open
+        setTimeout(() => {
+          console.log('Triggering connect button click');
+          const connectButton = document.getElementById('connectButton');
+          if (connectButton) {
+            connectButton.click();
+          } else {
+            console.error('Connect button not found');
+          }
+        }, 500);
       } else if (action === 'connect' && (!joinCode || !validateCode(joinCode))) {
         console.error(`Invalid code format or missing code: ${joinCode}`);
         statusElement.textContent = 'Invalid chat code. Please try again or start a new chat.';
