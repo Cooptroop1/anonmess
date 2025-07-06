@@ -192,6 +192,7 @@
       border-bottom: 1px solid #ccc;
       border-radius: 0 0 0 10px;
       box-shadow: -2px 2px 4px rgba(0, 0, 0, 0.1);
+      z-index: 200; /* Above the logo */
     }
     .preview-container button {
       display: block;
@@ -204,6 +205,12 @@
     }
     .preview-container .hidden {
       display: none;
+    }
+    @media (max-width: 640px) {
+      .preview-container {
+        width: 150px;
+        right: 10px;
+      }
     }
   </style>
 </head>
@@ -639,7 +646,8 @@
         usernameContainer.classList.add('hidden');
         connectContainer.classList.add('hidden');
         chatContainer.classList.remove('hidden');
-        previewContainer.classList.remove('hidden');
+        previewContainer.classList.remove('hidden'); // Ensure preview appears
+        console.log('Preview container shown');
         maxClientsContainer.classList.remove('hidden');
         inputContainer.classList.remove('hidden');
         messages.classList.remove('waiting');
@@ -813,6 +821,8 @@
       if (!isConnected) {
         inputContainer.classList.add('hidden');
         messages.classList.add('waiting');
+        previewContainer.classList.add('hidden'); // Hide preview when disconnected
+        console.log('Preview container hidden');
       }
     }
 
@@ -867,7 +877,8 @@
       connectContainer.classList.add('hidden');
       initialContainer.classList.add('hidden');
       chatContainer.classList.remove('hidden');
-      previewContainer.classList.remove('hidden');
+      previewContainer.classList.remove('hidden'); // Show preview after start
+      console.log('Preview container shown after start');
       maxClientsContainer.classList.remove('hidden');
       inputContainer.classList.remove('hidden');
       messages.classList.add('waiting');
@@ -898,7 +909,8 @@
       usernameContainer.classList.add('hidden');
       connectContainer.classList.add('hidden');
       chatContainer.classList.remove('hidden');
-      previewContainer.classList.remove('hidden');
+      previewContainer.classList.remove('hidden'); // Show preview after connect
+      console.log('Preview container shown after connect');
       maxClientsContainer.classList.remove('hidden');
       inputContainer.classList.remove('hidden');
       messages.classList.add('waiting');
@@ -915,6 +927,8 @@
       messages.classList.remove('waiting');
       codeDisplayElement.classList.add('hidden');
       copyCodeButton.classList.add('hidden');
+      previewContainer.classList.add('hidden'); // Hide preview on back
+      console.log('Preview container hidden on back');
     };
 
     document.getElementById('backButtonConnect').onclick = () => {
@@ -924,6 +938,8 @@
       messages.classList.remove('waiting');
       codeDisplayElement.classList.add('hidden');
       copyCodeButton.classList.add('hidden');
+      previewContainer.classList.add('hidden'); // Hide preview on back
+      console.log('Preview container hidden on back');
     };
 
     document.getElementById('sendButton').onclick = () => {
@@ -971,7 +987,8 @@
       codeDisplayElement.textContent = '';
       codeDisplayElement.classList.add('hidden');
       copyCodeButton.classList.add('hidden');
-      previewContainer.classList.add('hidden');
+      previewContainer.classList.add('hidden'); // Hide preview on new session
+      console.log('Preview container hidden on new session');
       statusElement.textContent = 'Start a new chat or connect to an existing one';
       document.getElementById('messages').innerHTML = '';
       document.getElementById('messageInput').value = '';
@@ -1039,12 +1056,18 @@
     };
 
     window.addEventListener('load', () => {
+      console.log('Page loaded');
       const urlParams = new URLSearchParams(window.location.search);
       const action = urlParams.get('action');
       const joinCode = urlParams.get('code');
       if (action === 'connect' && joinCode && validateCode(joinCode)) {
+        console.log(`Attempting to connect with code: ${joinCode}`);
         document.getElementById('codeInput').value = joinCode;
+        document.getElementById('usernameConnectInput').value = username || '';
         document.getElementById('connectButton').click();
+      } else if (action === 'connect' && (!joinCode || !validateCode(joinCode))) {
+        console.error(`Invalid code format or missing code: ${joinCode}`);
+        statusElement.textContent = 'Invalid chat code. Please try again or start a new chat.';
       }
     });
   </script>
