@@ -169,18 +169,61 @@
     #sendButton:hover {
       background-color: #1d4ed8;
     }
+    .button-group {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .button-group button {
+      padding: 0.35rem 0.9rem;
+      border-radius: 0.375rem;
+      cursor: pointer;
+      margin: 0 0.25rem;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      transition: all 0.2s ease;
+    }
     #copyCodeButton {
       background-color: #10b981;
       color: white;
-      padding: 0.35rem 0.9rem;
-      border-radius: 0.375rem;
-      margin-top: 0.5rem;
-      margin-bottom: 0.5rem;
-      cursor: pointer; /* Ensure pointer cursor for button */
-      width: 50%; /* Adds 50% width */
+      width: 50%;
     }
     #copyCodeButton:hover {
       background-color: #059669;
+    }
+    #button1 {
+      background-color: #9b59b6;
+      color: white;
+      width: 16.67%; /* One-third of remaining 50% */
+    }
+    #button1:hover {
+      background-color: #8e44ad;
+    }
+    #button2 {
+      background-color: #f1c40f;
+      color: white;
+      width: 16.67%; /* One-third of remaining 50% */
+    }
+    #button2:hover {
+      background-color: #d4a017;
+    }
+    #button3 {
+      background-color: #e67e22;
+      color: white;
+      width: 16.67%; /* One-third of remaining 50% */
+    }
+    #button3:hover {
+      background-color: #d35400;
+    }
+    @media (max-width: 640px) {
+      .button-group {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .button-group button {
+        width: 100%;
+        margin-bottom: 0.5rem;
+      }
     }
   </style>
 </head>
@@ -200,13 +243,18 @@
         <button id="backButton" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600 transition-colors">Back</button>
       </div>
       <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800 hidden"></div>
-      <button id="copyCodeButton" class="hidden">Copy Code</button>
       <div id="chatContainer" class="hidden">
         <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-1/2 mb-4 rounded hover:bg-red-600 transition-colors hidden">New Session</button>
         <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded"></div>
         <div class="input-container hidden">
           <textarea id="messageInput" placeholder="Type a message..." cols="30" maxlength="1000"></textarea>
           <button id="sendButton">📤</button>
+        </div>
+        <div class="button-group">
+          <button id="button1">Button 1</button>
+          <button id="button2">Button 2</button>
+          <button id="button3">Button 3</button>
+          <button id="copyCodeButton">Copy Code</button>
         </div>
       </div>
       <div id="connectContainer" class="hidden">
