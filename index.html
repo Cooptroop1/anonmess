@@ -1025,6 +1025,19 @@
         console.error('Failed to copy text: ', err);
       });
     };
+
+    // New function to send code to random page
+    document.getElementById('button1').onclick = () => {
+      if (socket.readyState === WebSocket.OPEN && code) {
+        socket.send(JSON.stringify({ type: 'add-random-code', code, clientId }));
+        statusElement.textContent = `Sent code ${code} to random board.`;
+        setTimeout(() => {
+          statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...';
+        }, 2000);
+      } else {
+        statusElement.textContent = 'Error: Not connected or no code available.';
+      }
+    };
   </script>
 </body>
 </html>
