@@ -1026,7 +1026,6 @@
       });
     };
 
-    // Updated function to send code to random page using 'submit-random'
     document.getElementById('button1').onclick = () => {
       if (socket.readyState === WebSocket.OPEN && code) {
         socket.send(JSON.stringify({ type: 'submit-random', code, clientId }));
@@ -1037,6 +1036,11 @@
       } else {
         statusElement.textContent = 'Error: Not connected or no code available.';
       }
+    };
+
+    // Redirect to random.html when clicking "Pick Random Code to Chat"
+    document.getElementById('button2').onclick = () => {
+      window.location.href = 'https://raw.githubusercontent.com/Cooptroop1/anonmess/refs/heads/main/random.html';
     };
   </script>
 </body>
