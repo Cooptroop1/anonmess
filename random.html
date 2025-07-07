@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Random Anonomoose Chat</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+  <style>
+    body {
+      background-color: #000;
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    .container {
+      background-color: #fff;
+      color: #000;
+      padding: 20px;
+      border-radius: 10px;
+      max-width: 500px;
+      width: 100%;
+    }
+    .code-list {
+      list-style: none;
+      padding: 0;
+    }
+    .code-item {
+      padding: 10px;
+      border-bottom: 1px solid #ccc;
+      cursor: pointer;
+    }
+    .code-item:hover {
+      background-color: #f0f0f0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="text-2xl font-bold mb-4 text-center">Random Anonomoose Chat</h1>
+    <p class="mb-4 text-center">Select a random chat to join:</p>
+    <ul id="codeList" class="code-list"></ul>
+  </div>
+  <script>
+    const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
+    const codeList = document.getElementById('codeList');
+    let myCode = new URLSearchParams(window.location.search).get('myCode') || sessionStorage.getItem('myCode');
+
+    socket.onopen = () => {
+      console.log('Random chat WebSocket opened');
+      socket.send(JSON.stringify({ type: 'get-random-codes' }));
+    };
+
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === 'random-codes') {
+        codeList.innerHTML = '';
+        data.codes.forEach((code, index) => {
+          const li = document.createElement('li');
+          li.className = 'code-item';
+          if (code === myCode) {
+            li.style.color = 'red';
+            li.style.cursor = 'not-allowed';
+            li.onclick = () => alert('Cannot join your own chat!');
+          } else {
+            li.textContent = `${index + 1}. ${code}`;
+            li.onclick = () => {
+              window.location.href = `/index.html?code=${encodeURIComponent(code)}&action=connect`;
+            };
+          }
+          codeList.appendChild(li);
+        });
+      }
+    };
+
+    socket.onclose = () => {
+      console.log('Random chat WebSocket closed, attempting reconnect');
+      setTimeout(() => {
+        const newSocket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
+        newSocket.onopen = socket.onopen;
+        newSocket.onmessage = socket.onmessage;
+        newSocket.onclose = socket.onclose;
+        Object.defineProperty(window, 'socket', { value: newSocket, writable: true });
+      }, 5000);
+    };
+
+    // Store myCode when navigating from index.html
+    if (window.location.search.includes('myCode')) {
+      sessionStorage.setItem('myCode', myCode);
+    }
+  </script>
+</html>
