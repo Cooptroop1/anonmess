@@ -1026,10 +1026,10 @@
       });
     };
 
-    // New function to send code to random page
+    // Updated function to send code to random page using 'submit-random'
     document.getElementById('button1').onclick = () => {
       if (socket.readyState === WebSocket.OPEN && code) {
-        socket.send(JSON.stringify({ type: 'add-random-code', code, clientId }));
+        socket.send(JSON.stringify({ type: 'submit-random', code, clientId }));
         statusElement.textContent = `Sent code ${code} to random board.`;
         setTimeout(() => {
           statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...';
