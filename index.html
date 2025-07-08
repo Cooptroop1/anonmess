@@ -98,17 +98,46 @@
       }
       #maxClientsRadios {
         display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr)); /* First row: 2-6 */
-        grid-template-rows: auto auto; /* Explicitly two rows */
+        grid-template-columns: repeat(5, minmax(0, 1fr)); /* Five columns for 2-6 */
+        grid-template-rows: auto auto; /* Two rows */
         grid-gap: 0.75rem;
         justify-items: center;
       }
-      #maxClientsRadios label:nth-child(-n+5) {
-        grid-row: 1; /* 2-6 on first row */
+      #maxClientsRadios label:nth-child(1) {
+        grid-row: 1;
+        grid-column: 1; /* 2 under column 1 */
       }
-      #maxClientsRadios label:nth-child(n+6) {
-        grid-row: 2; /* 7-10 on second row */
-        grid-column: span 2; /* Wider columns for 7-10 */
+      #maxClientsRadios label:nth-child(2) {
+        grid-row: 1;
+        grid-column: 2; /* 3 under column 2 */
+      }
+      #maxClientsRadios label:nth-child(3) {
+        grid-row: 1;
+        grid-column: 3; /* 4 under column 3 */
+      }
+      #maxClientsRadios label:nth-child(4) {
+        grid-row: 1;
+        grid-column: 4; /* 5 under column 4 */
+      }
+      #maxClientsRadios label:nth-child(5) {
+        grid-row: 1;
+        grid-column: 5; /* 6 under column 5 */
+      }
+      #maxClientsRadios label:nth-child(6) {
+        grid-row: 2;
+        grid-column: 1; /* 7 under 2 */
+      }
+      #maxClientsRadios label:nth-child(7) {
+        grid-row: 2;
+        grid-column: 2; /* 8 under 3 */
+      }
+      #maxClientsRadios label:nth-child(8) {
+        grid-row: 2;
+        grid-column: 3; /* 9 under 4 */
+      }
+      #maxClientsRadios label:nth-child(9) {
+        grid-row: 2;
+        grid-column: 4; /* 10 under 5 */
       }
       #maxClientsRadios label {
         margin: 0;
