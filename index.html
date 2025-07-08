@@ -7,24 +7,27 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
   <link rel="icon" type="image/png" href="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f60e.png"/>
   <style>
+    /* Global cursor and selection style: no pointer or caret on non-inputs */
     * {
       cursor: default;
-      user-select: none;
+      user-select: none; /* Prevents text selection and caret */
     }
     input[type="text"],
     input[type="number"],
     textarea {
       cursor: text;
-      user-select: text;
+      user-select: text; /* Allows selection and caret in inputs */
     }
     #codeDisplay {
-      user-select: text;
+      user-select: text; /* Allows copying the code text */
     }
+
     body {
       min-height: 100vh;
-      padding-top: 60px;
-      padding-bottom: 200px;
+      padding-top: 148px; /* Accommodates logo height (128px) + 20px gap */
+      padding-bottom: 200px; /* Reduced to minimize black space below maxClientsContainer */
     }
+
     #messages {
       display: flex;
       flex-direction: column-reverse;
@@ -63,29 +66,26 @@
       background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/corner%20logoWink.png?sanitize=true');
     }
     .bg-white {
-      z-index: 10;
+      z-index: 10; /* Ensure white chat box is above logo on all screen sizes */
     }
     @media (min-width: 641px) and (max-width: 1024px) {
       .corner-logo {
-        z-index: -1;
+        z-index: -1; /* Place logo behind white chat box on tablet */
       }
     }
     @media (max-width: 640px) {
-      body {
-        padding-top: 148px;
-        padding-bottom: 300px; /* Increased to give more room */
-      }
       .corner-logo {
         position: absolute;
         top: 10px;
         right: 10px;
         width: 128px;
         height: 128px;
-        z-index: 1000;
+        z-index: 1000; /* High z-index on mobile to stay above content */
       }
+      /* Specific logo positioning for waiting state on mobile */
       #chatContainer:not(.hidden) #messages.waiting ~ .corner-logo {
         position: absolute;
-        top: 10px;
+        top: 10px; /* Positioned at top of page relative to body */
         right: 10px;
         width: 128px;
         height: 128px;
@@ -93,48 +93,67 @@
       }
       #maxClientsContainer {
         position: absolute;
-        bottom: -350px; /* Initial state */
+        bottom: -380px; /* Positioned ~20px below white box and help link */
         left: 50%;
         transform: translateX(-50%);
         width: 100%;
-        max-width: 300px;
+        max-width: 360px; /* Wide enough for radio buttons */
         margin: 0;
         padding: 0.75rem;
-        background-color: #000000;
+        background-color: #000000; /* Solid black background */
         border-radius: 0.5rem;
         z-index: 1000;
       }
-      #chatContainer:not(.hidden) .flex #maxClientsContainer {
-        bottom: -120px !important; /* Chat page, ~10px below white box */
-        background-color: #333; /* Temporary to confirm rule applies */
-      }
-      #chatContainer #maxClientsContainer {
-        bottom: -120px !important; /* Fallback if :not(.hidden) fails */
-        background-color: #333; /* Temporary to confirm rule applies */
-      }
       #maxClientsRadios {
         display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
-        grid-template-rows: auto auto;
+        grid-template-columns: repeat(5, minmax(0, 1fr)); /* Five columns for 2-6 */
+        grid-template-rows: auto auto; /* Two rows */
         grid-gap: 0.75rem;
         justify-items: center;
       }
-      #maxClientsRadios label:nth-child(1) { grid-row: 1; grid-column: 1; }
-      #maxClientsRadios label:nth-child(2) { grid-row: 1; grid-column: 2; }
-      #maxClientsRadios label:nth-child(3) { grid-row: 1; grid-column: 3; }
-      #maxClientsRadios label:nth-child(4) { grid-row: 1; grid-column: 4; }
-      #maxClientsRadios label:nth-child(5) { grid-row: 1; grid-column: 5; }
-      #maxClientsRadios label:nth-child(6) { grid-row: 2; grid-column: 1; }
-      #maxClientsRadios label:nth-child(7) { grid-row: 2; grid-column: 2; }
-      #maxClientsRadios label:nth-child(8) { grid-row: 2; grid-column: 3; }
-      #maxClientsRadios label:nth-child(9) { grid-row: 2; grid-column: 4; }
+      #maxClientsRadios label:nth-child(1) {
+        grid-row: 1;
+        grid-column: 1; /* 2 under column 1 */
+      }
+      #maxClientsRadios label:nth-child(2) {
+        grid-row: 1;
+        grid-column: 2; /* 3 under column 2 */
+      }
+      #maxClientsRadios label:nth-child(3) {
+        grid-row: 1;
+        grid-column: 3; /* 4 under column 3 */
+      }
+      #maxClientsRadios label:nth-child(4) {
+        grid-row: 1;
+        grid-column: 4; /* 5 under column 4 */
+      }
+      #maxClientsRadios label:nth-child(5) {
+        grid-row: 1;
+        grid-column: 5; /* 6 under column 5 */
+      }
+      #maxClientsRadios label:nth-child(6) {
+        grid-row: 2;
+        grid-column: 1; /* 7 under 2 */
+      }
+      #maxClientsRadios label:nth-child(7) {
+        grid-row: 2;
+        grid-column: 2; /* 8 under 3 */
+      }
+      #maxClientsRadios label:nth-child(8) {
+        grid-row: 2;
+        grid-column: 3; /* 9 under 4 */
+      }
+      #maxClientsRadios label:nth-child(9) {
+        grid-row: 2;
+        grid-column: 4; /* 10 under 5 */
+      }
       #maxClientsRadios label {
         margin: 0;
         display: flex;
         align-items: center;
         justify-content: center;
         width: 100%;
-        font-size: 0.9rem;
+        font-size: 0.9rem; /* Slightly smaller font for better fit */
       }
       #maxClientsRadios input[type="radio"] {
         margin-right: 0.25rem;
@@ -325,7 +344,7 @@
       </div>
     </div>
     <div id="maxClientsContainer" class="hidden flex flex-col justify-center bg-gray-800 p-4 rounded-lg shadow-lg">
-      <span class="text-white mb-2 font-bold">Max Users</span>
+      <span class="text-white mb-2 font-bold">Max<br>Users:</span>
       <div id="maxClientsRadios" class="flex flex-col space-y-2"></div>
     </div>
   </div>
@@ -362,7 +381,7 @@
     }
     let isInitiator = false;
     let isConnected = false;
-    let maxClients = 2;
+    let maxClients = 2; // Default to 2, capped at 10
     let totalClients = 0;
     let peerConnections = new Map();
     let dataChannels = new Map();
@@ -375,7 +394,7 @@
     let username = localStorage.getItem('username') || '';
     let usernames = new Map();
     const messageRateLimits = new Map();
-    let codeSentToRandom = false;
+    let codeSentToRandom = false; // Track if code was sent to random board
 
     const statusElement = document.getElementById('status');
     const codeDisplayElement = document.getElementById('codeDisplay');
@@ -394,16 +413,18 @@
     document.getElementById('usernameInput').value = username;
     document.getElementById('usernameConnectInput').value = username;
 
+    // Logo cycle animation (start with normal logo, wink every 60 seconds)
     let cycleTimeout;
     function triggerCycle() {
       if (cycleTimeout) clearTimeout(cycleTimeout);
       cornerLogo.classList.add('wink');
       cycleTimeout = setTimeout(() => {
         cornerLogo.classList.remove('wink');
-      }, 500);
-      setTimeout(() => triggerCycle(), 60000);
+      }, 500); // 0.5 seconds for wink
+      setTimeout(() => triggerCycle(), 60000); // Repeat every 60 seconds
     }
-    setTimeout(() => triggerCycle(), 60000);
+    setTimeout(() => triggerCycle(), 60000); // Start first wink after 60 seconds
+    // Initial state is normal logo, no wink on load
 
     const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
     console.log('WebSocket created');
@@ -414,6 +435,7 @@
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: 'connect', clientId }));
       }
+      // Check for code parameter on page load
       const urlParams = new URLSearchParams(window.location.search);
       const codeParam = urlParams.get('code');
       if (codeParam && validateCode(codeParam)) {
@@ -474,7 +496,7 @@
         }
         if (message.type === 'init') {
           clientId = message.clientId;
-          maxClients = Math.min(message.maxClients, 10);
+          maxClients = Math.min(message.maxClients, 10); // Cap maxClients at 10
           isInitiator = message.isInitiator;
           totalClients = 1;
           console.log(`Initialized client ${clientId}, username: ${username}, maxClients: ${maxClients}, isInitiator: ${isInitiator}`);
@@ -512,7 +534,7 @@
           }
         }
         if (message.type === 'max-clients') {
-          maxClients = Math.min(message.maxClients, 10);
+          maxClients = Math.min(message.maxClients, 10); // Cap maxClients at 10
           console.log(`Max clients updated to ${maxClients} for code: ${code}`);
           updateMaxClientsUI();
         }
@@ -538,7 +560,7 @@
       maxClientsRadios.innerHTML = '';
       if (isInitiator) {
         maxClientsContainer.classList.remove('hidden');
-        for (let n = 2; n <= 10; n++) {
+        for (let n = 2; n <= 10; n++) { // Limit options to 10
           const label = document.createElement('label');
           label.className = 'text-white flex items-center';
           const input = document.createElement('input');
@@ -580,7 +602,7 @@
 
     function setMaxClients(n) {
       if (isInitiator && clientId && socket.readyState === WebSocket.OPEN) {
-        maxClients = Math.min(n, 10);
+        maxClients = Math.min(n, 10); // Cap at 10
         socket.send(JSON.stringify({ type: 'set-max-clients', maxClients: maxClients, code, clientId }));
         updateMaxClientsUI();
       }
@@ -1089,7 +1111,7 @@
       }
     });
 
-    document.getElementById('copyCodeButton').onclick = () => {
+    copyCodeButton.onclick = () => {
       const codeText = codeDisplayElement.textContent.replace('Your code: ', '').replace('Using code: ', '');
       navigator.clipboard.writeText(codeText).then(() => {
         copyCodeButton.textContent = 'Copied!';
@@ -1121,6 +1143,7 @@
       }
     };
 
+    // Function to handle automatic connection with a code parameter
     function autoConnect(codeParam) {
       connectContainer.classList.remove('hidden');
       initialContainer.classList.add('hidden');
