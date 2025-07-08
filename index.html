@@ -73,6 +73,7 @@
     @media (max-width: 640px) {
       body {
         padding-top: 148px;
+        padding-bottom: 300px; /* Increased to give more room */
       }
       .corner-logo {
         position: absolute;
@@ -92,7 +93,7 @@
       }
       #maxClientsContainer {
         position: absolute;
-        bottom: -350px; /* Initial state, worked for you */
+        bottom: -350px; /* Initial state */
         left: 50%;
         transform: translateX(-50%);
         width: 100%;
@@ -104,7 +105,8 @@
         z-index: 1000;
       }
       #chatContainer:not(.hidden) #maxClientsContainer {
-        bottom: -70px !important; /* Chat page, ~10px below white box */
+        bottom: -100px !important; /* Chat page, ~10px below white box */
+        background-color: #333; /* Temporary to confirm rule applies */
       }
       #maxClientsRadios {
         display: grid;
