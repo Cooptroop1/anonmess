@@ -25,7 +25,7 @@
     body {
       min-height: 100vh;
       padding-top: 148px; /* Accommodates logo height (128px) + 20px gap */
-      padding-bottom: 120px; /* Accommodates maxClientsContainer height (~100px) + gap */
+      padding-bottom: 140px; /* Accommodates maxClientsContainer (~120px) + gap */
     }
 
     #messages {
@@ -89,9 +89,9 @@
         left: 50%;
         transform: translateX(-50%);
         width: 100%;
-        max-width: 320px; /* Constrain width for better layout */
+        max-width: 360px; /* Wider to prevent line breaks */
         margin: 0;
-        padding: 0.5rem;
+        padding: 0.75rem;
         background-color: rgba(0, 0, 0, 0.8);
         border-radius: 0.5rem;
         z-index: 1000;
@@ -99,11 +99,16 @@
       #maxClientsRadios {
         display: grid;
         grid-template-columns: repeat(5, minmax(0, 1fr)); /* First row: 2-6 */
-        grid-gap: 0.5rem;
+        grid-template-rows: auto auto; /* Explicitly two rows */
+        grid-gap: 0.75rem;
         justify-items: center;
       }
+      #maxClientsRadios label:nth-child(-n+5) {
+        grid-row: 1; /* 2-6 on first row */
+      }
       #maxClientsRadios label:nth-child(n+6) {
-        grid-column: span 2; /* Second row: 7-10, wider for better spacing */
+        grid-row: 2; /* 7-10 on second row */
+        grid-column: span 2; /* Wider columns for 7-10 */
       }
       #maxClientsRadios label {
         margin: 0;
@@ -111,6 +116,7 @@
         align-items: center;
         justify-content: center;
         width: 100%;
+        font-size: 0.9rem; /* Slightly smaller font for better fit */
       }
       #maxClientsRadios input[type="radio"] {
         margin-right: 0.25rem;
