@@ -104,8 +104,12 @@
         border-radius: 0.5rem;
         z-index: 1000;
       }
-      #chatContainer:not(.hidden) #maxClientsContainer {
-        bottom: -100px !important; /* Chat page, ~10px below white box */
+      #chatContainer:not(.hidden) .flex #maxClientsContainer {
+        bottom: -120px !important; /* Chat page, ~10px below white box */
+        background-color: #333; /* Temporary to confirm rule applies */
+      }
+      #chatContainer #maxClientsContainer {
+        bottom: -120px !important; /* Fallback if :not(.hidden) fails */
         background-color: #333; /* Temporary to confirm rule applies */
       }
       #maxClientsRadios {
