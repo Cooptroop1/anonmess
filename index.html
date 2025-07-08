@@ -207,6 +207,11 @@
     #button2:hover {
       background-color: #d4a017;
     }
+    #button2:disabled {
+      background-color: #d4a017;
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
     @media (max-width: 640px) {
       .button-group {
         flex-direction: column;
@@ -309,6 +314,7 @@
     let username = localStorage.getItem('username') || '';
     let usernames = new Map();
     const messageRateLimits = new Map();
+    let codeSentToRandom = false; // Track if code was sent to random board
 
     const statusElement = document.getElementById('status');
     const codeDisplayElement = document.getElementById('codeDisplay');
@@ -322,6 +328,7 @@
     const inputContainer = document.querySelector('.input-container');
     const messages = document.getElementById('messages');
     const cornerLogo = document.getElementById('cornerLogo');
+    const button2 = document.getElementById('button2');
     statusElement.textContent = 'Start a new chat or connect to an existing one';
     document.getElementById('usernameInput').value = username;
     document.getElementById('usernameConnectInput').value = username;
@@ -402,6 +409,8 @@
             maxClientsContainer.classList.add('hidden');
             inputContainer.classList.add('hidden');
             messages.classList.remove('waiting');
+            codeSentToRandom = false;
+            button2.disabled = false;
           }
           return;
         }
@@ -997,6 +1006,8 @@
       maxClientsContainer.classList.add('hidden');
       inputContainer.classList.add('hidden');
       messages.classList.remove('waiting');
+      codeSentToRandom = false;
+      button2.disabled = false;
     };
 
     document.getElementById('usernameInput').addEventListener('keydown', (event) => {
@@ -1039,13 +1050,17 @@
         setTimeout(() => {
           statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...';
         }, 2000);
+        codeSentToRandom = true;
+        button2.disabled = true;
       } else {
         statusElement.textContent = 'Cannot send: Not initiator, no code, or room is full.';
       }
     };
 
     document.getElementById('button2').onclick = () => {
-      window.location.href = 'https://anonomoose.com/random.html';
+      if (!button2.disabled) {
+        window.location.href = 'https://anonomoose.com/random.html';
+      }
     };
 
     // Function to handle automatic connection with a code parameter
