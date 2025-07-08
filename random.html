@@ -39,30 +39,16 @@
         .code-item:hover {
             background-color: #e0e0e0;
         }
-        button {
-            padding: 10px 20px;
-            margin-top: 10px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #45a049;
-        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Random Codes</h1>
-        <button id="refreshCodes">Refresh Codes</button>
         <ul id="codeList"></ul>
     </div>
     <script>
         const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
         const codeList = document.getElementById('codeList');
-        const refreshButton = document.getElementById('refreshCodes');
 
         socket.onopen = () => {
             console.log('WebSocket opened');
@@ -93,12 +79,6 @@
 
         socket.onclose = () => {
             console.log('WebSocket closed');
-        };
-
-        refreshButton.onclick = () => {
-            if (socket.readyState === WebSocket.OPEN) {
-                socket.send(JSON.stringify({ type: 'get-random-codes' }));
-            }
         };
     </script>
 </body>
