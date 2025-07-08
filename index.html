@@ -75,8 +75,8 @@
       }
       /* Specific logo positioning for waiting state on mobile */
       #chatContainer:not(.hidden) #messages.waiting ~ .corner-logo {
-        position: absolute;
-        top: -138px; /* Moves logo above white box (128px height + 10px gap) */
+        position: fixed;
+        top: 10px; /* Fixed at top of viewport */
         right: 10px;
         width: 128px;
         height: 128px;
@@ -249,7 +249,263 @@
 </head>
 <body class="bg-black min-h-screen flex items-center justify-center">
   <div class="corner-logo" id="cornerLogo"></div>
-  <div class="flex w-full max-w-xl"> <!-- Increased max-width from max-w-lg to max-w-xl -->
+  <div class="flexлика
+
+System: I apologize for the truncated response earlier. Let's address the issue properly. You want the logo on the "Waiting for connection" page (mobile view) to be fixed at the top of the viewport, above the white box, without covering the "Chat" part of the title when scrolling. The previous attempt used `position: fixed` but didn't fully resolve the overlap issue. I'll adjust the CSS to ensure the logo is fixed at the top of the page, above the white box, by increasing the top padding of the body and positioning the logo relative to the viewport without overlapping the title. The changes will only affect the mobile version's waiting state, preserving the PC version and other pages (usernameContainer, connectContainer). Since this is an update to the previous artifact, I'll reuse the same artifact_id.
+
+<xaiArtifact artifact_id="b22c4bc9-8c80-44c9-80d1-34cb45298086" artifact_version_id="238674cf-80e4-45c4-b838-a84d24ea566e" title="index.html" contentType="text/html">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anonomoose Chat</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+  <link rel="icon" type="image/png" href="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f60e.png"/>
+  <style>
+    /* Global cursor and selection style: no pointer or caret on non-inputs */
+    * {
+      cursor: default;
+      user-select: none; /* Prevents text selection and caret */
+    }
+    input[type="text"],
+    input[type="number"],
+    textarea {
+      cursor: text;
+      user-select: text; /* Allows selection and caret in inputs */
+    }
+    #codeDisplay {
+      user-select: text; /* Allows copying the code text */
+    }
+
+    body {
+      min-height: 100vh;
+      padding-top: 180px; /* Increased to accommodate logo height (128px) + extra space */
+    }
+
+    #messages {
+      display: flex;
+      flex-direction: column-reverse;
+      overflow-y: auto;
+      scroll-behavior: auto;
+      z-index: 0;
+      margin-bottom: 0.5rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      position: relative;
+      height: 296px;
+      background-color: #fce7f3;
+      background-image: none;
+      background-size: 100% 100%;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+    #messages.waiting {
+      background-color: transparent;
+      background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/logo.JPG?sanitize=true');
+    }
+    .corner-logo {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 256px;
+      height: 256px;
+      background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/corner%20logo.png?sanitize=true');
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+      z-index: 100;
+      transition: background-image 0.5s ease;
+    }
+    .corner-logo.wink {
+      background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/corner%20logoWink.png?sanitize=true');
+    }
+    @media (max-width: 640px) {
+      .corner-logo {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        width: 128px;
+        height: 128px;
+        z-index: 1000; /* Ensure it stays above all content */
+      }
+      /* Specific logo positioning for waiting state on mobile */
+      #chatContainer:not(.hidden) #messages.waiting ~ .corner-logo {
+        position: fixed;
+        top: 10px; /* Fixed at top of viewport */
+        right: 10px;
+        width: 128px;
+        height: 128px;
+        z-index: 1000;
+      }
+      #maxClientsContainer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        margin: 0;
+        padding: 0.5rem;
+        background-color: rgba(0, 0, 0, 0.8);
+        border-top: 1px solid #4a5568;
+        z-index: 1000;
+      }
+      #maxClientsRadios {
+        flex-direction: row;
+        justify-content: center;
+        gap: 1rem;
+      }
+      #maxClientsRadios label {
+        margin: 0;
+      }
+    }
+    .message-bubble {
+      max-width: 70%;
+      margin: 0.5rem 1rem;
+      padding: 0.25rem 1rem;
+      border-radius: 1rem;
+      word-wrap: break-word;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+    .message-bubble.self {
+      background-color: #3b82f6;
+      color: white;
+      margin-left: auto;
+      border-bottom-right-radius: 0.25rem;
+    }
+    .message-bubble.other {
+      background-color: #10b981;
+      color: white;
+      margin-right: auto;
+      border-bottom-left-radius: 0.25rem;
+    }
+    #chatContainer.hidden {
+      display: none;
+      visibility: hidden;
+    }
+    #chatContainer {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      position: relative;
+    }
+    .input-container {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      padding: 0 0rem;
+      position: absolute;
+      bottom: -3rem;
+      width: 100%;
+      box-sizing: border-box;
+      z-index: 10;
+    }
+    .input-container.hidden {
+      display: none;
+    }
+    #messageInput {
+      resize: none;
+      overflow-y: auto;
+      height: 2.5rem;
+      max-height: 12.5rem;
+      line-height: 1.5rem;
+      width: 100%;
+      max-width: 100%;
+      background-color: #3b82f6;
+      color: white;
+      border-radius: 1rem;
+      padding: 0.5rem 1rem;
+      border: none;
+      box-sizing: border-box;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      transition: all 0.2s ease;
+    }
+    @media (max-width: 640px) {
+      #messageInput {
+        padding: 0.5rem 0.75rem;
+      }
+      .input-container {
+        padding: 0 0.5rem;
+      }
+    }
+    #messageInput::-webkit-scrollbar {
+      display: none;
+    }
+    #messageInput {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    #sendButton {
+      width: 2.5rem;
+      height: 2.5rem;
+      background-color: #2563eb;
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      transition: all 0.2s ease;
+    }
+    #sendButton:hover {
+      background-color: #1d4ed8;
+    }
+    .button-group {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .button-group button {
+      padding: 0.35rem 0.9rem;
+      border-radius: 0.375rem;
+      cursor: pointer;
+      margin: 0 0.25rem;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      transition: all 0.2s ease;
+      width: 33.3%;
+    }
+    #copyCodeButton {
+      background-color: #10b981;
+      color: white;
+    }
+    #copyCodeButton:hover {
+      background-color: #059669;
+    }
+    #button1 {
+      background-color: #9b59b6;
+      color: white;
+    }
+    #button1:hover {
+      background-color: #8e44ad;
+    }
+    #button2 {
+      background-color: #f1c40f;
+      color: white;
+    }
+    #button2:hover {
+      background-color: #d4a017;
+    }
+    #button2:disabled {
+      background-color: #d4a017;
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    @media (max-width: 640px) {
+      .button-group {
+        display: flex;
+        justify-content: space-between;
+      }
+      .button-group button {
+        width: 33.3%;
+        margin-bottom: 0;
+      }
+    }
+  </style>
+</head>
+<body class="bg-black min-h-screen flex items-center justify-center">
+  <div class="corner-logo" id="cornerLogo"></div>
+  <div class="flex w-full max-w-xl">
     <div class="bg-white p-8 rounded-lg shadow-lg flex-grow">
       <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">Anonomoose Chat</h1>
       <div id="status" class="text-center mb-4 text-gray-600">Start a new chat or connect to an existing one</div>
@@ -259,7 +515,7 @@
       </div>
       <div id="usernameContainer" class="hidden">
         <input id="usernameInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)">
-        <button id="startChatButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600 transition-colors">Start Chat</button>
+        <button id="startChatButton" class="bg-blue-500 text-bot-white px-4 py-2 rounded w-full hover:bg-blue-600 transition-colors">Start Chat</button>
         <button id="backButton" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600 transition-colors">Back</button>
       </div>
       <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800 hidden"></div>
@@ -437,7 +693,7 @@
           }
           return;
         }
-        if (message.type === 'init') {
+        if (message.type ==='init') {
           clientId = message.clientId;
           maxClients = Math.min(message.maxClients, 10); // Cap maxClients at 10
           isInitiator = message.isInitiator;
