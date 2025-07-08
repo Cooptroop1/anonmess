@@ -1,94 +1,105 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Random Anonomoose Chat</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
-  <style>
-    body {
-      background-color: #000;
-      color: #fff;
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 20px;
-    }
-    .container {
-      background-color: #fff;
-      color: #000;
-      padding: 20px;
-      border-radius: 10px;
-      max-width: 500px;
-      width: 100%;
-    }
-    .code-list {
-      list-style: none;
-      padding: 0;
-    }
-    .code-item {
-      padding: 10px;
-      border-bottom: 1px solid #ccc;
-      cursor: pointer;
-    }
-    .code-item:hover {
-      background-color: #f0f0f0;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Codes</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+    <link rel="icon" type="image/png" href="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f60e.png"/>
+    <style>
+        body {
+            background-color: #000;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            text-align: center;
+            padding: 20px;
+            background-color: #fff;
+            color: #000;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+        #codeList {
+            list-style: none;
+            padding: 0;
+        }
+        .code-item {
+            padding: 10px;
+            margin: 5px 0;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .code-item:hover {
+            background-color: #e0e0e0;
+        }
+        button {
+            padding: 10px 20px;
+            margin-top: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
 </head>
 <body>
-  <div class="container">
-    <h1 class="text-2xl font-bold mb-4 text-center">Random Anonomoose Chat</h1>
-    <p class="mb-4 text-center">Select a random chat to join:</p>
-    <ul id="codeList" class="code-list"></ul>
-  </div>
-  <script>
-    const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
-    const codeList = document.getElementById('codeList');
-    let myCode = new URLSearchParams(window.location.search).get('myCode') || sessionStorage.getItem('myCode');
+    <div class="container">
+        <h1>Random Codes</h1>
+        <button id="refreshCodes">Refresh Codes</button>
+        <ul id="codeList"></ul>
+    </div>
+    <script>
+        const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
+        const codeList = document.getElementById('codeList');
+        const refreshButton = document.getElementById('refreshCodes');
 
-    socket.onopen = () => {
-      console.log('Random chat WebSocket opened');
-      socket.send(JSON.stringify({ type: 'get-random-codes' }));
-    };
+        socket.onopen = () => {
+            console.log('WebSocket opened');
+            socket.send(JSON.stringify({ type: 'get-random-codes' }));
+        };
 
-    socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === 'random-codes') {
-        codeList.innerHTML = '';
-        data.codes.forEach((code, index) => {
-          const li = document.createElement('li');
-          li.className = 'code-item';
-          if (code === myCode) {
-            li.style.color = 'red';
-            li.style.cursor = 'not-allowed';
-            li.onclick = () => alert('Cannot join your own chat!');
-          } else {
-            li.textContent = `${index + 1}. ${code}`;
-            li.onclick = () => {
-              window.location.href = `/index.html?code=${encodeURIComponent(code)}&action=connect`;
-            };
-          }
-          codeList.appendChild(li);
-        });
-      }
-    };
+        socket.onmessage = (event) => {
+            console.log('Received message:', event.data);
+            const data = JSON.parse(event.data);
+            if (data.type === 'random-codes') {
+                codeList.innerHTML = '';
+                data.codes.forEach(code => {
+                    const li = document.createElement('li');
+                    li.className = 'code-item';
+                    li.textContent = code;
+                    li.onclick = () => {
+                        socket.send(JSON.stringify({ type: 'remove-random-code', code }));
+                        window.location.href = `https://anonomoose.com/index.html?code=${code}`;
+                    };
+                    codeList.appendChild(li);
+                });
+            }
+        };
 
-    socket.onclose = () => {
-      console.log('Random chat WebSocket closed, attempting reconnect');
-      setTimeout(() => {
-        const newSocket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
-        newSocket.onopen = socket.onopen;
-        newSocket.onmessage = socket.onmessage;
-        newSocket.onclose = socket.onclose;
-        Object.defineProperty(window, 'socket', { value: newSocket, writable: true });
-      }, 5000);
-    };
+        socket.onerror = (error) => {
+            console.error('WebSocket error:', error);
+        };
 
-    // Store myCode when navigating from index.html
-    if (window.location.search.includes('myCode')) {
-      sessionStorage.setItem('myCode', myCode);
-    }
-  </script>
+        socket.onclose = () => {
+            console.log('WebSocket closed');
+        };
+
+        refreshButton.onclick = () => {
+            if (socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ type: 'get-random-codes' }));
+            }
+        };
+    </script>
+</body>
 </html>
