@@ -25,7 +25,7 @@
     body {
       min-height: 100vh;
       padding-top: 148px; /* Accommodates logo height (128px) + 20px gap */
-      padding-bottom: 140px; /* Accommodates maxClientsContainer (~120px) + gap */
+      padding-bottom: 200px; /* Increased to accommodate maxClientsContainer below white box */
     }
 
     #messages {
@@ -85,11 +85,11 @@
       }
       #maxClientsContainer {
         position: absolute;
-        bottom: 10px;
+        bottom: -160px; /* Position below white box */
         left: 50%;
         transform: translateX(-50%);
         width: 100%;
-        max-width: 360px; /* Wider to prevent line breaks */
+        max-width: 360px; /* Wide enough for radio buttons */
         margin: 0;
         padding: 0.75rem;
         background-color: rgba(0, 0, 0, 0.8);
