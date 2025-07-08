@@ -25,7 +25,7 @@
     body {
       min-height: 100vh;
       padding-top: 148px; /* Accommodates logo height (128px) + 20px gap */
-      padding-bottom: 200px; /* Increased to accommodate maxClientsContainer below white box */
+      padding-bottom: 240px; /* Increased to ensure maxClientsContainer is fully visible below white box */
     }
 
     #messages {
@@ -85,7 +85,7 @@
       }
       #maxClientsContainer {
         position: absolute;
-        bottom: -160px; /* Position below white box */
+        bottom: -200px; /* Increased to position further below white box */
         left: 50%;
         transform: translateX(-50%);
         width: 100%;
