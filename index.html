@@ -25,7 +25,7 @@
     body {
       min-height: 100vh;
       padding-top: 148px; /* Accommodates logo height (128px) + 20px gap */
-      padding-bottom: 360px; /* Increased to ensure maxClientsContainer is fully visible below white box */
+      padding-bottom: 720px; /* Increased to ensure maxClientsContainer is fully visible below white box and help link */
     }
 
     #messages {
@@ -85,14 +85,14 @@
       }
       #maxClientsContainer {
         position: absolute;
-        bottom: -320px; /* Tripled the drop from previous adjustment to position further below white box */
+        bottom: -680px; /* Tripled the previous drop to position far below white box and help link */
         left: 50%;
         transform: translateX(-50%);
         width: 100%;
         max-width: 360px; /* Wide enough for radio buttons */
         margin: 0;
         padding: 0.75rem;
-        background-color: rgba(0, 0, 0, 0.8);
+        background-color: #000000; /* Changed to solid black */
         border-radius: 0.5rem;
         z-index: 1000;
       }
