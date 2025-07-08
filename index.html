@@ -482,7 +482,7 @@
           input.checked = n === maxClients;
           input.addEventListener('change', () => {
             if (isInitiator) {
-              setMaxClients(n);
+              setMaxClients(parseInt(input.value));
             }
           });
           const span = document.createElement('span');
@@ -516,14 +516,6 @@
         maxClients = Math.min(n, 10); // Cap at 10
         socket.send(JSON.stringify({ type: 'set-max-clients', maxClients: maxClients, code, clientId }));
         updateMaxClientsUI();
-        // Enable resending code if totalClients < maxClients
-        if (totalClients < maxClients && socket.readyState === WebSocket.OPEN && code) {
-          socket.send(JSON.stringify({ type: 'submit-random', code, clientId }));
-          statusElement.textContent = `Sent code ${code} to random board.`;
-          setTimeout(() => {
-            statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...';
-          }, 2000);
-        }
       }
     }
 
