@@ -296,7 +296,7 @@
     }
     let isInitiator = false;
     let isConnected = false;
-    let maxClients = 2;
+    let maxClients = 2; // Default to 2, capped at 10
     let totalClients = 0;
     let peerConnections = new Map();
     let dataChannels = new Map();
@@ -407,7 +407,7 @@
         }
         if (message.type === 'init') {
           clientId = message.clientId;
-          maxClients = message.maxClients;
+          maxClients = Math.min(message.maxClients, 10); // Cap maxClients at 10
           isInitiator = message.isInitiator;
           totalClients = 1;
           console.log(`Initialized client ${clientId}, username: ${username}, maxClients: ${maxClients}, isInitiator: ${isInitiator}`);
@@ -445,7 +445,7 @@
           }
         }
         if (message.type === 'max-clients') {
-          maxClients = message.maxClients;
+          maxClients = Math.min(message.maxClients, 10); // Cap maxClients at 10
           console.log(`Max clients updated to ${maxClients} for code: ${code}`);
           updateMaxClientsUI();
         }
@@ -471,7 +471,7 @@
       maxClientsRadios.innerHTML = '';
       if (isInitiator) {
         maxClientsContainer.classList.remove('hidden');
-        for (let n = 2; n <= 10; n++) {
+        for (let n = 2; n <= 10; n++) { // Limit options to 10
           const label = document.createElement('label');
           label.className = 'text-white flex items-center';
           const input = document.createElement('input');
@@ -513,9 +513,17 @@
 
     function setMaxClients(n) {
       if (isInitiator && clientId && socket.readyState === WebSocket.OPEN) {
-        maxClients = n;
-        socket.send(JSON.stringify({ type: 'set-max-clients', maxClients: n, code, clientId }));
+        maxClients = Math.min(n, 10); // Cap at 10
+        socket.send(JSON.stringify({ type: 'set-max-clients', maxClients: maxClients, code, clientId }));
         updateMaxClientsUI();
+        // Enable resending code if totalClients < maxClients
+        if (totalClients < maxClients && socket.readyState === WebSocket.OPEN && code) {
+          socket.send(JSON.stringify({ type: 'submit-random', code, clientId }));
+          statusElement.textContent = `Sent code ${code} to random board.`;
+          setTimeout(() => {
+            statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...';
+          }, 2000);
+        }
       }
     }
 
@@ -1033,14 +1041,14 @@
     };
 
     document.getElementById('button1').onclick = () => {
-      if (socket.readyState === WebSocket.OPEN && code) {
+      if (isInitiator && socket.readyState === WebSocket.OPEN && code && totalClients < maxClients) {
         socket.send(JSON.stringify({ type: 'submit-random', code, clientId }));
         statusElement.textContent = `Sent code ${code} to random board.`;
         setTimeout(() => {
           statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...';
         }, 2000);
       } else {
-        statusElement.textContent = 'Error: Not connected or no code available.';
+        statusElement.textContent = 'Cannot send: Not initiator, no code, or room is full.';
       }
     };
 
