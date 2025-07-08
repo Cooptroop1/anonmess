@@ -24,8 +24,8 @@
 
     body {
       min-height: 100vh;
-      padding-top: 148px; /* Accommodates logo height (128px) + 20px gap */
-      padding-bottom: 200px; /* Reduced to minimize black space below maxClientsContainer */
+      padding-top: 20px; /* Reduced for PC to bring white box higher */
+      padding-bottom: 200px; /* Accommodates maxClientsContainer */
     }
 
     #messages {
@@ -74,6 +74,9 @@
       }
     }
     @media (max-width: 640px) {
+      body {
+        padding-top: 148px; /* Restore original padding for mobile to accommodate smaller logo */
+      }
       .corner-logo {
         position: absolute;
         top: 10px;
