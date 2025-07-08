@@ -25,6 +25,7 @@
     body {
       min-height: 100vh;
       padding-top: 148px; /* Accommodates logo height (128px) + 20px gap */
+      padding-bottom: 120px; /* Accommodates maxClientsContainer height (~100px) + gap */
     }
 
     #messages {
@@ -83,23 +84,36 @@
         z-index: 1000;
       }
       #maxClientsContainer {
-        position: fixed;
-        bottom: 0;
-        left: 0;
+        position: absolute;
+        bottom: 10px;
+        left: 50%;
+        transform: translateX(-50%);
         width: 100%;
+        max-width: 320px; /* Constrain width for better layout */
         margin: 0;
         padding: 0.5rem;
         background-color: rgba(0, 0, 0, 0.8);
-        border-top: 1px solid #4a5568;
+        border-radius: 0.5rem;
         z-index: 1000;
       }
       #maxClientsRadios {
-        flex-direction: row;
-        justify-content: center;
-        gap: 1rem;
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr)); /* First row: 2-6 */
+        grid-gap: 0.5rem;
+        justify-items: center;
+      }
+      #maxClientsRadios label:nth-child(n+6) {
+        grid-column: span 2; /* Second row: 7-10, wider for better spacing */
       }
       #maxClientsRadios label {
         margin: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+      }
+      #maxClientsRadios input[type="radio"] {
+        margin-right: 0.25rem;
       }
     }
     .message-bubble {
@@ -286,7 +300,7 @@
         <a href="https://github.com/cooptroop1/anonmess/wiki/Troubleshooting" target="_blank" class="text-blue-500 hover:underline">Connection issues? Get help</a>
       </div>
     </div>
-    <div id="maxClientsContainer" class="hidden ml-4 flex flex-col justify-center bg-gray-800 p-4 rounded-lg shadow-lg">
+    <div id="maxClientsContainer" class="hidden flex flex-col justify-center bg-gray-800 p-4 rounded-lg shadow-lg">
       <span class="text-white mb-2 font-bold">Max<br>Users:</span>
       <div id="maxClientsRadios" class="flex flex-col space-y-2"></div>
     </div>
