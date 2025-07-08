@@ -85,7 +85,7 @@
       }
       #maxClientsContainer {
         position: absolute;
-        bottom: -380px; /* Adjusted to position just below white box with ~20px gap */
+        bottom: -380px; /* Positioned ~20px below white box and help link */
         left: 50%;
         transform: translateX(-50%);
         width: 100%;
@@ -95,6 +95,10 @@
         background-color: #000000; /* Solid black background */
         border-radius: 0.5rem;
         z-index: 1000;
+      }
+      #maxClientsContainer span {
+        white-space: nowrap; /* Ensures "Max Users:" stays on one line */
+        margin-bottom: 0.5rem; /* Reduced from 0.75rem to adjust for single-line text */
       }
       #maxClientsRadios {
         display: grid;
