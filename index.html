@@ -346,7 +346,7 @@
       <div id="chatContainer" class="hidden">
         <button id="newSessionButton" class="bg-red-500 text-white px-2 py-1 rounded w-full mb-1 rounded hover:bg-red-600 transition-colors hidden">New Session</button>
         <div class="button-group">
-          <button id="button1">Send Code to Random Page</button>
+          <button id="button1">Send Code to Random Board</button>
           <button id="button2">Pick Random Code to Chat</button>
           <button id="copyCodeButton">Copy Code</button>
         </div>
@@ -373,7 +373,7 @@
   </div>
   <script>
     function generateCode() {
-      const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+      const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
       let result = '';
       for (let i = 0; i < 16; i++) {
         result += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -392,7 +392,7 @@
     }
 
     function validateCode(code) {
-      const regex = /^[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}$/;
+      const regex = /^[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}$/;
       return code && regex.test(code);
     }
 
