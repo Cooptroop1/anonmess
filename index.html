@@ -293,7 +293,7 @@
     }
     @media (min-width: 1025px) {
       .bg-white {
-        margin-top: -37.8px;
+        margin-top: -39px;
       }
       #maxClientsContainer {
         min-height: calc(100% + 37.8px);
@@ -323,6 +323,24 @@
     font-size: 0.875rem; /* Reduce to 14px for a more compact look */
     margin-bottom: 0.5rem; /* Reduce from 1rem (16px) to 0.5rem (8px) */
     padding: 0.25rem 0; /* Add minimal vertical padding (4px) */
+  }
+}
+    @media (max-width: 640px) {
+  .button-group {
+    justify-content: center; /* Optional: Centers buttons for better spacing */
+    gap: 0.5rem; /* Replace margins with gap for cleaner spacing */
+  }
+
+  .button-group button {
+    margin: 0; /* Remove individual margins to use gap instead */
+  }
+
+  #button1 {
+    width: 50%; /* Make button1 wider */
+  }
+
+  #button2, #copyCodeButton {
+    width: 24%; /* Make button2 and copyCodeButton narrower */
   }
 }
   </style>
