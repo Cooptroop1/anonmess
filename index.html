@@ -133,19 +133,19 @@
       }
       #maxClientsRadios label:nth-child(6) {
         grid-row: 2;
-        grid-column: 1; /* 7 under column 2 */
+        grid-column: 1; /* 7 under 2 */
       }
       #maxClientsRadios label:nth-child(7) {
         grid-row: 2;
-        grid-column: 2; /* 8 under column 3 */
+        grid-column: 2; /* 8 under 3 */
       }
       #maxClientsRadios label:nth-child(8) {
         grid-row: 2;
-        grid-column: 3; /* 9 under column 4 */
+        grid-column: 3; /* 9 under 4 */
       }
       #maxClientsRadios label:nth-child(9) {
         grid-row: 2;
-        grid-column: 4; /* 10 under column 5 */
+        grid-column: 4; /* 10 under 5 */
       }
       #maxClientsRadios label {
         margin: 0;
@@ -196,7 +196,7 @@
       padding: 0 0rem;
       position: absolute;
       bottom: -3rem;
-      width: 100%;
+      width: 1000%;
       box-sizing: border-box;
       z-index: 10;
     }
@@ -549,23 +549,6 @@
         if (message.type === 'candidate' && message.clientId !== clientId) {
           console.log(`Received ICE candidate from ${message.clientId} for code: ${code}`);
           handleCandidate(message.candidate, message.clientId);
-        }
-        if (message.type === 'random-code') {
-          console.log(`Received random code: ${message.code}`);
-          if (validateCode(message.code)) {
-            autoConnect(message.code);
-          } else {
-            statusElement.textContent = 'Error: Invalid random code received.';
-            console.error('Invalid random code:', message.code);
-            initialContainer.classList.remove('hidden');
-            usernameContainer.classList.add('hidden');
-            connectContainer.classList.add('hidden');
-            chatContainer.classList.add('hidden');
-            codeDisplayElement.classList.add('hidden');
-            copyCodeButton.classList.add('hidden');
-            messages.classList.remove('waiting');
-            button2.disabled = false;
-          }
         }
       } catch (error) {
         console.error('Error parsing message:', error);
@@ -967,16 +950,12 @@
       initialContainer.classList.add('hidden');
       usernameContainer.classList.remove('hidden');
       statusElement.textContent = 'Enter a username to start a chat';
-      chatContainer.classList.add('hidden');
-      messages.classList.add('waiting');
     };
 
     document.getElementById('connectToggleButton').onclick = () => {
       initialContainer.classList.add('hidden');
       connectContainer.classList.remove('hidden');
       statusElement.textContent = 'Enter a username and code to join a chat';
-      chatContainer.classList.add('hidden');
-      messages.classList.add('waiting');
     };
 
     document.getElementById('startChatButton').onclick = () => {
@@ -1036,7 +1015,6 @@
       messages.classList.remove('waiting');
       codeDisplayElement.classList.add('hidden');
       copyCodeButton.classList.add('hidden');
-      chatContainer.classList.add('hidden');
     };
 
     document.getElementById('backButtonConnect').onclick = () => {
@@ -1046,7 +1024,6 @@
       messages.classList.remove('waiting');
       codeDisplayElement.classList.add('hidden');
       copyCodeButton.classList.add('hidden');
-      chatContainer.classList.add('hidden');
     };
 
     document.getElementById('sendButton').onclick = () => {
@@ -1162,99 +1139,31 @@
 
     document.getElementById('button2').onclick = () => {
       if (!button2.disabled) {
-        const usernameInput = document.getElementById('usernameInput').value.trim() || document.getElementById('usernameConnectInput').value.trim();
-        if (!validateUsername(usernameInput)) {
-          statusElement.textContent = 'Please enter a valid username (1-16 alphanumeric characters).';
-          initialContainer.classList.remove('hidden');
-          usernameContainer.classList.add('hidden');
-          connectContainer.classList.add('hidden');
-          chatContainer.classList.add('hidden');
-          codeDisplayElement.classList.add('hidden');
-          copyCodeButton.classList.add('hidden');
-          messages.classList.remove('waiting');
-          return;
-        }
-        username = usernameInput;
-        localStorage.setItem('username', username);
-        if (socket.readyState === WebSocket.OPEN) {
-          // Reset any existing session state
-          socket.send(JSON.stringify({ type: 'leave', code, clientId }));
-          peerConnections.forEach((pc) => pc.close());
-          dataChannels.forEach((dc) => dc.close());
-          peerConnections.clear();
-          dataChannels.clear();
-          candidatesQueues.clear();
-          connectionTimeouts.forEach((timeout) => clearTimeout(timeout));
-          connectionTimeouts.clear();
-          retryCounts.clear();
-          processedMessageIds.clear();
-          processedAnswers.clear();
-          isConnected = false;
-          isInitiator = false;
-          totalClients = 0;
-          code = generateCode();
-          statusElement.textContent = 'Fetching a random chat code...';
-          messages.classList.add('waiting');
-          chatContainer.classList.add('hidden');
-          initialContainer.classList.add('hidden');
-          usernameContainer.classList.add('hidden');
-          connectContainer.classList.add('hidden');
-          codeDisplayElement.classList.add('hidden');
-          copyCodeButton.classList.add('hidden');
-          socket.send(JSON.stringify({ type: 'get-random-code', clientId }));
-        } else {
-          statusElement.textContent = 'Error: Not connected to server.';
-          initialContainer.classList.remove('hidden');
-          chatContainer.classList.add('hidden');
-          messages.classList.remove('waiting');
-          button2.disabled = false;
-        }
+        window.location.href = 'https://anonomoose.com/random.html';
       }
     };
 
     // Function to handle automatic connection with a code parameter
     function autoConnect(codeParam) {
-      username = document.getElementById('usernameConnectInput').value.trim() || document.getElementById('usernameInput').value.trim() || username;
-      if (!validateUsername(username)) {
-        statusElement.textContent = 'Please enter a valid username (1-16 alphanumeric characters).';
-        initialContainer.classList.remove('hidden');
-        usernameContainer.classList.add('hidden');
-        connectContainer.classList.remove('hidden');
-        chatContainer.classList.add('hidden');
-        codeDisplayElement.classList.add('hidden');
-        copyCodeButton.classList.add('hidden');
-        messages.classList.remove('waiting');
-        document.getElementById('codeInput').value = codeParam;
-        return;
-      }
-      localStorage.setItem('username', username);
+      connectContainer.classList.remove('hidden');
+      initialContainer.classList.add('hidden');
+      document.getElementById('usernameConnectInput').value = username || '';
+      document.getElementById('codeInput').value = codeParam;
+      username = document.getElementById('usernameConnectInput').value.trim();
       code = codeParam;
-      if (validateCode(code)) {
+      if (validateUsername(username) && validateCode(code)) {
         codeDisplayElement.textContent = `Using code: ${code}`;
         codeDisplayElement.classList.remove('hidden');
         copyCodeButton.classList.remove('hidden');
         connectContainer.classList.add('hidden');
-        initialContainer.classList.add('hidden');
-        usernameContainer.classList.add('hidden');
         chatContainer.classList.remove('hidden');
         messages.classList.add('waiting');
         statusElement.textContent = 'Waiting for connection...';
         if (socket.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
-        } else {
-          statusElement.textContent = 'Error: Not connected to server.';
-          initialContainer.classList.remove('hidden');
-          chatContainer.classList.add('hidden');
-          messages.classList.remove('waiting');
         }
       } else {
-        statusElement.textContent = 'Invalid code format.';
-        initialContainer.classList.remove('hidden');
-        connectContainer.classList.remove('hidden');
-        chatContainer.classList.add('hidden');
-        codeDisplayElement.classList.add('hidden');
-        copyCodeButton.classList.add('hidden');
-        messages.classList.remove('waiting');
+        statusElement.textContent = 'Invalid username or code format.';
       }
     }
   </script>
