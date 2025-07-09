@@ -288,7 +288,7 @@
       background-color: #d4a017;
     }
     #button2:disabled {
-      background-color постоянно: #d4a017;
+      background-color: #d4a017;
       opacity: 0.6;
       cursor: not-allowed;
     }
@@ -312,14 +312,14 @@
     @media (min-width: 1025px) {
       #maxClientsContainer {
         min-height: calc(100% + 37.8px); /* Adds ~1cm to match white box height */
-        margin-top: +140px; /* Aligns with white box by matching its upward shift */
+        margin-top: 140px; /* Aligns with white box by matching its upward shift */
       }
     }
     @media (min-width: 641px) and (max-width: 1024px) {
-  #maxClientsContainer {
-    margin-top: 140px; /* Sets +140px margin to align with PC version */
-  }
-}
+      #maxClientsContainer {
+        margin-top: 140px; /* Sets +140px margin to align with PC version */
+      }
+    }
   </style>
 </head>
 <body class="bg-black min-h-screen flex items-center justify-center">
@@ -427,9 +427,6 @@
     const messages = document.getElementById('messages');
     const cornerLogo = document.getElementById('cornerLogo');
     const button2 = document.getElementById('button2');
-    statusElement.textContent = 'Start a new chat or connect to an existing one';
-    document.getElementById('usernameInput').value = username;
-    document.getElementById('usernameConnectInput').value = username;
 
     // Logo cycle animation (start with normal logo, wink every 60 seconds)
     let cycleTimeout;
@@ -442,22 +439,26 @@
       setTimeout(() => triggerCycle(), 60000); // Repeat every 60 seconds
     }
     setTimeout(() => triggerCycle(), 60000); // Start first wink after 60 seconds
-    // Initial state is normal logo, no wink on load
 
     const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
     console.log('WebSocket created');
 
     socket.onopen = () => {
       console.log('WebSocket opened');
-      statusElement.textContent = 'Start a new chat or connect to an existing one';
-      if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: 'connect', clientId }));
-      }
+      socket.send(JSON.stringify({ type: 'connect', clientId }));
       // Check for code parameter on page load
       const urlParams = new URLSearchParams(window.location.search);
       const codeParam = urlParams.get('code');
       if (codeParam && validateCode(codeParam)) {
         autoConnect(codeParam);
+      } else {
+        initialContainer.classList.remove('hidden');
+        statusElement.textContent = 'Start a new chat or connect to an existing one';
+        usernameContainer.classList.add('hidden');
+        connectContainer.classList.add('hidden');
+        chatContainer.classList.add('hidden');
+        codeDisplayElement.classList.add('hidden');
+        copyCodeButton.classList.add('hidden');
       }
     };
 
@@ -473,8 +474,8 @@
         newSocket.onopen = () => {
           console.log('Reconnected, sending connect');
           if (newSocket.readyState === WebSocket.OPEN) {
-            newSocket.send(JSON.stringify({ type: 'connect', clientId }));
-            if (code && username) {
+            socket.send(JSON.stringify({ type: 'connect', clientId }));
+            if (code && username && validateCode(code) && validateUsername(username)) {
               console.log('Rejoining with code:', code);
               newSocket.send(JSON.stringify({ type: 'join', code, clientId, username }));
             }
@@ -995,6 +996,10 @@
       statusElement.textContent = 'Waiting for connection...';
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+      } else {
+        socket.addEventListener('open', () => {
+          socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+        }, { once: true });
       }
     };
 
@@ -1023,6 +1028,10 @@
       statusElement.textContent = 'Waiting for connection...';
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+      } else {
+        socket.addEventListener('open', () => {
+          socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+        }, { once: true });
       }
     };
 
@@ -1161,33 +1170,37 @@
       }
     };
 
-    // Function to handle automatic connection with a code parameter
     function autoConnect(codeParam) {
-  username = localStorage.getItem('username') || '';
-  code = codeParam;
-  if (validateUsername(username) && validateCode(code)) {
-    initialContainer.classList.add('hidden');
-    usernameContainer.classList.add('hidden');
-    connectContainer.classList.add('hidden');
-    chatContainer.classList.remove('hidden');
-    codeDisplayElement.textContent = `Using code: ${code}`;
-    codeDisplayElement.classList.remove('hidden');
-    copyCodeButton.classList.remove('hidden');
-    messages.classList.add('waiting');
-    statusElement.textContent = 'Waiting for connection...';
-    if (socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+      // Immediately hide all non-chat containers to prevent UI flickering
+      initialContainer.classList.add('hidden');
+      usernameContainer.classList.add('hidden');
+      connectContainer.classList.add('hidden');
+      chatContainer.classList.add('hidden'); // Start hidden, only show if valid
+      codeDisplayElement.classList.add('hidden');
+      copyCodeButton.classList.add('hidden');
+      username = localStorage.getItem('username')?.trim() || '';
+      code = codeParam;
+      if (validateUsername(username) && validateCode(code)) {
+        // Show chat UI and initiate connection
+        chatContainer.classList.remove('hidden');
+        codeDisplayElement.textContent = `Using code: ${code}`;
+        codeDisplayElement.classList.remove('hidden');
+        copyCodeButton.classList.remove('hidden');
+        messages.classList.add('waiting');
+        statusElement.textContent = 'Waiting for connection...';
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+        } else {
+          socket.addEventListener('open', () => {
+            socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+          }, { once: true });
+        }
+      } else {
+        // Show initial container for invalid username or code
+        initialContainer.classList.remove('hidden');
+        statusElement.textContent = 'Invalid username or code format. Please enter a valid username and code.';
+      }
     }
-  } else {
-    statusElement.textContent = 'Invalid username or code format.';
-    initialContainer.classList.remove('hidden');
-    usernameContainer.classList.add('hidden');
-    connectContainer.classList.add('hidden');
-    chatContainer.classList.add('hidden');
-    codeDisplayElement.classList.add('hidden');
-    copyCodeButton.classList.add('hidden');
-  }
-}
   </script>
 </body>
 </html>
