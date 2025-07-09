@@ -7,25 +7,27 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
   <link rel="icon" type="image/png" href="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f60e.png"/>
   <style>
-    /* Global cursor and selection style: no pointer or caret on non-inputs */
     * {
       cursor: default;
-      user-select: none; /* Prevents text selection and caret */
+      user-select: none;
     }
     input[type="text"],
     input[type="number"],
     textarea {
       cursor: text;
-      user-select: text; /* Allows selection and caret in inputs */
+      user-select: text;
     }
     #codeDisplay {
-      user-select: text; /* Allows copying the code text */
+      user-select: text;
     }
 
     body {
       min-height: 100vh;
-      padding-top: 140px; /* Accommodates logo height (128px) + 20px gap */
-      padding-bottom: 140px; /* Reduced to minimize black space below maxClientsContainer */
+      padding: 10px 0; /* Reduced from 140px to minimize top/bottom space */
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start; /* Align content to top */
     }
 
     #messages {
@@ -34,11 +36,10 @@
       overflow-y: auto;
       scroll-behavior: auto;
       z-index: 0;
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.25rem; /* Reduced from 0.5rem */
       border-radius: 0.5rem;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      position: relative;
-      height: 296px;
+      height: 200px; /* Reduced from 296px to fit smaller screens */
       background-color: #fce7f3;
       background-image: none;
       background-size: 100% 100%;
@@ -51,10 +52,10 @@
     }
     .corner-logo {
       position: absolute;
-      top: 10px;
-      right: 10px;
-      width: 256px;
-      height: 256px;
+      top: 5px; /* Reduced from 10px */
+      right: 5px;
+      width: 100px; /* Reduced from 256px/128px */
+      height: 100px;
       background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/corner%20logo.png?sanitize=true');
       background-size: contain;
       background-repeat: no-repeat;
@@ -66,104 +67,74 @@
       background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/corner%20logoWink.png?sanitize=true');
     }
     .bg-white {
-      z-index: 10; /* Ensure white chat box is above logo on all screen sizes */
+      z-index: 10;
     }
     @media (min-width: 641px) and (max-width: 1024px) {
       .corner-logo {
-        z-index: -1; /* Place logo behind white chat box on tablet */
+        z-index: -1;
       }
     }
     @media (max-width: 640px) {
       .corner-logo {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        width: 128px;
-        height: 128px;
-        z-index: 1000; /* High z-index on mobile to stay above content */
+        top: 5px;
+        right: 5px;
+        width: 80px; /* Further reduced for mobile */
+        height: 80px;
+        z-index: 1000;
       }
-      /* Specific logo positioning for waiting state on mobile */
       #chatContainer:not(.hidden) #messages.waiting ~ .corner-logo {
-        position: absolute;
-        top: 10px; /* Positioned at top of page relative to body */
-        right: 10px;
-        width: 128px;
-        height: 128px;
+        top: 5px;
+        right: 5px;
+        width: 80px;
+        height: 80px;
         z-index: 1000;
       }
       #maxClientsContainer {
         position: absolute;
-        bottom: -390px; /* Positioned ~20px below white box and help link */
+        bottom: -150px; /* Adjusted from -390px to fit below chat */
         left: 50%;
         transform: translateX(-50%);
         width: 100%;
-        max-width: 360px; /* Wide enough for radio buttons */
+        max-width: 320px; /* Reduced from 360px */
         margin: 0;
-        padding: 0.75rem;
-        background-color: #000000; /* Solid black background */
+        padding: 0.5rem; /* Reduced from 0.75rem */
+        background-color: #000000;
         border-radius: 0.5rem;
         z-index: 1000;
       }
       #maxClientsRadios {
         display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr)); /* Five columns for 2-6 */
-        grid-template-rows: auto auto; /* Two rows */
-        grid-gap: 0.75rem;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        grid-template-rows: auto auto;
+        grid-gap: 0.25rem; /* Reduced from 0.75rem */
         justify-items: center;
       }
-      #maxClientsRadios label:nth-child(1) {
-        grid-row: 1;
-        grid-column: 1; /* 2 under column 1 */
-      }
-      #maxClientsRadios label:nth-child(2) {
-        grid-row: 1;
-        grid-column: 2; /* 3 under column 2 */
-      }
-      #maxClientsRadios label:nth-child(3) {
-        grid-row: 1;
-        grid-column: 3; /* 4 under column 3 */
-      }
-      #maxClientsRadios label:nth-child(4) {
-        grid-row: 1;
-        grid-column: 4; /* 5 under column 4 */
-      }
-      #maxClientsRadios label:nth-child(5) {
-        grid-row: 1;
-        grid-column: 5; /* 6 under column 5 */
-      }
-      #maxClientsRadios label:nth-child(6) {
-        grid-row: 2;
-        grid-column: 1; /* 7 under 2 */
-      }
-      #maxClientsRadios label:nth-child(7) {
-        grid-row: 2;
-        grid-column: 2; /* 8 under 3 */
-      }
-      #maxClientsRadios label:nth-child(8) {
-        grid-row: 2;
-        grid-column: 3; /* 9 under 4 */
-      }
-      #maxClientsRadios label:nth-child(9) {
-        grid-row: 2;
-        grid-column: 4; /* 10 under 5 */
-      }
+      #maxClientsRadios label:nth-child(1) { grid-row: 1; grid-column: 1; }
+      #maxClientsRadios label:nth-child(2) { grid-row: 1; grid-column: 2; }
+      #maxClientsRadios label:nth-child(3) { grid-row: 1; grid-column: 3; }
+      #maxClientsRadios label:nth-child(4) { grid-row: 1; grid-column: 4; }
+      #maxClientsRadios label:nth-child(5) { grid-row: 1; grid-column: 5; }
+      #maxClientsRadios label:nth-child(6) { grid-row: 2; grid-column: 1; }
+      #maxClientsRadios label:nth-child(7) { grid-row: 2; grid-column: 2; }
+      #maxClientsRadios label:nth-child(8) { grid-row: 2; grid-column: 3; }
+      #maxClientsRadios label:nth-child(9) { grid-row: 2; grid-column: 4; }
       #maxClientsRadios label {
         margin: 0;
         display: flex;
         align-items: center;
         justify-content: center;
         width: 100%;
-        font-size: 0.9rem; /* Slightly smaller font for better fit */
+        font-size: 0.8rem; /* Reduced from 0.9rem */
       }
       #maxClientsRadios input[type="radio"] {
-        margin-right: 0.25rem;
+        margin-right: 0.15rem; /* Reduced from 0.25rem */
       }
     }
     .message-bubble {
       max-width: 70%;
-      margin: 0.5rem 1rem;
-      padding: 0.25rem 1rem;
-      border-radius: 1rem;
+      margin: 0.25rem 0.5rem; /* Reduced from 0.5rem 1rem */
+      padding: 0.25rem 0.75rem; /* Reduced padding */
+      border-radius: 0.75rem; /* Slightly smaller border-radius */
       word-wrap: break-word;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
@@ -186,16 +157,16 @@
     #chatContainer {
       display: flex;
       flex-direction: column;
-      gap: 0.5rem;
+      gap: 0.25rem; /* Reduced from 0.5rem */
       position: relative;
     }
     .input-container {
       display: flex;
       align-items: flex-start;
-      gap: 0.5rem;
-      padding: 0 0rem;
+      gap: 0.25rem; /* Reduced from 0.5rem */
+      padding: 0; /* Removed padding */
       position: absolute;
-      bottom: -3rem;
+      bottom: -2rem; /* Reduced from -3rem */
       width: 100%;
       box-sizing: border-box;
       z-index: 10;
@@ -206,15 +177,15 @@
     #messageInput {
       resize: none;
       overflow-y: auto;
-      height: 2.5rem;
-      max-height: 12.5rem;
-      line-height: 1.5rem;
+      height: 2rem; /* Reduced from 2.5rem */
+      max-height: 10rem; /* Reduced from 12.5rem */
+      line-height: 1.25rem; /* Reduced from 1.5rem */
       width: 100%;
       max-width: 100%;
       background-color: #3b82f6;
       color: white;
-      border-radius: 1rem;
-      padding: 0.5rem 1rem;
+      border-radius: 0.75rem; /* Reduced from 1rem */
+      padding: 0.25rem 0.75rem; /* Reduced from 0.5rem 1rem */
       border: none;
       box-sizing: border-box;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -222,10 +193,10 @@
     }
     @media (max-width: 640px) {
       #messageInput {
-        padding: 0.5rem 0.75rem;
+        padding: 0.25rem 0.5rem; /* Reduced from 0.5rem 0.75rem */
       }
       .input-container {
-        padding: 0 0.5rem;
+        padding: 0 0.25rem; /* Reduced from 0 0.5rem */
       }
     }
     #messageInput::-webkit-scrollbar {
@@ -236,15 +207,15 @@
       scrollbar-width: none;
     }
     #sendButton {
-      width: 2.5rem;
-      height: 2.5rem;
+      width: 2rem; /* Reduced from 2.5rem */
+      height: 2rem;
       background-color: #2563eb;
       color: white;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.2rem;
+      font-size: 1rem; /* Reduced from 1.2rem */
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       transition: all 0.2s ease;
     }
@@ -254,17 +225,17 @@
     .button-group {
       display: flex;
       justify-content: space-between;
-      margin-top: 0.5rem;
-      margin-bottom: 0.5rem;
+      margin: 0.25rem 0; /* Reduced from 0.5rem */
     }
     .button-group button {
-      padding: 0.35rem 0.9rem;
+      padding: 0.25rem 0.75rem; /* Reduced from 0.35rem 0.9rem */
       border-radius: 0.375rem;
       cursor: pointer;
-      margin: 0 0.25rem;
+      margin: 0 0.15rem; /* Reduced from 0.25rem */
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       transition: all 0.2s ease;
       width: 33.3%;
+      font-size: 0.85rem; /* Added to reduce button text size */
     }
     #copyCodeButton {
       background-color: #10b981;
@@ -306,46 +277,46 @@
 </head>
 <body class="bg-black min-h-screen flex items-center justify-center">
   <div class="corner-logo" id="cornerLogo"></div>
-  <div class="flex w-full max-w-xl">
-    <div class="bg-white p-8 rounded-lg shadow-lg flex-grow">
-      <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">Anonomoose Chat</h1>
-      <div id="status" class="text-center mb-4 text-gray-600">Start a new chat or connect to an existing one</div>
+  <div class="flex w-full max-w-md"> <!-- Reduced max-w-xl to max-w-md -->
+    <div class="bg-white p-4 rounded-lg shadow-lg flex-grow"> <!-- Reduced padding from 8 to 4 -->
+      <h1 class="text-xl font-bold mb-2 text-center text-gray-800">Anonomoose Chat</h1> <!-- Reduced text-2xl to text-xl, mb-6 to mb-2 -->
+      <div id="status" class="text-center mb-2 text-gray-600 text-sm">Start a new chat or connect to an existing one</div> <!-- Reduced mb-4 to mb-2, added text-sm -->
       <div id="initialContainer">
-        <button id="startChatToggleButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full mb-2 hover:bg-blue-600 transition-colors">Start Chat</button>
-        <button id="connectToggleButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600 transition-colors">Connect to Chat</button>
+        <button id="startChatToggleButton" class="bg-blue-500 text-white px-3 py-1.5 rounded w-full mb-1 hover:bg-blue-600 transition-colors">Start Chat</button> <!-- Reduced px-4 py-2 to px-3 py-1.5, mb-2 to mb-1 -->
+        <button id="connectToggleButton" class="bg-green-500 text-white px-3 py-1.5 rounded w-full hover:bg-green-600 transition-colors">Connect to Chat</button> <!-- Same reductions -->
       </div>
       <div id="usernameContainer" class="hidden">
-        <input id="usernameInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)">
-        <button id="startChatButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600 transition-colors">Start Chat</button>
-        <button id="backButton" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600 transition-colors">Back</button>
+        <input id="usernameInput" type="text" class="border border-gray-300 p-1.5 w-full mb-1 rounded" placeholder="Username (1-16 chars)"> <!-- Reduced p-2 to p-1.5, mb-2 to mb-1 -->
+        <button id="startChatButton" class="bg-blue-500 text-white px-3 py-1.5 rounded w-full hover:bg-blue-600 transition-colors">Start Chat</button> <!-- Reduced px-4 py-2 to px-3 py-1.5 -->
+        <button id="backButton" class="bg-gray-500 text-white px-3 py-1.5 rounded w-full mt-1 hover:bg-gray-600 transition-colors">Back</button> <!-- Reduced px-4 py-2 to px-3 py-1.5, mt-2 to mt-1 -->
       </div>
-      <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800 hidden"></div>
+      <div id="codeDisplay" class="text-center mb-2 font-mono text-base text-gray-800 hidden"></div> <!-- Reduced mb-4 to mb-2, text-lg to text-base -->
       <div id="chatContainer" class="hidden">
-        <button id="newSessionButton" class="bg-red-500 text-white px-4 py-2 rounded w-full mb-1 rounded hover:bg-red-600 transition-colors hidden">New Session</button>
+        <button id="newSessionButton" class="bg-red-500 text-white px-3 py-1.5 rounded w-full mb-0.5 rounded hover:bg-red-600 transition-colors hidden">New Session</button> <!-- Reduced px-4 py-2 to px-3 py-1.5, mb-1 to mb-0.5 -->
         <div class="button-group">
           <button id="button1">Send Code to Random Page</button>
           <button id="button2">Pick Random Code to Chat</button>
           <button id="copyCodeButton">Copy Code</button>
         </div>
-        <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded"></div>
+        <div id="messages" class="border border-gray-300 p-3 mb-2 rounded"></div> <!-- Reduced p-4 to p-3, mb-4 to mb-2 -->
         <div class="input-container hidden">
           <textarea id="messageInput" placeholder="Type a message..." cols="30" maxlength="1000"></textarea>
           <button id="sendButton">📤</button>
         </div>
       </div>
       <div id="connectContainer" class="hidden">
-        <input id="usernameConnectInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)">
-        <input id="codeInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter code (xxxx-xxxx-xxxx-xxxx)">
-        <button id="connectButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600 transition-colors">Connect</button>
-        <button id="backButtonConnect" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600 transition-colors">Back</button>
+        <input id="usernameConnectInput" type="text" class="border border-gray-300 p-1.5 w-full mb-1 rounded" placeholder="Username (1-16 chars)"> <!-- Reduced p-2 to p-1.5, mb-2 to mb-1 -->
+        <input id="codeInput" type="text" class="border border-gray-300 p-1.5 w-full mb-1 rounded" placeholder="Code (xxxx-xxxx-xxxx-xxxx)"> <!-- Same reductions -->
+        <button id="connectButton" class="bg-green-500 text-white px-3 py-1.5 rounded w-full hover:bg-green-600 transition-colors">Connect</button> <!-- Reduced px-4 py-2 to px-3 py-1.5 -->
+        <button id="backButtonConnect" class="bg-gray-500 text-white px-3 py-1.5 rounded w-full mt-1 hover:bg-gray-600 transition-colors">Back</button> <!-- Reduced px-4 py-2 to px-3 py-1.5, mt-2 to mt-1 -->
       </div>
-      <div class="text-center mt-4">
-        <a href="https://github.com/cooptroop1/anonmess/wiki/Troubleshooting" target="_blank" class="text-blue-500 hover:underline">Connection issues? Get help</a>
+      <div class="text-center mt-2"> <!-- Reduced mt-4 to mt-2 -->
+        <a href="https://github.com/cooptroop1/anonmess/wiki/Troubleshooting" target="_blank" class="text-blue-500 hover:underline text-sm">Connection issues? Get help</a> <!-- Added text-sm -->
       </div>
     </div>
-    <div id="maxClientsContainer" class="hidden flex flex-col justify-center bg-gray-800 p-4 rounded-lg shadow-lg">
-      <span class="text-white mb-2 font-bold">Max Users</span>
-      <div id="maxClientsRadios" class="flex flex-col space-y-2"></div>
+    <div id="maxClientsContainer" class="hidden flex flex-col justify-center bg-gray-800 p-2 rounded-lg shadow-lg"> <!-- Reduced p-4 to p-2 -->
+      <span class="text-white mb-1 font-bold text-sm">Max Users</span> <!-- Reduced mb-2 to mb-1, added text-sm -->
+      <div id="maxClientsRadios" class="flex flex-col space-y-1"></div> <!-- Reduced space-y-2 to space-y-1 -->
     </div>
   </div>
   <script>
@@ -381,7 +352,7 @@
     }
     let isInitiator = false;
     let isConnected = false;
-    let maxClients = 2; // Default to 2, capped at 10
+    let maxClients = 2;
     let totalClients = 0;
     let peerConnections = new Map();
     let dataChannels = new Map();
@@ -394,7 +365,7 @@
     let username = localStorage.getItem('username') || '';
     let usernames = new Map();
     const messageRateLimits = new Map();
-    let codeSentToRandom = false; // Track if code was sent to random board
+    let codeSentToRandom = false;
 
     const statusElement = document.getElementById('status');
     const codeDisplayElement = document.getElementById('codeDisplay');
@@ -413,18 +384,16 @@
     document.getElementById('usernameInput').value = username;
     document.getElementById('usernameConnectInput').value = username;
 
-    // Logo cycle animation (start with normal logo, wink every 60 seconds)
     let cycleTimeout;
     function triggerCycle() {
       if (cycleTimeout) clearTimeout(cycleTimeout);
       cornerLogo.classList.add('wink');
       cycleTimeout = setTimeout(() => {
         cornerLogo.classList.remove('wink');
-      }, 500); // 0.5 seconds for wink
-      setTimeout(() => triggerCycle(), 60000); // Repeat every 60 seconds
+      }, 500);
+      setTimeout(() => triggerCycle(), 60000);
     }
-    setTimeout(() => triggerCycle(), 60000); // Start first wink after 60 seconds
-    // Initial state is normal logo, no wink on load
+    setTimeout(() => triggerCycle(), 60000);
 
     const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
     console.log('WebSocket created');
@@ -435,7 +404,6 @@
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: 'connect', clientId }));
       }
-      // Check for code parameter on page load
       const urlParams = new URLSearchParams(window.location.search);
       const codeParam = urlParams.get('code');
       if (codeParam && validateCode(codeParam)) {
@@ -496,7 +464,7 @@
         }
         if (message.type === 'init') {
           clientId = message.clientId;
-          maxClients = Math.min(message.maxClients, 10); // Cap maxClients at 10
+          maxClients = Math.min(message.maxClients, 10);
           isInitiator = message.isInitiator;
           totalClients = 1;
           console.log(`Initialized client ${clientId}, username: ${username}, maxClients: ${maxClients}, isInitiator: ${isInitiator}`);
@@ -534,7 +502,7 @@
           }
         }
         if (message.type === 'max-clients') {
-          maxClients = Math.min(message.maxClients, 10); // Cap maxClients at 10
+          maxClients = Math.min(message.maxClients, 10);
           console.log(`Max clients updated to ${maxClients} for code: ${code}`);
           updateMaxClientsUI();
         }
@@ -560,14 +528,14 @@
       maxClientsRadios.innerHTML = '';
       if (isInitiator) {
         maxClientsContainer.classList.remove('hidden');
-        for (let n = 2; n <= 10; n++) { // Limit options to 10
+        for (let n = 2; n <= 10; n++) {
           const label = document.createElement('label');
           label.className = 'text-white flex items-center';
           const input = document.createElement('input');
           input.type = 'radio';
           input.name = 'maxClients';
           input.value = n;
-          input.className = 'mr-2';
+          input.className = 'mr-1'; /* Reduced from mr-2 */
           input.checked = n === maxClients;
           input.addEventListener('change', () => {
             if (isInitiator) {
@@ -576,6 +544,7 @@
           });
           const span = document.createElement('span');
           span.textContent = n;
+          span.className = 'text-sm'; /* Added to reduce text size */
           label.appendChild(input);
           label.appendChild(span);
           maxClientsRadios.appendChild(label);
@@ -602,7 +571,7 @@
 
     function setMaxClients(n) {
       if (isInitiator && clientId && socket.readyState === WebSocket.OPEN) {
-        maxClients = Math.min(n, 10); // Cap at 10
+        maxClients = Math.min(n, 10);
         socket.send(JSON.stringify({ type: 'set-max-clients', maxClients: maxClients, code, clientId }));
         updateMaxClientsUI();
       }
@@ -939,7 +908,7 @@
         messages.scrollTop = messages.scrollHeight;
         const messageInput = document.getElementById('messageInput');
         messageInput.value = '';
-        messageInput.style.height = '2.5rem';
+        messageInput.style.height = '2rem';
         processedMessageIds.add(messageId);
       } else {
         statusElement.textContent = 'Error: No connections or username not set.';
@@ -1036,7 +1005,7 @@
 
     const messageInput = document.getElementById('messageInput');
     messageInput.addEventListener('input', () => {
-      // Removed dynamic height adjustment to keep size fixed
+      // Removed dynamic height adjustment
     });
 
     messageInput.addEventListener('keydown', (event) => {
@@ -1074,7 +1043,7 @@
       statusElement.textContent = 'Start a new chat or connect to an existing one';
       document.getElementById('messages').innerHTML = '';
       document.getElementById('messageInput').value = '';
-      document.getElementById('messageInput').style.height = '2.5rem';
+      document.getElementById('messageInput').style.height = '2rem';
       document.getElementById('usernameInput').value = username;
       document.getElementById('usernameConnectInput').value = username;
       document.getElementById('codeInput').value = '';
@@ -1143,7 +1112,6 @@
       }
     };
 
-    // Function to handle automatic connection with a code parameter
     function autoConnect(codeParam) {
       connectContainer.classList.remove('hidden');
       initialContainer.classList.add('hidden');
