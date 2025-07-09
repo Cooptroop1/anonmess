@@ -312,6 +312,19 @@
     width: calc(33.33% - 0.5rem); /* Ensure margins don't cause overflow */
   }
 }
+    @media (max-width: 640px) {
+  h1.text-3xl {
+    font-size: 1.5rem; /* Reduce from 1.875rem (30px) to 1.5rem (24px) */
+    margin-bottom: 0.75rem; /* Reduce from 1.5rem (24px) to 0.75rem (12px) */
+    padding: 0.25rem 0; /* Add minimal vertical padding (4px) for a tighter container */
+  }
+
+  #status {
+    font-size: 0.875rem; /* Reduce to 14px for a more compact look */
+    margin-bottom: 0.5rem; /* Reduce from 1rem (16px) to 0.5rem (8px) */
+    padding: 0.25rem 0; /* Add minimal vertical padding (4px) */
+  }
+}
   </style>
 </head>
 <body class="bg-black min-h-screen flex items-center justify-center">
