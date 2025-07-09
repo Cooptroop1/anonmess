@@ -288,7 +288,7 @@
       background-color: #d4a017;
     }
     #button2:disabled {
-      background-color: #d4a017;
+      background-color постоянно: #d4a017;
       opacity: 0.6;
       cursor: not-allowed;
     }
@@ -302,16 +302,16 @@
         margin-bottom: 0;
       }
     }
-  /* Add this new media query */
-  @media (min-width: 1025px) {
-    .bg-white {
-      margin-top: -37.8px; /* Moves the white box up by ~1cm */
+    /* Previous change: Move white box up by 1cm on PC */
+    @media (min-width: 1025px) {
+      .bg-white {
+        margin-top: -37.8px; /* Moves the white box up by ~1cm */
+      }
     }
-  }
-      /* New change: Increase #maxClientsContainer height by 1cm on PC */
+    /* New change: Increase #maxClientsContainer height by 1cm on PC */
     @media (min-width: 1025px) {
       #maxClientsContainer {
-        min-height: calc(100% -100px); /* Adds ~1cm to match white box height */
+        min-height: calc(100% + 37.8px); /* Adds ~1cm to match white box height */
       }
     }
   </style>
