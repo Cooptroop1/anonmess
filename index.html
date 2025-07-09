@@ -1163,27 +1163,31 @@
 
     // Function to handle automatic connection with a code parameter
     function autoConnect(codeParam) {
-      connectContainer.classList.remove('hidden');
-      initialContainer.classList.add('hidden');
-      document.getElementById('usernameConnectInput').value = username || '';
-      document.getElementById('codeInput').value = codeParam;
-      username = document.getElementById('usernameConnectInput').value.trim();
-      code = codeParam;
-      if (validateUsername(username) && validateCode(code)) {
-        codeDisplayElement.textContent = `Using code: ${code}`;
-        codeDisplayElement.classList.remove('hidden');
-        copyCodeButton.classList.remove('hidden');
-        connectContainer.classList.add('hidden');
-        chatContainer.classList.remove('hidden');
-        messages.classList.add('waiting');
-        statusElement.textContent = 'Waiting for connection...';
-        if (socket.readyState === WebSocket.OPEN) {
-          socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
-        }
-      } else {
-        statusElement.textContent = 'Invalid username or code format.';
-      }
+  username = localStorage.getItem('username') || '';
+  code = codeParam;
+  if (validateUsername(username) && validateCode(code)) {
+    initialContainer.classList.add('hidden');
+    usernameContainer.classList.add('hidden');
+    connectContainer.classList.add('hidden');
+    chatContainer.classList.remove('hidden');
+    codeDisplayElement.textContent = `Using code: ${code}`;
+    codeDisplayElement.classList.remove('hidden');
+    copyCodeButton.classList.remove('hidden');
+    messages.classList.add('waiting');
+    statusElement.textContent = 'Waiting for connection...';
+    if (socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
     }
+  } else {
+    statusElement.textContent = 'Invalid username or code format.';
+    initialContainer.classList.remove('hidden');
+    usernameContainer.classList.add('hidden');
+    connectContainer.classList.add('hidden');
+    chatContainer.classList.add('hidden');
+    codeDisplayElement.classList.add('hidden');
+    copyCodeButton.classList.add('hidden');
+  }
+}
   </script>
 </body>
 </html>
