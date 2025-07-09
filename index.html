@@ -434,15 +434,17 @@
       const urlParams = new URLSearchParams(window.location.search);
       const codeParam = urlParams.get('code');
       if (codeParam && validateCode(codeParam)) {
+        console.log('Detected code in URL, triggering autoConnect');
         autoConnect(codeParam);
       } else {
+        console.log('No valid code in URL, showing initial container');
         initialContainer.classList.remove('hidden');
-        statusElement.textContent = 'Start a new chat or connect to an existing one';
         usernameContainer.classList.add('hidden');
         connectContainer.classList.add('hidden');
         chatContainer.classList.add('hidden');
         codeDisplayElement.classList.add('hidden');
         copyCodeButton.classList.add('hidden');
+        statusElement.textContent = 'Start a new chat or connect to an existing one';
       }
     };
 
@@ -949,6 +951,7 @@
     }
 
     document.getElementById('startChatToggleButton').onclick = () => {
+      console.log('Start chat toggle clicked');
       initialContainer.classList.add('hidden');
       usernameContainer.classList.remove('hidden');
       connectContainer.classList.add('hidden');
@@ -956,10 +959,11 @@
       codeDisplayElement.classList.add('hidden');
       copyCodeButton.classList.add('hidden');
       statusElement.textContent = 'Enter a username to start a chat';
-      document.getElementById('usernameInput').value = username;
+      document.getElementById('usernameInput').value = username || '';
     };
 
     document.getElementById('connectToggleButton').onclick = () => {
+      console.log('Connect toggle clicked');
       initialContainer.classList.add('hidden');
       usernameContainer.classList.add('hidden');
       connectContainer.classList.remove('hidden');
@@ -967,7 +971,7 @@
       codeDisplayElement.classList.add('hidden');
       copyCodeButton.classList.add('hidden');
       statusElement.textContent = 'Enter a username and code to join a chat';
-      document.getElementById('usernameConnectInput').value = username;
+      document.getElementById('usernameConnectInput').value = username || '';
     };
 
     document.getElementById('joinWithUsernameButton').onclick = () => {
@@ -989,9 +993,11 @@
       messages.classList.add('waiting');
       statusElement.textContent = 'Waiting for connection...';
       if (socket.readyState === WebSocket.OPEN) {
+        console.log('Sending join message for new chat');
         socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
       } else {
         socket.addEventListener('open', () => {
+          console.log('WebSocket opened, sending join for new chat');
           socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
         }, { once: true });
       }
@@ -1022,15 +1028,18 @@
       messages.classList.add('waiting');
       statusElement.textContent = 'Waiting for connection...';
       if (socket.readyState === WebSocket.OPEN) {
+        console.log('Sending join message for existing chat');
         socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
       } else {
         socket.addEventListener('open', () => {
+          console.log('WebSocket opened, sending join for existing chat');
           socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
         }, { once: true });
       }
     };
 
     document.getElementById('backButton').onclick = () => {
+      console.log('Back button clicked from usernameContainer');
       usernameContainer.classList.add('hidden');
       initialContainer.classList.remove('hidden');
       connectContainer.classList.add('hidden');
@@ -1042,6 +1051,7 @@
     };
 
     document.getElementById('backButtonConnect').onclick = () => {
+      console.log('Back button clicked from connectContainer');
       connectContainer.classList.add('hidden');
       initialContainer.classList.remove('hidden');
       usernameContainer.classList.add('hidden');
@@ -1076,6 +1086,7 @@
     });
 
     document.getElementById('newSessionButton').onclick = () => {
+      console.log('New session button clicked');
       socket.send(JSON.stringify({ type: 'leave', code, clientId }));
       peerConnections.forEach((pc) => pc.close());
       dataChannels.forEach((dc) => dc.close());
@@ -1101,8 +1112,8 @@
       document.getElementById('messages').innerHTML = '';
       document.getElementById('messageInput').value = '';
       document.getElementById('messageInput').style.height = '2.5rem';
-      document.getElementById('usernameInput').value = username;
-      document.getElementById('usernameConnectInput').value = username;
+      document.getElementById('usernameInput').value = username || '';
+      document.getElementById('usernameConnectInput').value = username || '';
       document.getElementById('codeInput').value = '';
       initialContainer.classList.remove('hidden');
       usernameContainer.classList.add('hidden');
@@ -1172,13 +1183,13 @@
 
     function autoConnect(codeParam) {
       console.log('autoConnect running with code:', codeParam);
+      code = codeParam;
       initialContainer.classList.add('hidden');
       connectContainer.classList.add('hidden');
+      usernameContainer.classList.add('hidden');
       chatContainer.classList.remove('hidden');
       codeDisplayElement.classList.add('hidden');
       copyCodeButton.classList.add('hidden');
-      usernameContainer.classList.add('hidden');
-      code = codeParam;
       console.log('Loaded username from localStorage:', username);
       if (validateCode(codeParam)) {
         if (validateUsername(username)) {
@@ -1189,8 +1200,10 @@
           messages.classList.add('waiting');
           statusElement.textContent = 'Waiting for connection...';
           if (socket.readyState === WebSocket.OPEN) {
+            console.log('WebSocket open, sending join');
             socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
           } else {
+            console.log('WebSocket not open, waiting for open event');
             socket.addEventListener('open', () => {
               console.log('WebSocket opened in autoConnect, sending join');
               socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
@@ -1201,7 +1214,7 @@
           usernameContainer.classList.remove('hidden');
           chatContainer.classList.add('hidden');
           statusElement.textContent = 'Please enter a username to join the chat';
-          document.getElementById('usernameInput').value = username;
+          document.getElementById('usernameInput').value = username || '';
           document.getElementById('joinWithUsernameButton').onclick = () => {
             const usernameInput = document.getElementById('usernameInput').value.trim();
             if (!validateUsername(usernameInput)) {
@@ -1219,8 +1232,10 @@
             messages.classList.add('waiting');
             statusElement.textContent = 'Waiting for connection...';
             if (socket.readyState === WebSocket.OPEN) {
+              console.log('WebSocket open, sending join after username input');
               socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
             } else {
+              console.log('WebSocket not open, waiting for open event after username');
               socket.addEventListener('open', () => {
                 console.log('WebSocket opened in autoConnect join, sending join');
                 socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
@@ -1231,6 +1246,7 @@
       } else {
         console.log('Invalid code, showing initial container');
         initialContainer.classList.remove('hidden');
+        usernameContainer.classList.add('hidden');
         chatContainer.classList.add('hidden');
         statusElement.textContent = 'Invalid code format. Please enter a valid code.';
       }
