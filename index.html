@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -25,7 +26,7 @@
     body {
       min-height: 100vh;
       padding-top: 140px; /* Accommodates logo height (128px) + 20px gap */
-      padding-bottom: 140px; /* For maxClientsContainer */
+      padding-bottom: 140px; /* Reduced to minimize black space below maxClientsContainer */
     }
 
     #messages {
@@ -66,7 +67,7 @@
       background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/corner%20logoWink.png?sanitize=true');
     }
     .bg-white {
-      z-index: 10; /* Ensure white chat box is above logo */
+      z-index: 10; /* Ensure white chat box is above logo on all screen sizes */
     }
     @media (min-width: 641px) and (max-width: 1024px) {
       .corner-logo {
@@ -80,7 +81,7 @@
         right: 10px;
         width: 128px;
         height: 128px;
-        z-index: 1000;
+        z-index: 1000; /* High z-index on mobile to stay above content */
       }
       #chatContainer:not(.hidden) #messages.waiting ~ .corner-logo {
         position: absolute;
@@ -157,41 +158,6 @@
       #maxClientsRadios input[type="radio"] {
         margin-right: 0.2rem;
       }
-      /* Mobile-specific optimizations */
-      #messages {
-        height: 200px; /* Reduced from 296px to fit on mobile screen */
-      }
-      .button-group {
-        margin-top: 0.25rem; /* Reduced from 0.5rem */
-        margin-bottom: 0.25rem; /* Reduced from 0.5rem */
-      }
-      .button-group button {
-        padding: 0.15rem 0.9rem; /* 2/3 height: 0.3rem padding + 0.97rem line-height ≈ 1.27rem */
-        font-size: 0.75rem; /* text-xs for text fit */
-        line-height: 0.97rem; /* Matches font-size for compact height */
-      }
-      #codeDisplay {
-        margin-bottom: 0.25rem; /* Reduced from 0.4rem */
-        font-size: 0.875rem; /* Smaller text for mobile */
-      }
-      .input-container {
-        padding: 0 0.25rem; /* Reduced from 0.5rem */
-        bottom: -2.5rem; /* Adjusted for smaller input */
-      }
-      #messageInput {
-        height: 2rem; /* Reduced from 2.5rem */
-        padding: 0.25rem 0.5rem; /* Reduced padding */
-        font-size: 0.875rem; /* Smaller text */
-        line-height: 1.25rem;
-      }
-      #sendButton {
-        width: 2rem; /* Reduced from 2.5rem */
-        height: 2rem; /* Reduced from 2.5rem */
-        font-size: 1rem; /* Slightly smaller icon */
-      }
-      #chatContainer {
-        gap: 0.25rem; /* Reduced from 0.5rem */
-      }
     }
     .message-bubble {
       max-width: 70%;
@@ -256,10 +222,10 @@
     }
     @media (max-width: 640px) {
       #messageInput {
-        padding: 0.25rem 0.5rem;
+        padding: 0.5rem 0.75rem;
       }
       .input-container {
-        padding: 0 0.25rem;
+        padding: 0 0.5rem;
       }
     }
     #messageInput::-webkit-scrollbar {
@@ -292,7 +258,7 @@
       margin-bottom: 0.5rem;
     }
     .button-group button {
-      padding: 0.35rem 0.9rem; /* Original padding for desktop */
+      padding: 0.35rem 0.9rem;
       border-radius: 0.375rem;
       cursor: pointer;
       margin: 0 0.25rem;
@@ -1184,7 +1150,7 @@
       }
     });
 
-    document.getElementById('copyCodeButton').onclick = () => {
+    copyCodeButton.onclick = () => {
       const codeText = codeDisplayElement.textContent.replace('Your code: ', '').replace('Using code: ', '');
       navigator.clipboard.writeText(codeText).then(() => {
         copyCodeButton.textContent = 'Copied!';
