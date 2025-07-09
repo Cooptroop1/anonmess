@@ -319,7 +319,7 @@
       </div>
       <div id="usernameContainer" class="hidden">
         <input id="usernameInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)">
-        <button id="startChatButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600 transition-colors">Start Chat</button>
+        <button id="joinWithUsernameButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600 transition-colors">Join Chat</button>
         <button id="backButton" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600 transition-colors">Back</button>
       </div>
       <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800 hidden"></div>
@@ -394,7 +394,7 @@
     let candidatesQueues = new Map();
     let processedMessageIds = new Set();
     let processedAnswers = new Set();
-    let username = localStorage.getItem('username') || '';
+    let username = localStorage.getItem('username')?.trim() || '';
     let usernames = new Map();
     const messageRateLimits = new Map();
     let codeSentToRandom = false;
@@ -479,7 +479,7 @@
           statusElement.textContent = message.message;
           console.error('Server error:', message.message);
           if (message.message.includes('Chat is full') || message.message.includes('Username already taken') || message.message.includes('Initiator offline')) {
-            socket.close();
+            socket.send(JSON.stringify({ type: 'leave', code, clientId }));
             initialContainer.classList.remove('hidden');
             usernameContainer.classList.add('hidden');
             connectContainer.classList.add('hidden');
@@ -740,6 +740,7 @@
     }
 
     function setupDataChannel(dataChannel, targetId) {
+      console.log('setupDataChannel initialized for targetId:', targetId);
       dataChannel.onopen = () => {
         console.log(`Data channel opened with ${targetId} for code: ${code}, state: ${dataChannel.readyState}`);
         isConnected = true;
@@ -950,16 +951,26 @@
     document.getElementById('startChatToggleButton').onclick = () => {
       initialContainer.classList.add('hidden');
       usernameContainer.classList.remove('hidden');
+      connectContainer.classList.add('hidden');
+      chatContainer.classList.add('hidden');
+      codeDisplayElement.classList.add('hidden');
+      copyCodeButton.classList.add('hidden');
       statusElement.textContent = 'Enter a username to start a chat';
+      document.getElementById('usernameInput').value = username;
     };
 
     document.getElementById('connectToggleButton').onclick = () => {
       initialContainer.classList.add('hidden');
+      usernameContainer.classList.add('hidden');
       connectContainer.classList.remove('hidden');
+      chatContainer.classList.add('hidden');
+      codeDisplayElement.classList.add('hidden');
+      copyCodeButton.classList.add('hidden');
       statusElement.textContent = 'Enter a username and code to join a chat';
+      document.getElementById('usernameConnectInput').value = username;
     };
 
-    document.getElementById('startChatButton').onclick = () => {
+    document.getElementById('joinWithUsernameButton').onclick = () => {
       const usernameInput = document.getElementById('usernameInput').value.trim();
       if (!validateUsername(usernameInput)) {
         statusElement.textContent = 'Invalid username: 1-16 alphanumeric characters.';
@@ -967,6 +978,7 @@
       }
       username = usernameInput;
       localStorage.setItem('username', username);
+      console.log('Username set in localStorage:', username);
       codeDisplayElement.textContent = `Your code: ${code}`;
       codeDisplayElement.classList.remove('hidden');
       copyCodeButton.classList.remove('hidden');
@@ -998,6 +1010,7 @@
       }
       username = usernameInput;
       localStorage.setItem('username', username);
+      console.log('Username set in localStorage:', username);
       code = inputCode;
       codeDisplayElement.textContent = `Using code: ${code}`;
       codeDisplayElement.classList.remove('hidden');
@@ -1020,19 +1033,23 @@
     document.getElementById('backButton').onclick = () => {
       usernameContainer.classList.add('hidden');
       initialContainer.classList.remove('hidden');
-      statusElement.textContent = 'Start a new chat or connect to an existing one';
-      messages.classList.remove('waiting');
+      connectContainer.classList.add('hidden');
+      chatContainer.classList.add('hidden');
       codeDisplayElement.classList.add('hidden');
       copyCodeButton.classList.add('hidden');
+      statusElement.textContent = 'Start a new chat or connect to an existing one';
+      messages.classList.remove('waiting');
     };
 
     document.getElementById('backButtonConnect').onclick = () => {
       connectContainer.classList.add('hidden');
       initialContainer.classList.remove('hidden');
-      statusElement.textContent = 'Start a new chat or connect to an existing one';
-      messages.classList.remove('waiting');
+      usernameContainer.classList.add('hidden');
+      chatContainer.classList.add('hidden');
       codeDisplayElement.classList.add('hidden');
       copyCodeButton.classList.add('hidden');
+      statusElement.textContent = 'Start a new chat or connect to an existing one';
+      messages.classList.remove('waiting');
     };
 
     document.getElementById('sendButton').onclick = () => {
@@ -1097,12 +1114,13 @@
       messages.classList.remove('waiting');
       codeSentToRandom = false;
       button2.disabled = false;
+      // Do not clear username from localStorage to persist it
     };
 
     document.getElementById('usernameInput').addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
-        document.getElementById('startChatButton').click();
+        document.getElementById('joinWithUsernameButton').click();
       }
     });
 
@@ -1155,30 +1173,66 @@
     function autoConnect(codeParam) {
       console.log('autoConnect running with code:', codeParam);
       initialContainer.classList.add('hidden');
-      usernameContainer.classList.add('hidden');
       connectContainer.classList.add('hidden');
-      chatContainer.classList.add('hidden');
+      chatContainer.classList.remove('hidden');
       codeDisplayElement.classList.add('hidden');
       copyCodeButton.classList.add('hidden');
-      username = localStorage.getItem('username')?.trim() || '';
+      usernameContainer.classList.add('hidden');
       code = codeParam;
-      if (validateUsername(username) && validateCode(code)) {
-        chatContainer.classList.remove('hidden');
-        codeDisplayElement.textContent = `Using code: ${code}`;
-        codeDisplayElement.classList.remove('hidden');
-        copyCodeButton.classList.remove('hidden');
-        messages.classList.add('waiting');
-        statusElement.textContent = 'Waiting for connection...';
-        if (socket.readyState === WebSocket.OPEN) {
-          socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
-        } else {
-          socket.addEventListener('open', () => {
+      console.log('Loaded username from localStorage:', username);
+      if (validateCode(codeParam)) {
+        if (validateUsername(username)) {
+          console.log('Valid username and code, joining chat');
+          codeDisplayElement.textContent = `Using code: ${code}`;
+          codeDisplayElement.classList.remove('hidden');
+          copyCodeButton.classList.remove('hidden');
+          messages.classList.add('waiting');
+          statusElement.textContent = 'Waiting for connection...';
+          if (socket.readyState === WebSocket.OPEN) {
             socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
-          }, { once: true });
+          } else {
+            socket.addEventListener('open', () => {
+              console.log('WebSocket opened in autoConnect, sending join');
+              socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+            }, { once: true });
+          }
+        } else {
+          console.log('No valid username, prompting for username');
+          usernameContainer.classList.remove('hidden');
+          chatContainer.classList.add('hidden');
+          statusElement.textContent = 'Please enter a username to join the chat';
+          document.getElementById('usernameInput').value = username;
+          document.getElementById('joinWithUsernameButton').onclick = () => {
+            const usernameInput = document.getElementById('usernameInput').value.trim();
+            if (!validateUsername(usernameInput)) {
+              statusElement.textContent = 'Invalid username: 1-16 alphanumeric characters.';
+              return;
+            }
+            username = usernameInput;
+            localStorage.setItem('username', username);
+            console.log('Username set in localStorage during autoConnect:', username);
+            usernameContainer.classList.add('hidden');
+            chatContainer.classList.remove('hidden');
+            codeDisplayElement.textContent = `Using code: ${code}`;
+            codeDisplayElement.classList.remove('hidden');
+            copyCodeButton.classList.remove('hidden');
+            messages.classList.add('waiting');
+            statusElement.textContent = 'Waiting for connection...';
+            if (socket.readyState === WebSocket.OPEN) {
+              socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+            } else {
+              socket.addEventListener('open', () => {
+                console.log('WebSocket opened in autoConnect join, sending join');
+                socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+              }, { once: true });
+            }
+          };
         }
       } else {
+        console.log('Invalid code, showing initial container');
         initialContainer.classList.remove('hidden');
-        statusElement.textContent = 'Invalid username or code format. Please enter a valid username and code.';
+        chatContainer.classList.add('hidden');
+        statusElement.textContent = 'Invalid code format. Please enter a valid code.';
       }
     }
   </script>
