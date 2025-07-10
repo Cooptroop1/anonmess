@@ -181,6 +181,26 @@
       margin-right: auto;
       border-bottom-left-radius: 0.25rem;
     }
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.9);
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal img {
+      max-width: 90%;
+      max-height: 90%;
+      border-radius: 0.5rem;
+    }
+    .modal.active {
+      display: flex;
+    }
     #chatContainer.hidden {
       display: none;
       visibility: hidden;
@@ -425,7 +445,7 @@
 
       const maxWidth = 640;
       const maxHeight = 360;
-      const quality = 0.8;
+      const quality = 0.6; // Change to 0.8 for better quality, or 1.0 for max quality
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       const img = new Image();
@@ -468,8 +488,26 @@
       messageDiv.textContent = `${username}: `;
       const imgElement = document.createElement('img');
       imgElement.src = base64;
-      imgElement.style.maxWidth = '100%';
+      imgElement.style.maxWidth = '70%';
       imgElement.style.borderRadius = '0.5rem';
+      imgElement.style.cursor = 'pointer';
+      imgElement.addEventListener('click', () => {
+        let modal = document.getElementById('imageModal');
+        if (!modal) {
+          modal = document.createElement('div');
+          modal.id = 'imageModal';
+          modal.className = 'modal';
+          document.body.appendChild(modal);
+        }
+        modal.innerHTML = '';
+        const modalImg = document.createElement('img');
+        modalImg.src = base64;
+        modal.appendChild(modalImg);
+        modal.classList.add('active');
+        modal.addEventListener('click', () => {
+          modal.classList.remove('active');
+        });
+      });
       messageDiv.appendChild(imgElement);
       messages.prepend(messageDiv);
       messages.scrollTop = messages.scrollHeight;
@@ -904,6 +942,24 @@
           img.src = data.data;
           img.style.maxWidth = '70%';
           img.style.borderRadius = '0.5rem';
+          img.style.cursor = 'pointer';
+          img.addEventListener('click', () => {
+            let modal = document.getElementById('imageModal');
+            if (!modal) {
+              modal = document.createElement('div');
+              modal.id = 'imageModal';
+              modal.className = 'modal';
+              document.body.appendChild(modal);
+            }
+            modal.innerHTML = '';
+            const modalImg = document.createElement('img');
+            modalImg.src = data.data;
+            modal.appendChild(modalImg);
+            modal.classList.add('active');
+            modal.addEventListener('click', () => {
+              modal.classList.remove('active');
+            });
+          });
           messageDiv.appendChild(img);
         } else {
           messageDiv.textContent = `${senderUsername}: ${data.content}`;
