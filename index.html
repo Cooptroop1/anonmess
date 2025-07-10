@@ -6,6 +6,8 @@
   <title>Anonomoose Chat</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
   <link rel="icon" type="image/png" href="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f60e.png"/>
+  <!-- Optional: Uncomment to enable Gzip compression -->
+  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script> -->
   <style>
     /* Global cursor and selection style: no pointer or caret on non-inputs */
     * {
@@ -14,6 +16,7 @@
     }
     input[type="text"],
     input[type="number"],
+    input[type="file"],
     textarea {
       cursor: text;
       user-select: text; /* Allows selection and caret in inputs */
@@ -191,7 +194,7 @@
     .input-container {
       display: flex;
       align-items: flex-start;
-      gap: 0.5rem;
+      gap: 0.25rem; /* Tightened for mobile */
       padding: 0 0rem;
       position: absolute;
       bottom: -3rem;
@@ -218,6 +221,22 @@
       box-sizing: border-box;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       transition: all 0.2s ease;
+    }
+    #imageButton {
+      width: 2.5rem;
+      height: 2.5rem;
+      background-color: #10b981;
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      transition: all 0.2s ease;
+    }
+    #imageButton:hover {
+      background-color: #059669;
     }
     @media (max-width: 640px) {
       #messageInput {
@@ -306,45 +325,22 @@
       }
     }
     @media (max-width: 640px) {
-  .button-group button {
-    padding: 0.8rem 0.9rem; /* Increase padding for larger touch targets */
-    font-size: 0.9rem; /* Explicitly set font size (14px) */
-    width: calc(33.33% - 0.5rem); /* Ensure margins don't cause overflow */
-  }
-}
-    @media (max-width: 640px) {
-  h1.text-3xl {
-    font-size: 1.5rem; /* Reduce from 1.875rem (30px) to 1.5rem (24px) */
-    margin-bottom: 0.75rem; /* Reduce from 1.5rem (24px) to 0.75rem (12px) */
-    padding: 0.25rem 0; /* Add minimal vertical padding (4px) for a tighter container */
-  }
-
-  #status {
-    font-size: 0.875rem; /* Reduce to 14px for a more compact look */
-    margin-bottom: 0.5rem; /* Reduce from 1rem (16px) to 0.5rem (8px) */
-    padding: 0.25rem 0; /* Add minimal vertical padding (4px) */
-  }
-}
-    @media (max-width: 640px) {
-  .button-group {
-    justify-content: center; /* Optional: Centers buttons for better spacing */
-    gap: 0.5rem; /* Replace margins with gap for cleaner spacing */
-  }
-
-  .button-group button {
-    margin: 0; /* Remove individual margins to use gap instead */
-  }
-
-  #button1 {
-    width: 33%; /* Make button1 wider */
-  }
-
-  #button2 {
-    width: 33%; /* Make button2 and copyCodeButton narrower */
-  }
-  #copyCodeButton {
-    width: 33%; 
-}
+      .button-group button {
+        padding: 0.8rem 0.9rem;
+        font-size: 0.9rem;
+        width: calc(33.33% - 0.5rem);
+      }
+      h1.text-3xl {
+        font-size: 1.5rem;
+        margin-bottom: 0.75rem;
+        padding: 0.25rem 0;
+      }
+      #status {
+        font-size: 0.875rem;
+        margin-bottom: 0.5rem;
+        padding: 0.25rem 0;
+      }
+    }
   </style>
 </head>
 <body class="bg-black min-h-screen flex items-center justify-center">
@@ -373,6 +369,8 @@
         <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded"></div>
         <div class="input-container hidden">
           <textarea id="messageInput" placeholder="Type a message..." cols="30" maxlength="1000"></textarea>
+          <input type="file" id="imageInput" accept="image/*" style="display: none;" />
+          <button id="imageButton" title="Send Image">📷</button>
           <button id="sendButton">📤</button>
         </div>
       </div>
@@ -414,6 +412,68 @@
     function validateCode(code) {
       const regex = /^[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}$/;
       return code && regex.test(code);
+    }
+
+    async function sendImage(file) {
+      if (!file || !file.type.startsWith('image/') || !username || dataChannels.size === 0) {
+        statusElement.textContent = 'Error: Select an image and ensure you are connected.';
+        setTimeout(() => {
+          statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...';
+        }, 2000);
+        return;
+      }
+
+      const maxWidth = 640;
+      const maxHeight = 360;
+      const quality = 0.6;
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      img.src = URL.createObjectURL(file);
+      await new Promise(resolve => img.onload = resolve);
+
+      let width = img.width;
+      let height = img.height;
+      if (width > height) {
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          width = Math.round((width * maxHeight) / height);
+          height = maxHeight;
+        }
+      }
+      canvas.width = width;
+      canvas.height = height;
+      ctx.drawImage(img, 0, 0, width, height);
+      const base64 = canvas.toDataURL('image/jpeg', quality);
+      URL.revokeObjectURL(img.src);
+
+      const messageId = generateMessageId();
+      const message = { messageId, type: 'image', data: base64, username };
+      const jsonString = JSON.stringify(message);
+      // Optional: Uncomment for Gzip compression
+      // const compressed = pako.gzip(jsonString);
+      dataChannels.forEach((dataChannel, targetId) => {
+        if (dataChannel.readyState === 'open') {
+          dataChannel.send(jsonString); // Use compressed instead of jsonString for Gzip
+        }
+      });
+
+      const messages = document.getElementById('messages');
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'message-bubble self';
+      messageDiv.textContent = `${username}: `;
+      const imgElement = document.createElement('img');
+      imgElement.src = base64;
+      imgElement.style.maxWidth = '70%';
+      imgElement.style.borderRadius = '0.5rem';
+      messageDiv.appendChild(imgElement);
+      messages.prepend(messageDiv);
+      messages.scrollTop = messages.scrollHeight;
+      processedMessageIds.add(messageId);
     }
 
     let code = generateCode();
@@ -814,12 +874,17 @@
 
         let data;
         try {
-          data = JSON.parse(event.data);
+          // Optional: Uncomment for Gzip compression
+          // if (event.data instanceof ArrayBuffer || event.data instanceof Uint8Array) {
+          //   data = JSON.parse(pako.ungzip(event.data, { to: 'string' }));
+          // } else {
+            data = JSON.parse(event.data);
+          // }
         } catch (e) {
-          console.error(`Invalid message from ${targetId}:`, event.data);
+          console.error(`Invalid message from ${targetId}:`, e);
           return;
         }
-        if (!data.messageId || !data.content || !data.username) {
+        if (!data.messageId || !data.username || (!data.content && data.type !== 'image') || (data.type === 'image' && !data.data)) {
           console.log(`Invalid message format from ${targetId}:`, data);
           return;
         }
@@ -833,7 +898,16 @@
         const isSelf = senderUsername === username;
         const messageDiv = document.createElement('div');
         messageDiv.className = `message-bubble ${isSelf ? 'self' : 'other'}`;
-        messageDiv.textContent = `${senderUsername}: ${data.content}`;
+        if (data.type === 'image') {
+          messageDiv.textContent = `${senderUsername}: `;
+          const img = document.createElement('img');
+          img.src = data.data;
+          img.style.maxWidth = '70%';
+          img.style.borderRadius = '0.5rem';
+          messageDiv.appendChild(img);
+        } else {
+          messageDiv.textContent = `${senderUsername}: ${data.content}`;
+        }
         messages.prepend(messageDiv);
         messages.scrollTop = messages.scrollHeight;
         if (isInitiator) {
@@ -970,9 +1044,12 @@
       if (content && dataChannels.size > 0 && username) {
         const messageId = generateMessageId();
         const message = { messageId, content, username };
+        const jsonString = JSON.stringify(message);
+        // Optional: Uncomment for Gzip compression
+        // const compressed = pako.gzip(jsonString);
         dataChannels.forEach((dataChannel, targetId) => {
           if (dataChannel.readyState === 'open') {
-            dataChannel.send(JSON.stringify(message));
+            dataChannel.send(jsonString); // Use compressed instead of jsonString for Gzip
           }
         });
         const messages = document.getElementById('messages');
@@ -1110,6 +1187,18 @@
       }
     };
 
+    document.getElementById('imageButton').onclick = () => {
+      document.getElementById('imageInput').click();
+    };
+
+    document.getElementById('imageInput').onchange = (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        sendImage(file);
+        event.target.value = '';
+      }
+    };
+
     const messageInput = document.getElementById('messageInput');
     messageInput.addEventListener('input', () => {
       // Removed dynamic height adjustment to keep size fixed
@@ -1189,7 +1278,7 @@
       }
     });
 
-    copyCodeButton.onclick = () => {
+    document.getElementById('copyCodeButton').onclick = () => {
       const codeText = codeDisplayElement.textContent.replace('Your code: ', '').replace('Using code: ', '');
       navigator.clipboard.writeText(codeText).then(() => {
         copyCodeButton.textContent = 'Copied!';
