@@ -6,31 +6,27 @@
   <title>Anonomoose Chat</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
   <link rel="icon" type="image/png" href="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f60e.png"/>
-  <!-- Optional: Uncomment to enable Gzip compression -->
-  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script> -->
   <style>
-    /* Global cursor and selection style: no pointer or caret on non-inputs */
+    /* Same styles as before, included for completeness */
     * {
       cursor: default;
-      user-select: none; /* Prevents text selection and caret */
+      user-select: none;
     }
     input[type="text"],
     input[type="number"],
     input[type="file"],
     textarea {
       cursor: text;
-      user-select: text; /* Allows selection and caret in inputs */
+      user-select: text;
     }
     #codeDisplay {
-      user-select: text; /* Allows copying the code text */
+      user-select: text;
     }
-
     body {
       min-height: 100vh;
-      padding-top: 140px; /* Accommodates logo height (128px) + 20px gap */
-      padding-bottom: 140px; /* Reduced to minimize black space below maxClientsContainer */
+      padding-top: 140px;
+      padding-bottom: 140px;
     }
-
     #messages {
       display: flex;
       flex-direction: column-reverse;
@@ -69,11 +65,11 @@
       background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/corner%20logoWink.png?sanitize=true');
     }
     .bg-white {
-      z-index: 10; /* Ensure white chat box is above logo on all screen sizes */
+      z-index: 10;
     }
     @media (min-width: 641px) and (max-width: 1024px) {
       .corner-logo {
-        z-index: -1; /* Place logo behind white chat box on tablet */
+        z-index: -1;
       }
     }
     @media (max-width: 640px) {
@@ -83,7 +79,7 @@
         right: 10px;
         width: 128px;
         height: 128px;
-        z-index: 1000; /* High z-index on mobile to stay above content */
+        z-index: 1000;
       }
       #chatContainer:not(.hidden) #messages.waiting ~ .corner-logo {
         position: absolute;
@@ -164,18 +160,18 @@
     .message-bubble {
       max-width: 70%;
       margin: 0.5rem 1rem;
-      padding: 0.25rem 0.5rem; /* Reduced padding for tighter fit */
+      padding: 0.25rem 0.5rem;
       border-radius: 1rem;
       word-wrap: break-word;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-      display: inline-flex; /* Changed to inline-flex for better content wrapping */
+      display: inline-flex;
       flex-direction: column;
       align-items: flex-start;
     }
     .message-bubble img {
-      max-width: 100%; /* Ensure image fits within bubble */
-      border-radius: 0.5rem; /* Match bubble's rounded corners */
-      margin-top: 0.25rem; /* Small gap between username and image */
+      max-width: 100%;
+      border-radius: 0.5rem;
+      margin-top: 0.25rem;
     }
     .message-bubble.self {
       background-color: #3b82f6;
@@ -246,7 +242,7 @@
     .input-container {
       display: flex;
       align-items: flex-start;
-      gap: 0.25rem; /* Tightened for mobile */
+      gap: 0.25rem;
       padding: 0 0rem;
       position: relative;
       margin-top: 0.5rem;
@@ -324,24 +320,18 @@
     .button-group {
       display: flex;
       justify-content: space-between;
-      margin-top: 0.5rem;
-      margin-bottom: 0.5rem;
+      margin: 0.5rem 0.8rem;
+      width: calc(100% - 1.6rem + 0.4rem);
+      box-sizing: border-box;
     }
     .button-group button {
       padding: 0.35rem 0.9rem;
       border-radius: 0.375rem;
       cursor: pointer;
-      margin: 0 0.25rem;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       transition: all 0.2s ease;
-      width: 33.3%;
-    }
-    #copyCodeButton {
-      background-color: #10b981;
-      color: white;
-    }
-    #copyCodeButton:hover {
-      background-color: #059669;
+      flex: 1;
+      margin: 0 0.25rem;
     }
     #button1 {
       background-color: #9b59b6;
@@ -361,6 +351,13 @@
       background-color: #d4a017;
       opacity: 0.6;
       cursor: not-allowed;
+    }
+    #copyCodeButton {
+      background-color: #10b981;
+      color: white;
+    }
+    #copyCodeButton:hover {
+      background-color: #059669;
     }
     #helpText {
       color: #3b82f6;
@@ -385,10 +382,14 @@
       }
     }
     @media (max-width: 640px) {
+      .button-group {
+        margin: 0.5rem 0.3rem;
+        width: calc(100% - 0.6rem + 0.4rem);
+      }
       .button-group button {
         padding: 0.8rem 0.9rem;
         font-size: 0.9rem;
-        width: calc(33.33% - 0.5rem);
+        margin: 0 0.125rem;
       }
       h1.text-3xl {
         font-size: 1.5rem;
@@ -451,15 +452,18 @@
   </div>
   <div id="helpModal" class="help-modal">
     <div class="help-modal-content">
-      <h2 class="text-xl font-bold mb-4">Help</h2>
+      <h2 class="text-xl font-bold mb-4">Button Help</h2>
       <p><strong>Start Chat:</strong> Starts New Chat</p>
-      <p><strong>Connect to Chat:</strong> This is where you enter the code from a friend</p>
-      <p><strong>Send Code:</strong> This sends your code to the Random chat board</p>
-      <p><strong>Random Chat:</strong> This takes you to random chat board to pick a code</p>
-      <p><strong>Copy Code:</strong> Copies the code so you can send to people in text or other</p>
+      <p><strong>Connect to Chat:</strong> This connects you to a chat that you have code for</p>
+      <p><strong>Send Code:</strong> This sends your code to Random chat board</p>
+      <p><strong>Random Chat:</strong> This takes you to random chat board for a random chat</p>
+      <p><strong>Copy Code:</strong> Copies the code so you can send to people in text or social chats</p>
     </div>
   </div>
   <script>
+    // Keepalive timer ID
+    let keepAliveTimer = null;
+
     function generateCode() {
       const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
       let result = '';
@@ -495,7 +499,7 @@
 
       const maxWidth = 640;
       const maxHeight = 360;
-      const quality = 0.6; // Change to 0.8 for better quality, or 1.0 for max quality
+      const quality = 0.6;
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       const img = new Image();
@@ -524,11 +528,9 @@
       const messageId = generateMessageId();
       const message = { messageId, type: 'image', data: base64, username };
       const jsonString = JSON.stringify(message);
-      // Optional: Uncomment for Gzip compression
-      // const compressed = pako.gzip(jsonString);
       dataChannels.forEach((dataChannel, targetId) => {
         if (dataChannel.readyState === 'open') {
-          dataChannel.send(jsonString); // Use compressed instead of jsonString for Gzip
+          dataChannel.send(jsonString);
         }
       });
 
@@ -624,12 +626,32 @@
     }
     setTimeout(() => triggerCycle(), 60000);
 
+    // Keepalive function to prevent WebSocket timeout
+    function startKeepAlive() {
+      if (keepAliveTimer) clearInterval(keepAliveTimer);
+      keepAliveTimer = setInterval(() => {
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ type: 'ping', clientId }));
+          console.log('Sent keepalive ping');
+        }
+      }, 20000); // Send every 20 seconds
+    }
+
+    function stopKeepAlive() {
+      if (keepAliveTimer) {
+        clearInterval(keepAliveTimer);
+        keepAliveTimer = null;
+        console.log('Stopped keepalive');
+      }
+    }
+
     const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
     console.log('WebSocket created');
 
     socket.onopen = () => {
       console.log('WebSocket opened');
       socket.send(JSON.stringify({ type: 'connect', clientId }));
+      startKeepAlive(); // Start keepalive on connection
       const urlParams = new URLSearchParams(window.location.search);
       const codeParam = urlParams.get('code');
       if (codeParam && validateCode(codeParam)) {
@@ -649,16 +671,19 @@
 
     socket.onerror = (error) => {
       console.error('WebSocket error:', error);
+      stopKeepAlive();
       connectionTimeouts.forEach((timeout) => clearTimeout(timeout));
     };
 
     socket.onclose = () => {
       console.error('WebSocket closed, attempting reconnect');
+      stopKeepAlive();
       setTimeout(() => {
         const newSocket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
         newSocket.onopen = () => {
           console.log('Reconnected, sending connect');
           newSocket.send(JSON.stringify({ type: 'connect', clientId }));
+          startKeepAlive();
           if (code && username && validateCode(code) && validateUsername(username)) {
             console.log('Rejoining with code:', code);
             newSocket.send(JSON.stringify({ type: 'join', code, clientId, username }));
@@ -676,6 +701,10 @@
       try {
         const message = JSON.parse(event.data);
         console.log('Parsed message:', message);
+        if (message.type === 'pong') {
+          console.log('Received keepalive pong');
+          return;
+        }
         if (message.type === 'error') {
           statusElement.textContent = message.message;
           console.error('Server error:', message.message);
@@ -693,6 +722,7 @@
             messages.classList.remove('waiting');
             codeSentToRandom = false;
             button2.disabled = false;
+            stopKeepAlive();
           }
           return;
         }
@@ -973,12 +1003,7 @@
 
         let data;
         try {
-          // Optional: Uncomment for Gzip compression
-          // if (event.data instanceof ArrayBuffer || event.data instanceof Uint8Array) {
-          //   data = JSON.parse(pako.ungzip(event.data, { to: 'string' }));
-          // } else {
-            data = JSON.parse(event.data);
-          // }
+          data = JSON.parse(event.data);
         } catch (e) {
           console.error(`Invalid message from ${targetId}:`, e);
           return;
@@ -1162,11 +1187,9 @@
         const messageId = generateMessageId();
         const message = { messageId, content, username };
         const jsonString = JSON.stringify(message);
-        // Optional: Uncomment for Gzip compression
-        // const compressed = pako.gzip(jsonString);
         dataChannels.forEach((dataChannel, targetId) => {
           if (dataChannel.readyState === 'open') {
-            dataChannel.send(jsonString); // Use compressed instead of jsonString for Gzip
+            dataChannel.send(jsonString);
           }
         });
         const messages = document.getElementById('messages');
@@ -1217,6 +1240,7 @@
       username = usernameInput;
       localStorage.setItem('username', username);
       console.log('Username set in localStorage:', username);
+      code = generateCode(); // Generate new code for new chat
       codeDisplayElement.textContent = `Your code: ${code}`;
       codeDisplayElement.classList.remove('hidden');
       copyCodeButton.classList.remove('hidden');
@@ -1282,6 +1306,7 @@
       copyCodeButton.classList.add('hidden');
       statusElement.textContent = 'Start a new chat or connect to an existing one';
       messages.classList.remove('waiting');
+      stopKeepAlive();
     };
 
     document.getElementById('backButtonConnect').onclick = () => {
@@ -1294,6 +1319,7 @@
       copyCodeButton.classList.add('hidden');
       statusElement.textContent = 'Start a new chat or connect to an existing one';
       messages.classList.remove('waiting');
+      stopKeepAlive();
     };
 
     document.getElementById('sendButton').onclick = () => {
@@ -1318,7 +1344,7 @@
 
     const messageInput = document.getElementById('messageInput');
     messageInput.addEventListener('input', () => {
-      // Removed dynamic height adjustment to keep size fixed
+      // Removed dynamic height adjustment
     });
 
     messageInput.addEventListener('keydown', (event) => {
@@ -1371,7 +1397,7 @@
       messages.classList.remove('waiting');
       codeSentToRandom = false;
       button2.disabled = false;
-      // Do not clear username from localStorage to persist it
+      stopKeepAlive();
     };
 
     document.getElementById('usernameInput').addEventListener('keydown', (event) => {
@@ -1418,6 +1444,9 @@
         button2.disabled = true;
       } else {
         statusElement.textContent = 'Cannot send: Not initiator, no code, or room is full.';
+        setTimeout(() => {
+          statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...';
+        }, 2000);
       }
     };
 
