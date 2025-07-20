@@ -104,7 +104,9 @@
         padding: 0.75rem;
         background-color: #000000;
         border-radius: 0.5rem;
-        z-index: 1000;
+       
+
+ z-index: 1000;
       }
       #maxClientsRadios {
         display: grid;
@@ -165,7 +167,7 @@
       max-width: 70%;
       margin: 0.5rem 1rem;
       padding: 0.25rem 1rem;
-      border-radius: 1rem;
+      border wokół: 1rem;
       word-wrap: break-word;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
@@ -452,7 +454,6 @@
       <p><strong>Send Code:</strong> This sends your code to Random chat board</p>
       <p><strong>Random Chat:</strong> This takes you to random chat board for a random chat</p>
       <p><strong>Copy Code:</strong> Copies the code so you can send to people in text or social chats</p>
-      <p><strong>New Session:</strong> Ends the current chat and returns to the start screen</p>
     </div>
   </div>
   <script>
@@ -491,7 +492,7 @@
 
       const maxWidth = 640;
       const maxHeight = 360;
-      const quality = 0.6;
+      const quality = 0.6; // Change to 0.8 for better quality, or 1.0 for max quality
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       const img = new Image();
@@ -520,9 +521,11 @@
       const messageId = generateMessageId();
       const message = { messageId, type: 'image', data: base64, username };
       const jsonString = JSON.stringify(message);
+      // Optional: Uncomment for Gzip compression
+      // const compressed = pako.gzip(jsonString);
       dataChannels.forEach((dataChannel, targetId) => {
         if (dataChannel.readyState === 'open') {
-          dataChannel.send(jsonString);
+          dataChannel.send(jsonString); // Use compressed instead of jsonString for Gzip
         }
       });
 
@@ -597,6 +600,7 @@
     const helpButton = document.getElementById('helpButton');
     const helpModal = document.getElementById('helpModal');
 
+    // Help modal toggle
     helpButton.addEventListener('click', () => {
       helpModal.classList.add('active');
     });
@@ -605,6 +609,7 @@
       helpModal.classList.remove('active');
     });
 
+    // Logo cycle animation
     let cycleTimeout;
     function triggerCycle() {
       if (cycleTimeout) clearTimeout(cycleTimeout);
@@ -618,12 +623,6 @@
 
     const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
     console.log('WebSocket created');
-
-    window.addEventListener('beforeunload', () => {
-      if (isInitiator && socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: 'leave', code, clientId }));
-      }
-    });
 
     socket.onopen = () => {
       console.log('WebSocket opened');
@@ -657,7 +656,7 @@
         newSocket.onopen = () => {
           console.log('Reconnected, sending connect');
           newSocket.send(JSON.stringify({ type: 'connect', clientId }));
-          if (code && username && validateCode(code) && validateUsername(username) && isConnected) {
+          if (code && username && validateCode(code) && validateUsername(username)) {
             console.log('Rejoining with code:', code);
             newSocket.send(JSON.stringify({ type: 'join', code, clientId, username }));
           }
@@ -677,20 +676,21 @@
         if (message.type === 'error') {
           statusElement.textContent = message.message;
           console.error('Server error:', message.message);
-          if (message.message.includes('Initiator offline') ||
-              (message.message.includes('Chat is full') && !isInitiator)) {
+          if (message.message.includes('Chat is full') || message.message.includes('Username already taken') || message.message.includes('Initiator offline')) {
             socket.send(JSON.stringify({ type: 'leave', code, clientId }));
-            resetToInitialState();
-          } else if (message.message.includes('Username already taken') ||
-                     message.message.includes('Username does not match existing clientId')) {
-            setTimeout(() => {
-              statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...';
-            }, 2000);
-            return;
+            initialContainer.classList.remove('hidden');
+            usernameContainer.classList.add('hidden');
+            connectContainer.classList.add('hidden');
+            codeDisplayElement.classList.add('hidden');
+            copyCodeButton.classList.add('hidden');
+            chatContainer.classList.add('hidden');
+            newSessionButton.classList.add('hidden');
+            maxClientsContainer.classList.add('hidden');
+            inputContainer.classList.add('hidden');
+            messages.classList.remove('waiting');
+            codeSentToRandom = false;
+            button2.disabled = false;
           }
-          setTimeout(() => {
-            statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...';
-          }, 2000);
           return;
         }
         if (message.type === 'init') {
@@ -727,12 +727,9 @@
           usernames.delete(message.clientId);
           cleanupPeerConnection(message.clientId);
           updateMaxClientsUI();
-          if (message.isInitiator && message.clientId !== clientId) {
-            socket.send(JSON.stringify({ type: 'leave', code, clientId }));
-            resetToInitialState();
-          } else if (totalClients <= 1 && !isInitiator) {
-            socket.send(JSON.stringify({ type: 'leave', code, clientId }));
-            resetToInitialState();
+          if (totalClients <= 1) {
+            inputContainer.classList.add('hidden');
+            messages.classList.add('waiting');
           }
         }
         if (message.type === 'max-clients') {
@@ -752,55 +749,10 @@
           console.log(`Received ICE candidate from ${message.clientId} for code: ${code}`);
           handleCandidate(message.candidate, message.clientId);
         }
-        if (message.type === 'random-codes') {
-          console.log('Received random codes:', message.codes);
-          if (message.codes.length === 0) {
-            statusElement.textContent = 'No available chats. Try again later.';
-            setTimeout(() => {
-              statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...';
-            }, 2000);
-          } else {
-            const randomCode = message.codes[Math.floor(Math.random() * message.codes.length)];
-            socket.send(JSON.stringify({ type: 'remove-random-code', code: randomCode }));
-            window.location.href = `https://anonomoose.com/index.html?code=${randomCode}`;
-          }
-        }
       } catch (error) {
         console.error('Error parsing message:', error);
       }
     };
-
-    function resetToInitialState() {
-      initialContainer.classList.remove('hidden');
-      usernameContainer.classList.add('hidden');
-      connectContainer.classList.add('hidden');
-      codeDisplayElement.classList.add('hidden');
-      copyCodeButton.classList.add('hidden');
-      chatContainer.classList.add('hidden');
-      newSessionButton.classList.add('hidden');
-      maxClientsContainer.classList.add('hidden');
-      inputContainer.classList.add('hidden');
-      messages.classList.remove('waiting');
-      codeSentToRandom = false;
-      button2.disabled = false;
-      isConnected = false;
-      totalClients = 0;
-      isInitiator = false;
-      peerConnections.forEach((pc) => pc.close());
-      dataChannels.forEach((dc) => dc.close());
-      peerConnections.clear();
-      dataChannels.clear();
-      candidatesQueues.clear();
-      connectionTimeouts.forEach((timeout) => clearTimeout(timeout));
-      connectionTimeouts.clear();
-      retryCounts.clear();
-      processedMessageIds.clear();
-      processedAnswers.clear();
-      usernames.clear();
-      messageRateLimits.clear();
-      code = generateCode();
-      statusElement.textContent = 'Start a new chat or connect to an existing one';
-    }
 
     function initializeMaxClientsUI() {
       const maxClientsRadios = document.getElementById('maxClientsRadios');
@@ -840,12 +792,10 @@
         input.disabled = !isInitiator;
       });
       maxClientsContainer.classList.toggle('hidden', !isInitiator);
-      if (!isConnected && !isInitiator) {
+      if (!isConnected) {
         messages.classList.add('waiting');
-        inputContainer.classList.add('hidden');
       } else {
         messages.classList.remove('waiting');
-        inputContainer.classList.remove('hidden');
       }
     }
 
@@ -1020,7 +970,12 @@
 
         let data;
         try {
-          data = JSON.parse(event.data);
+          // Optional: Uncomment for Gzip compression
+          // if (event.data instanceof ArrayBuffer || event.data instanceof Uint8Array) {
+          //   data = JSON.parse(pako.ungzip(event.data, { to: 'string' }));
+          // } else {
+            data = JSON.parse(event.data);
+          // }
         } catch (e) {
           console.error(`Invalid message from ${targetId}:`, e);
           return;
@@ -1085,6 +1040,11 @@
       dataChannel.onclose = () => {
         console.log(`Data channel closed with ${targetId}`);
         cleanupPeerConnection(targetId);
+        messageRateLimits.delete(targetId);
+        if (dataChannels.size === 0) {
+          inputContainer.classList.add('hidden');
+          messages.classList.add('waiting');
+        }
       };
     }
 
@@ -1188,7 +1148,7 @@
       messageRateLimits.delete(targetId);
       isConnected = dataChannels.size > 0;
       updateMaxClientsUI();
-      if (dataChannels.size === 0 && !isInitiator) {
+      if (!isConnected) {
         inputContainer.classList.add('hidden');
         messages.classList.add('waiting');
       }
@@ -1199,9 +1159,11 @@
         const messageId = generateMessageId();
         const message = { messageId, content, username };
         const jsonString = JSON.stringify(message);
+        // Optional: Uncomment for Gzip compression
+        // const compressed = pako.gzip(jsonString);
         dataChannels.forEach((dataChannel, targetId) => {
           if (dataChannel.readyState === 'open') {
-            dataChannel.send(jsonString);
+            dataChannel.send(jsonString); // Use compressed instead of jsonString for Gzip
           }
         });
         const messages = document.getElementById('messages');
@@ -1216,53 +1178,6 @@
         processedMessageIds.add(messageId);
       } else {
         statusElement.textContent = 'Error: No connections or username not set.';
-        setTimeout(() => {
-          statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...';
-        }, 2000);
-      }
-    }
-
-    function autoConnect(codeParam) {
-      console.log('autoConnect running with code:', codeParam);
-      code = codeParam;
-      if (validateCode(codeParam)) {
-        if (validateUsername(username)) {
-          console.log('Valid username and code, joining chat');
-          codeDisplayElement.textContent = `Using code: ${code}`;
-          codeDisplayElement.classList.remove('hidden');
-          copyCodeButton.classList.remove('hidden');
-          initialContainer.classList.add('hidden');
-          usernameContainer.classList.add('hidden');
-          connectContainer.classList.add('hidden');
-          chatContainer.classList.remove('hidden');
-          messages.classList.add('waiting');
-          statusElement.textContent = 'Waiting for connection...';
-          if (socket.readyState === WebSocket.OPEN) {
-            console.log('WebSocket open, sending join');
-            socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
-          } else {
-            console.log('WebSocket not open, waiting for open event');
-            socket.addEventListener('open', () => {
-              console.log('WebSocket opened in autoConnect, sending join');
-              socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
-            }, { once: true });
-          }
-        } else {
-          console.log('No valid username, prompting for username');
-          initialContainer.classList.add('hidden');
-          usernameContainer.classList.remove('hidden');
-          connectContainer.classList.add('hidden');
-          chatContainer.classList.add('hidden');
-          statusElement.textContent = 'Please enter a username to join the chat';
-          document.getElementById('usernameInput').value = username || '';
-        }
-      } else {
-        console.log('Invalid code, showing initial container');
-        initialContainer.classList.remove('hidden');
-        usernameContainer.classList.add('hidden');
-        connectContainer.classList.add('hidden');
-        chatContainer.classList.add('hidden');
-        statusElement.textContent = 'Invalid code format. Please enter a valid code.';
       }
     }
 
@@ -1294,9 +1209,6 @@
       const usernameInput = document.getElementById('usernameInput').value.trim();
       if (!validateUsername(usernameInput)) {
         statusElement.textContent = 'Invalid username: 1-16 alphanumeric characters.';
-        setTimeout(() => {
-          statusElement.textContent = 'Enter a username to start a chat';
-        }, 2000);
         return;
       }
       username = usernameInput;
@@ -1327,16 +1239,10 @@
       const inputCode = document.getElementById('codeInput').value.trim();
       if (!validateUsername(usernameInput)) {
         statusElement.textContent = 'Invalid username: 1-16 alphanumeric characters.';
-        setTimeout(() => {
-          statusElement.textContent = 'Enter a username and code to join a chat';
-        }, 2000);
         return;
       }
       if (!validateCode(inputCode)) {
         statusElement.textContent = 'Invalid code format: xxxx-xxxx-xxxx-xxxx.';
-        setTimeout(() => {
-          statusElement.textContent = 'Enter a username and code to join a chat';
-        }, 2000);
         return;
       }
       username = usernameInput;
@@ -1373,9 +1279,6 @@
       copyCodeButton.classList.add('hidden');
       statusElement.textContent = 'Start a new chat or connect to an existing one';
       messages.classList.remove('waiting');
-      if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: 'leave', code, clientId }));
-      }
     };
 
     document.getElementById('backButtonConnect').onclick = () => {
@@ -1388,9 +1291,6 @@
       copyCodeButton.classList.add('hidden');
       statusElement.textContent = 'Start a new chat or connect to an existing one';
       messages.classList.remove('waiting');
-      if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: 'leave', code, clientId }));
-      }
     };
 
     document.getElementById('sendButton').onclick = () => {
@@ -1430,10 +1330,45 @@
 
     document.getElementById('newSessionButton').onclick = () => {
       console.log('New session button clicked');
-      if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: 'leave', code, clientId }));
-      }
-      resetToInitialState();
+      socket.send(JSON.stringify({ type: 'leave', code, clientId }));
+      peerConnections.forEach((pc) => pc.close());
+      dataChannels.forEach((dc) => dc.close());
+      peerConnections.clear();
+      dataChannels.clear();
+      candidatesQueues.clear();
+      connectionTimeouts.forEach((timeout) => clearTimeout(timeout));
+      connectionTimeouts.clear();
+      retryCounts.clear();
+      processedMessageIds.clear();
+      processedAnswers.clear();
+      usernames.clear();
+      messageRateLimits.clear();
+      isConnected = false;
+      isInitiator = false;
+      maxClients = 2;
+      totalClients = 0;
+      code = generateCode();
+      codeDisplayElement.textContent = '';
+      codeDisplayElement.classList.add('hidden');
+      copyCodeButton.classList.add('hidden');
+      statusElement.textContent = 'Start a new chat or connect to an existing one';
+      document.getElementById('messages').innerHTML = '';
+      document.getElementById('messageInput').value = '';
+      document.getElementById('messageInput').style.height = '2.5rem';
+      document.getElementById('usernameInput').value = username || '';
+      document.getElementById('usernameConnectInput').value = username || '';
+      document.getElementById('codeInput').value = '';
+      initialContainer.classList.remove('hidden');
+      usernameContainer.classList.add('hidden');
+      connectContainer.classList.add('hidden');
+      chatContainer.classList.add('hidden');
+      newSessionButton.classList.add('hidden');
+      maxClientsContainer.classList.add('hidden');
+      inputContainer.classList.add('hidden');
+      messages.classList.remove('waiting');
+      codeSentToRandom = false;
+      button2.disabled = false;
+      // Do not clear username from localStorage to persist it
     };
 
     document.getElementById('usernameInput').addEventListener('keydown', (event) => {
@@ -1480,23 +1415,85 @@
         button2.disabled = true;
       } else {
         statusElement.textContent = 'Cannot send: Not initiator, no code, or room is full.';
-        setTimeout(() => {
-          statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...';
-        }, 2000);
       }
     };
 
     document.getElementById('button2').onclick = () => {
       if (!button2.disabled) {
-        if (socket.readyState === WebSocket.OPEN) {
-          socket.send(JSON.stringify({ type: 'get-random-codes', clientId }));
-          statusElement.textContent = 'Fetching random chat codes...';
-          setTimeout(() => {
-            statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...';
-          }, 2000);
-        }
+        window.location.href = 'https://anonomoose.com/random.html';
       }
     };
+
+    function autoConnect(codeParam) {
+      console.log('autoConnect running with code:', codeParam);
+      code = codeParam;
+      initialContainer.classList.add('hidden');
+      connectContainer.classList.add('hidden');
+      usernameContainer.classList.add('hidden');
+      chatContainer.classList.remove('hidden');
+      codeDisplayElement.classList.add('hidden');
+      copyCodeButton.classList.add('hidden');
+      console.log('Loaded username from localStorage:', username);
+      if (validateCode(codeParam)) {
+        if (validateUsername(username)) {
+          console.log('Valid username and code, joining chat');
+          codeDisplayElement.textContent = `Using code: ${code}`;
+          codeDisplayElement.classList.remove('hidden');
+          copyCodeButton.classList.remove('hidden');
+          messages.classList.add('waiting');
+          statusElement.textContent = 'Waiting for connection...';
+          if (socket.readyState === WebSocket.OPEN) {
+            console.log('WebSocket open, sending join');
+            socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+          } else {
+            console.log('WebSocket not open, waiting for open event');
+            socket.addEventListener('open', () => {
+              console.log('WebSocket opened in autoConnect, sending join');
+              socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+            }, { once: true });
+          }
+        } else {
+          console.log('No valid username, prompting for username');
+          usernameContainer.classList.remove('hidden');
+          chatContainer.classList.add('hidden');
+          statusElement.textContent = 'Please enter a username to join the chat';
+          document.getElementById('usernameInput').value = username || '';
+          document.getElementById('joinWithUsernameButton').onclick = () => {
+            const usernameInput = document.getElementById('usernameInput').value.trim();
+            if (!validateUsername(usernameInput)) {
+              statusElement.textContent = 'Invalid username: 1-16 alphanumeric characters.';
+              return;
+            }
+            username = usernameInput;
+            localStorage.setItem('username', username);
+            console.log('Username set in localStorage during autoConnect:', username);
+            usernameContainer.classList.add('hidden');
+            chatContainer.classList.remove('hidden');
+            codeDisplayElement.textContent = `Using code: ${code}`;
+            codeDisplayElement.classList.remove('hidden');
+            copyCodeButton.classList.remove('hidden');
+            messages.classList.add('waiting');
+            statusElement.textContent = 'Waiting for connection...';
+            if (socket.readyState === WebSocket.OPEN) {
+              console.log('WebSocket open, sending join after username input');
+              socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+            } else {
+              console.log('WebSocket not open, waiting for open event after username');
+              socket.addEventListener('open', () => {
+                console.log('WebSocket opened in autoConnect join, sending join');
+                socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+              }, { once: true });
+            }
+          };
+        }
+      } else {
+        console.log('Invalid code, showing initial container');
+        initialContainer.classList.remove('hidden');
+        usernameContainer.classList.add('hidden');
+        chatContainer.classList.add('hidden');
+        statusElement.textContent = 'Invalid code format. Please enter a valid code.';
+      }
+    }
   </script>
 </body>
 </html>
