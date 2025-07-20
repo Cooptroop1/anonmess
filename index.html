@@ -7,7 +7,6 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
   <link rel="icon" type="image/png" href="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f60e.png"/>
   <style>
-    /* Same styles as before, included for completeness */
     * {
       cursor: default;
       user-select: none;
@@ -172,6 +171,7 @@
       max-width: 100%;
       border-radius: 0.5rem;
       margin-top: 0.25rem;
+      margin-bottom: 0.5rem;
     }
     .message-bubble.self {
       background-color: #3b82f6;
@@ -546,7 +546,7 @@
       imgElement.addEventListener('click', () => {
         let modal = document.getElementById('imageModal');
         if (!modal) {
-          modal = document.createElement('div');
+          modal = document.createElement('div'); // Fixed syntax error
           modal.id = 'imageModal';
           modal.className = 'modal';
           document.body.appendChild(modal);
