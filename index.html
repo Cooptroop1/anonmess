@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -17,8 +18,7 @@
     input[type="text"],
     input[type="number"],
     input[type="file"],
-    textarea,
-    select {
+    textarea {
       cursor: text;
       user-select: text; /* Allows selection and caret in inputs */
     }
@@ -198,8 +198,6 @@
       max-width: 90%;
       max-height: 90%;
       border-radius: 0.5rem;
-      transform: scale(1.25);
-      transform-origin: center;
     }
     .modal.active {
       display: flex;
@@ -261,32 +259,12 @@
     #imageButton:hover {
       background-color: #059669;
     }
-    #imageQuality {
-      width: 4.5rem;
-      height: 2.5rem;
-      background-color: #3b82f6;
-      color: white;
-      border-radius: 1rem;
-      padding: 0.5rem;
-      border: none;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      transition: all 0.2s ease;
-      font-size: 0.9rem;
-    }
-    #imageQuality:hover {
-      background-color: #2563eb;
-    }
     @media (max-width: 640px) {
       #messageInput {
         padding: 0.5rem 0.75rem;
       }
       .input-container {
         padding: 0 0.5rem;
-      }
-      #imageQuality {
-        width: 4rem;
-        font-size: 0.8rem;
-        padding: 0.25rem;
       }
     }
     #messageInput::-webkit-scrollbar {
@@ -411,13 +389,6 @@
         </div>
         <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded"></div>
         <div class="input-container hidden">
-          <select id="imageQuality" title="Image Quality">
-            <option value="0.2">0.2 (Low)</option>
-            <option value="0.4">0.4</option>
-            <option value="0.6" selected>0.6 (Default)</option>
-            <option value="0.8">0.8</option>
-            <option value="1.0">1.0 (High)</option>
-          </select>
           <textarea id="messageInput" placeholder="Type a message..." cols="30" maxlength="1000"></textarea>
           <input type="file" id="imageInput" accept="image/*" style="display: none;" />
           <button id="imageButton" title="Send Image">📷</button>
@@ -475,7 +446,7 @@
 
       const maxWidth = 640;
       const maxHeight = 360;
-      const quality = parseFloat(document.getElementById('imageQuality').value);
+      const quality = 0.6; // Change to 0.8 for better quality, or 1.0 for max quality
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       const img = new Image();
@@ -580,16 +551,6 @@
     const messages = document.getElementById('messages');
     const cornerLogo = document.getElementById('cornerLogo');
     const button2 = document.getElementById('button2');
-
-    // Initialize image quality from localStorage
-    const imageQualitySelect = document.getElementById('imageQuality');
-    const savedQuality = localStorage.getItem('imageQuality');
-    if (savedQuality && ['0.2', '0.4', '0.6', '0.8', '1.0'].includes(savedQuality)) {
-      imageQualitySelect.value = savedQuality;
-    }
-    imageQualitySelect.addEventListener('change', () => {
-      localStorage.setItem('imageQuality', imageQualitySelect.value);
-    });
 
     // Logo cycle animation
     let cycleTimeout;
@@ -1350,7 +1311,7 @@
       messages.classList.remove('waiting');
       codeSentToRandom = false;
       button2.disabled = false;
-      // Do not clear username or imageQuality from localStorage to persist them
+      // Do not clear username from localStorage to persist it
     };
 
     document.getElementById('usernameInput').addEventListener('keydown', (event) => {
