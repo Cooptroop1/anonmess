@@ -324,18 +324,24 @@
     .button-group {
       display: flex;
       justify-content: space-between;
-      margin: 0.5rem 0.8rem; /* Adjusted to shift left by ~2mm (0.2rem = 8px) */
-      width: calc(100% - 1.6rem + 0.4rem); /* Extend right by ~2mm (0.4rem = 16px total adjustment) */
-      box-sizing: border-box;
+      margin-top: 0.5rem;
+      margin-bottom: 0.5rem;
     }
     .button-group button {
       padding: 0.35rem 0.9rem;
       border-radius: 0.375rem;
       cursor: pointer;
+      margin: 0 0.25rem;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       transition: all 0.2s ease;
-      flex: 1; /* Equal width for all buttons */
-      margin: 0 0.25rem; /* Maintain gaps between buttons */
+      width: 33.3%;
+    }
+    #copyCodeButton {
+      background-color: #10b981;
+      color: white;
+    }
+    #copyCodeButton:hover {
+      background-color: #059669;
     }
     #button1 {
       background-color: #9b59b6;
@@ -355,13 +361,6 @@
       background-color: #d4a017;
       opacity: 0.6;
       cursor: not-allowed;
-    }
-    #copyCodeButton {
-      background-color: #10b981;
-      color: white;
-    }
-    #copyCodeButton:hover {
-      background-color: #059669;
     }
     #helpText {
       color: #3b82f6;
@@ -386,14 +385,10 @@
       }
     }
     @media (max-width: 640px) {
-      .button-group {
-        margin: 0.5rem 0.3rem; /* Adjusted for mobile, shift left by ~2mm (0.2rem = 8px) */
-        width: calc(100% - 0.6rem + 0.4rem); /* Extend right by ~2mm (0.4rem = 16px total) */
-      }
       .button-group button {
         padding: 0.8rem 0.9rem;
         font-size: 0.9rem;
-        margin: 0 0.125rem; /* Smaller gaps for mobile */
+        width: calc(33.33% - 0.5rem);
       }
       h1.text-3xl {
         font-size: 1.5rem;
@@ -456,12 +451,12 @@
   </div>
   <div id="helpModal" class="help-modal">
     <div class="help-modal-content">
-      <h2 class="text-xl font-bold mb-4">Button Help</h2>
+      <h2 class="text-xl font-bold mb-4">Help</h2>
       <p><strong>Start Chat:</strong> Starts New Chat</p>
-      <p><strong>Connect to Chat:</strong> This connects you to a chat that you have code for</p>
-      <p><strong>Send Code:</strong> This sends your code to Random chat board</p>
-      <p><strong>Random Chat:</strong> This takes you to random chat board for a random chat</p>
-      <p><strong>Copy Code:</strong> Copies the code so you can send to people in text or social chats</p>
+      <p><strong>Connect to Chat:</strong> This is where you enter the code from a friend</p>
+      <p><strong>Send Code:</strong> This sends your code to the Random chat board</p>
+      <p><strong>Random Chat:</strong> This takes you to random chat board to pick a code</p>
+      <p><strong>Copy Code:</strong> Copies the code so you can send to people in text or other</p>
     </div>
   </div>
   <script>
