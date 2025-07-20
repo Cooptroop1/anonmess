@@ -104,9 +104,7 @@
         padding: 0.75rem;
         background-color: #000000;
         border-radius: 0.5rem;
-       
-
- z-index: 1000;
+        z-index: 1000;
       }
       #maxClientsRadios {
         display: grid;
@@ -166,22 +164,33 @@
     .message-bubble {
       max-width: 70%;
       margin: 0.5rem 1rem;
-      padding: 0.25rem 1rem;
-      border wokół: 1rem;
       word-wrap: break-word;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+      display: inline-flex;
+      flex-direction: column;
+      align-items: flex-start;
     }
     .message-bubble.self {
       background-color: #3b82f6;
       color: white;
       margin-left: auto;
-      border-bottom-right-radius: 0.25rem;
+      border-radius: 1rem 1rem 0 1rem;
+      padding: 0.5rem 1rem;
     }
     .message-bubble.other {
       background-color: #10b981;
       color: white;
       margin-right: auto;
-      border-bottom-left-radius: 0.25rem;
+      border-radius: 1rem 1rem 1rem 0;
+      padding: 0.5rem 1rem;
+    }
+    .message-bubble img {
+      max-width: 100%;
+      border-radius: 0.5rem;
+      margin-top: 0.25rem;
+    }
+    .message-bubble.image-bubble {
+      padding: 0.25rem 0.5rem;
     }
     .modal {
       display: none;
@@ -531,12 +540,10 @@
 
       const messages = document.getElementById('messages');
       const messageDiv = document.createElement('div');
-      messageDiv.className = 'message-bubble self';
+      messageDiv.className = 'message-bubble self image-bubble';
       messageDiv.textContent = `${username}: `;
       const imgElement = document.createElement('img');
       imgElement.src = base64;
-      imgElement.style.maxWidth = '70%';
-      imgElement.style.borderRadius = '0.5rem';
       imgElement.style.cursor = 'pointer';
       imgElement.addEventListener('click', () => {
         let modal = document.getElementById('imageModal');
@@ -993,13 +1000,11 @@
         const messages = document.getElementById('messages');
         const isSelf = senderUsername === username;
         const messageDiv = document.createElement('div');
-        messageDiv.className = `message-bubble ${isSelf ? 'self' : 'other'}`;
+        messageDiv.className = `message-bubble ${isSelf ? 'self' : 'other'} ${data.type === 'image' ? 'image-bubble' : ''}`;
         if (data.type === 'image') {
           messageDiv.textContent = `${senderUsername}: `;
           const img = document.createElement('img');
           img.src = data.data;
-          img.style.maxWidth = '70%';
-          img.style.borderRadius = '0.5rem';
           img.style.cursor = 'pointer';
           img.addEventListener('click', () => {
             let modal = document.getElementById('imageModal');
