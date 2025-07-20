@@ -104,9 +104,7 @@
         padding: 0.75rem;
         background-color: #000000;
         border-radius: 0.5rem;
-       
-
- z-index: 1000;
+        z-index: 1000;
       }
       #maxClientsRadios {
         display: grid;
@@ -167,7 +165,7 @@
       max-width: 70%;
       margin: 0.5rem 1rem;
       padding: 0.25rem 1rem;
-      border wokół: 1rem;
+      border-radius: 1rem;
       word-wrap: break-word;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
@@ -624,6 +622,13 @@
     const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
     console.log('WebSocket created');
 
+    // Handle initiator closing the app
+    window.addEventListener('beforeunload', () => {
+      if (isInitiator && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'leave', code, clientId }));
+      }
+    });
+
     socket.onopen = () => {
       console.log('WebSocket opened');
       socket.send(JSON.stringify({ type: 'connect', clientId }));
@@ -690,6 +695,9 @@
             messages.classList.remove('waiting');
             codeSentToRandom = false;
             button2.disabled = false;
+            isConnected = false;
+            totalClients = 0;
+            isInitiator = false;
           }
           return;
         }
@@ -727,9 +735,55 @@
           usernames.delete(message.clientId);
           cleanupPeerConnection(message.clientId);
           updateMaxClientsUI();
-          if (totalClients <= 1) {
+          if (message.isInitiator && message.clientId !== clientId) {
+            // Initiator disconnected, end the chat for all
+            socket.send(JSON.stringify({ type: 'leave', code, clientId }));
+            initialContainer.classList.remove('hidden');
+            usernameContainer.classList.add('hidden');
+            connectContainer.classList.add('hidden');
+            codeDisplayElement.classList.add('hidden');
+            copyCodeButton.classList.add('hidden');
+            chatContainer.classList.add('hidden');
+            newSessionButton.classList.add('hidden');
+            maxClientsContainer.classList.add('hidden');
             inputContainer.classList.add('hidden');
-            messages.classList.add('waiting');
+            messages.classList.remove('waiting');
+            codeSentToRandom = false;
+            button2.disabled = false;
+            isConnected = false;
+            totalClients = 0;
+            isInitiator = false;
+            peerConnections.forEach((pc) => pc.close());
+            dataChannels.forEach((dc) => dc.close());
+            peerConnections.clear();
+            dataChannels.clear();
+            candidatesQueues.clear();
+            connectionTimeouts.forEach((timeout) => clearTimeout(timeout));
+            connectionTimeouts.clear();
+            retryCounts.clear();
+            processedMessageIds.clear();
+            processedAnswers.clear();
+            usernames.clear();
+            messageRateLimits.clear();
+            code = generateCode();
+            statusElement.textContent = 'Start a new chat or connect to an existing one';
+          } else if (totalClients <= 1 && !isInitiator) {
+            // Non-initiator is the last client, end the chat
+            socket.send(JSON.stringify({ type: 'leave', code, clientId }));
+            initialContainer.classList.remove('hidden');
+            usernameContainer.classList.add('hidden');
+            connectContainer.classList.add('hidden');
+            codeDisplayElement.classList.add('hidden');
+            copyCodeButton.classList.add('hidden');
+            chatContainer.classList.add('hidden');
+            newSessionButton.classList.add('hidden');
+            maxClientsContainer.classList.add('hidden');
+            inputContainer.classList.add('hidden');
+            messages.classList.remove('waiting');
+            codeSentToRandom = false;
+            button2.disabled = false;
+            isConnected = false;
+            totalClients = 0;
           }
         }
         if (message.type === 'max-clients') {
@@ -1040,11 +1094,6 @@
       dataChannel.onclose = () => {
         console.log(`Data channel closed with ${targetId}`);
         cleanupPeerConnection(targetId);
-        messageRateLimits.delete(targetId);
-        if (dataChannels.size === 0) {
-          inputContainer.classList.add('hidden');
-          messages.classList.add('waiting');
-        }
       };
     }
 
@@ -1148,7 +1197,8 @@
       messageRateLimits.delete(targetId);
       isConnected = dataChannels.size > 0;
       updateMaxClientsUI();
-      if (!isConnected) {
+      // Only hide input and show waiting if no connections remain and not initiator
+      if (dataChannels.size === 0 && !isInitiator) {
         inputContainer.classList.add('hidden');
         messages.classList.add('waiting');
       }
@@ -1279,6 +1329,9 @@
       copyCodeButton.classList.add('hidden');
       statusElement.textContent = 'Start a new chat or connect to an existing one';
       messages.classList.remove('waiting');
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'leave', code, clientId }));
+      }
     };
 
     document.getElementById('backButtonConnect').onclick = () => {
@@ -1291,6 +1344,9 @@
       copyCodeButton.classList.add('hidden');
       statusElement.textContent = 'Start a new chat or connect to an existing one';
       messages.classList.remove('waiting');
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'leave', code, clientId }));
+      }
     };
 
     document.getElementById('sendButton').onclick = () => {
@@ -1330,7 +1386,9 @@
 
     document.getElementById('newSessionButton').onclick = () => {
       console.log('New session button clicked');
-      socket.send(JSON.stringify({ type: 'leave', code, clientId }));
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'leave', code, clientId }));
+      }
       peerConnections.forEach((pc) => pc.close());
       dataChannels.forEach((dc) => dc.close());
       peerConnections.clear();
@@ -1420,6 +1478,9 @@
 
     document.getElementById('button2').onclick = () => {
       if (!button2.disabled) {
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ type: 'leave', code, clientId }));
+        }
         window.location.href = 'https://anonomoose.com/random.html';
       }
     };
