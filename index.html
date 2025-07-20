@@ -164,33 +164,22 @@
     .message-bubble {
       max-width: 70%;
       margin: 0.5rem 1rem;
+      padding: 0.25rem 1rem;
+      border-radius: 1rem;
       word-wrap: break-word;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-      display: inline-flex;
-      flex-direction: column;
-      align-items: flex-start;
     }
     .message-bubble.self {
       background-color: #3b82f6;
       color: white;
       margin-left: auto;
-      border-radius: 1rem 1rem 0 1rem;
-      padding: 0.5rem 1rem;
+      border-bottom-right-radius: 0.25rem;
     }
     .message-bubble.other {
       background-color: #10b981;
       color: white;
       margin-right: auto;
-      border-radius: 1rem 1rem 1rem 0;
-      padding: 0.5rem 1rem;
-    }
-    .message-bubble img {
-      max-width: 100%;
-      border-radius: 0.5rem;
-      margin-top: 0.25rem;
-    }
-    .message-bubble.image-bubble {
-      padding: 0.25rem 0.5rem;
+      border-bottom-left-radius: 0.25rem;
     }
     .modal {
       display: none;
@@ -212,30 +201,6 @@
     .modal.active {
       display: flex;
     }
-    .help-modal {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 0, 0, 0.7);
-      z-index: 2000;
-      align-items: center;
-      justify-content: center;
-    }
-    .help-modal-content {
-      background-color: white;
-      padding: 1.5rem;
-      border-radius: 0.5rem;
-      max-width: 90%;
-      max-height: 90%;
-      overflow-y: auto;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    }
-    .help-modal.active {
-      display: flex;
-    }
     #chatContainer.hidden {
       display: none;
       visibility: hidden;
@@ -245,7 +210,6 @@
       flex-direction: column;
       gap: 0.5rem;
       position: relative;
-      padding-bottom: 3rem; /* Space for help text below input container */
     }
     .input-container {
       display: flex;
@@ -253,7 +217,7 @@
       gap: 0.25rem; /* Tightened for mobile */
       padding: 0 0rem;
       position: absolute;
-      bottom: 1.5rem; /* Adjusted to make room for help text */
+      bottom: -3rem;
       width: 100%;
       box-sizing: border-box;
       z-index: 10;
@@ -366,20 +330,6 @@
       opacity: 0.6;
       cursor: not-allowed;
     }
-    #helpText {
-      color: #3b82f6;
-      cursor: pointer;
-      transition: color 0.2s ease;
-    }
-    #helpText:hover {
-      color: #1d4ed8;
-    }
-    #chatContainer:not(.hidden) .help-container {
-      position: absolute;
-      bottom: 0;
-      width: 100%;
-      text-align: center;
-    }
     @media (min-width: 1025px) {
       .bg-white {
         margin-top: -40px;
@@ -443,9 +393,6 @@
           <button id="imageButton" title="Send Image">📷</button>
           <button id="sendButton">📤</button>
         </div>
-        <div class="help-container text-center mt-4">
-          <span id="helpText" class="text-blue-500 hover:underline">Help</span>
-        </div>
       </div>
       <div id="connectContainer" class="hidden">
         <input id="usernameConnectInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)">
@@ -453,20 +400,13 @@
         <button id="connectButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600 transition-colors">Connect</button>
         <button id="backButtonConnect" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600 transition-colors">Back</button>
       </div>
+      <div class="text-center mt-4">
+        <a href="https://github.com/cooptroop1/anonmess/wiki/Troubleshooting" target="_blank" class="text-blue-500 hover:underline">Connection issues? Get help</a>
+      </div>
     </div>
     <div id="maxClientsContainer" class="hidden flex flex-col justify-center bg-black p-4 rounded-lg shadow-lg">
       <span class="text-white mb-2 font-bold">Max Users</span>
       <div id="maxClientsRadios" class="flex flex-col space-y-2"></div>
-    </div>
-  </div>
-  <div id="helpModal" class="help-modal">
-    <div class="help-modal-content">
-      <h2 class="text-xl font-bold mb-4">Help</h2>
-      <p><strong>Start Chat:</strong> Starts New Chat</p>
-      <p><strong>Connect to Chat:</strong> This connects you to a chat that you have code for</p>
-      <p><strong>Send Code:</strong> This sends your code to Random chat board</p>
-      <p><strong>Random Chat:</strong> This takes you to random chat board for a random chat</p>
-      <p><strong>Copy Code:</strong> Copies the code so you can send to people in text or social chats</p>
     </div>
   </div>
   <script>
@@ -544,10 +484,12 @@
 
       const messages = document.getElementById('messages');
       const messageDiv = document.createElement('div');
-      messageDiv.className = 'message-bubble self image-bubble';
+      messageDiv.className = 'message-bubble self';
       messageDiv.textContent = `${username}: `;
       const imgElement = document.createElement('img');
       imgElement.src = base64;
+      imgElement.style.maxWidth = '70%';
+      imgElement.style.borderRadius = '0.5rem';
       imgElement.style.cursor = 'pointer';
       imgElement.addEventListener('click', () => {
         let modal = document.getElementById('imageModal');
@@ -608,17 +550,6 @@
     const messages = document.getElementById('messages');
     const cornerLogo = document.getElementById('cornerLogo');
     const button2 = document.getElementById('button2');
-    const helpText = document.getElementById('helpText');
-    const helpModal = document.getElementById('helpModal');
-
-    // Help modal toggle
-    helpText.addEventListener('click', () => {
-      helpModal.classList.add('active');
-    });
-
-    helpModal.addEventListener('click', () => {
-      helpModal.classList.remove('active');
-    });
 
     // Logo cycle animation
     let cycleTimeout;
@@ -1004,11 +935,13 @@
         const messages = document.getElementById('messages');
         const isSelf = senderUsername === username;
         const messageDiv = document.createElement('div');
-        messageDiv.className = `message-bubble ${isSelf ? 'self' : 'other'} ${data.type === 'image' ? 'image-bubble' : ''}`;
+        messageDiv.className = `message-bubble ${isSelf ? 'self' : 'other'}`;
         if (data.type === 'image') {
           messageDiv.textContent = `${senderUsername}: `;
           const img = document.createElement('img');
           img.src = data.data;
+          img.style.maxWidth = '70%';
+          img.style.borderRadius = '0.5rem';
           img.style.cursor = 'pointer';
           img.addEventListener('click', () => {
             let modal = document.getElementById('imageModal');
