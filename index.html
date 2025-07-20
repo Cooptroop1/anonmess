@@ -324,8 +324,8 @@
     .button-group {
       display: flex;
       justify-content: space-between;
-      margin: 0.5rem 1rem; /* Match pink chat box margins */
-      width: calc(100% - 2rem); /* Match pink chat box width */
+      margin: 0.5rem 0.8rem; /* Adjusted to shift left by ~2mm (0.2rem = 8px) */
+      width: calc(100% - 1.6rem + 0.4rem); /* Extend right by ~2mm (0.4rem = 16px total adjustment) */
       box-sizing: border-box;
     }
     .button-group button {
@@ -340,7 +340,6 @@
     #button1 {
       background-color: #9b59b6;
       color: white;
-      margin-left: 0; /* Align with left edge of pink chat box */
     }
     #button1:hover {
       background-color: #8e44ad;
@@ -360,7 +359,6 @@
     #copyCodeButton {
       background-color: #10b981;
       color: white;
-      margin-right: 0; /* Align with right edge of pink chat box */
     }
     #copyCodeButton:hover {
       background-color: #059669;
@@ -389,8 +387,8 @@
     }
     @media (max-width: 640px) {
       .button-group {
-        margin: 0.5rem 0.5rem; /* Adjusted for mobile to match pink chat box */
-        width: calc(100% - 1rem); /* Match pink chat box width on mobile */
+        margin: 0.5rem 0.3rem; /* Adjusted for mobile, shift left by ~2mm (0.2rem = 8px) */
+        width: calc(100% - 0.6rem + 0.4rem); /* Extend right by ~2mm (0.4rem = 16px total) */
       }
       .button-group button {
         padding: 0.8rem 0.9rem;
@@ -458,12 +456,12 @@
   </div>
   <div id="helpModal" class="help-modal">
     <div class="help-modal-content">
-      <h2 class="text-xl font-bold mb-4">Help</h2>
+      <h2 class="text-xl font-bold mb-4">Button Help</h2>
       <p><strong>Start Chat:</strong> Starts New Chat</p>
-      <p><strong>Connect to Chat:</strong> This is where you enter the code from a friend</p>
-      <p><strong>Send Code:</strong> This sends your code to the Random chat board</p>
-      <p><strong>Random Chat:</strong> This takes you to random chat board to pick a code</p>
-      <p><strong>Copy Code:</strong> Copies the code so you can send to people in text or other</p>
+      <p><strong>Connect to Chat:</strong> This connects you to a chat that you have code for</p>
+      <p><strong>Send Code:</strong> This sends your code to Random chat board</p>
+      <p><strong>Random Chat:</strong> This takes you to random chat board for a random chat</p>
+      <p><strong>Copy Code:</strong> Copies the code so you can send to people in text or social chats</p>
     </div>
   </div>
   <script>
