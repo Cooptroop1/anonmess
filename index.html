@@ -479,6 +479,31 @@
     // Reconnection attempt counter for exponential backoff
     let reconnectAttempts = 0;
 
+    // Analytics: Track events with debouncing
+    const eventLogTimestamps = new Map();
+    async function logEvent(eventType, details = {}) {
+      const now = Date.now();
+      const lastLog = eventLogTimestamps.get(eventType) || 0;
+      if (now - lastLog < 1000) return; // Debounce: 1s per event type
+      eventLogTimestamps.set(eventType, now);
+      const eventData = {
+        eventType,
+        timestamp: new Date().toISOString(),
+        clientId: clientId, // Anonymized client ID
+        details: { ...details, code: code || 'none' }
+      };
+      try {
+        await fetch('/api/log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(eventData)
+        });
+        console.log(`Logged event: ${eventType}`, details);
+      } catch (error) {
+        console.error(`Failed to log event ${eventType}:`, error);
+      }
+    }
+
     // Utility to show temporary status messages
     function showStatusMessage(message, duration = 3000) {
       statusElement.textContent = message;
@@ -521,6 +546,14 @@
     async function sendImage(file) {
       if (!file || !file.type.startsWith('image/') || !username || dataChannels.size === 0) {
         showStatusMessage('Error: Select an image and ensure you are connected.');
+        logEvent('image_send_failed', { reason: 'Invalid file or no connections' });
+        return;
+      }
+      // Image size check: 5MB limit
+      if (file.size > 5 * 1024 * 1024) {
+        showStatusMessage('Error: Image size exceeds 5MB limit.');
+        logEvent('image_send_failed', { reason: 'Image too large', size: file.size });
+        document.getElementById('imageButton').focus();
         return;
       }
 
@@ -602,6 +635,7 @@
       messages.prepend(messageDiv);
       messages.scrollTop = messages.scrollHeight;
       processedMessageIds.add(messageId);
+      logEvent('image_sent', { messageId, size: file.size });
     }
 
     let code = generateCode();
@@ -647,6 +681,7 @@
     helpText.addEventListener('click', () => {
       helpModal.classList.add('active');
       helpModal.querySelector('.help-modal-content').focus();
+      logEvent('help_modal_opened');
     });
 
     helpText.addEventListener('keydown', (e) => {
@@ -654,18 +689,21 @@
         e.preventDefault();
         helpModal.classList.add('active');
         helpModal.querySelector('.help-modal-content').focus();
+        logEvent('help_modal_opened');
       }
     });
 
     helpModal.addEventListener('click', () => {
       helpModal.classList.remove('active');
       helpText.focus();
+      logEvent('help_modal_closed');
     });
 
     helpModal.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         helpModal.classList.remove('active');
         helpText.focus();
+        logEvent('help_modal_closed');
       }
     });
 
@@ -688,6 +726,7 @@
         if (socket.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({ type: 'ping', clientId }));
           console.log('Sent keepalive ping');
+          logEvent('keepalive_sent');
         }
       }, 20000);
     }
@@ -697,24 +736,29 @@
         clearInterval(keepAliveTimer);
         keepAliveTimer = null;
         console.log('Stopped keepalive');
+        logEvent('keepalive_stopped');
       }
     }
 
     const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
     console.log('WebSocket created');
+    logEvent('websocket_created');
 
     socket.onopen = () => {
       console.log('WebSocket opened');
       socket.send(JSON.stringify({ type: 'connect', clientId }));
       startKeepAlive();
       reconnectAttempts = 0;
+      logEvent('websocket_opened');
       const urlParams = new URLSearchParams(window.location.search);
       const codeParam = urlParams.get('code');
       if (codeParam && validateCode(codeParam)) {
         console.log('Detected code in URL, triggering autoConnect');
+        logEvent('autoconnect_triggered', { code: codeParam });
         autoConnect(codeParam);
       } else {
         console.log('No valid code in URL, showing initial container');
+        logEvent('initial_container_shown');
         initialContainer.classList.remove('hidden');
         usernameContainer.classList.add('hidden');
         connectContainer.classList.add('hidden');
@@ -730,12 +774,14 @@
       showStatusMessage('Connection error, please try again later.');
       stopKeepAlive();
       connectionTimeouts.forEach((timeout) => clearTimeout(timeout));
+      logEvent('websocket_error', { error: 'WebSocket error occurred' });
     };
 
     socket.onclose = () => {
       console.error('WebSocket closed, attempting reconnect');
       stopKeepAlive();
       showStatusMessage('Lost connection, reconnecting...');
+      logEvent('websocket_closed', { reconnectAttempts });
       const delay = Math.min(30000, 5000 * Math.pow(2, reconnectAttempts));
       reconnectAttempts++;
       setTimeout(() => {
@@ -744,9 +790,11 @@
           console.log('Reconnected, sending connect');
           newSocket.send(JSON.stringify({ type: 'connect', clientId }));
           startKeepAlive();
+          logEvent('websocket_reconnected', { attempts: reconnectAttempts });
           if (code && username && validateCode(code) && validateUsername(username)) {
             console.log('Rejoining with code:', code);
             newSocket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+            logEvent('rejoin_attempt', { code });
           }
         };
         newSocket.onerror = socket.onerror;
@@ -763,11 +811,13 @@
         console.log('Parsed message:', message);
         if (message.type === 'pong') {
           console.log('Received keepalive pong');
+          logEvent('keepalive_pong');
           return;
         }
         if (message.type === 'error') {
           showStatusMessage(message.message);
           console.error('Server error:', message.message);
+          logEvent('server_error', { message: message.message });
           if (message.message.includes('Chat is full') || message.message.includes('Username already taken') || message.message.includes('Initiator offline')) {
             socket.send(JSON.stringify({ type: 'leave', code, clientId }));
             initialContainer.classList.remove('hidden');
@@ -783,6 +833,7 @@
             codeSentToRandom = false;
             button2.disabled = false;
             stopKeepAlive();
+            logEvent('chat_terminated', { reason: message.message });
           }
           return;
         }
@@ -795,12 +846,14 @@
           usernames.set(clientId, username);
           initializeMaxClientsUI();
           updateMaxClientsUI();
+          logEvent('chat_initialized', { isInitiator, maxClients });
         }
         if (message.type === 'initiator-changed') {
           console.log(`Initiator changed to ${message.newInitiator} for code: ${code}`);
           isInitiator = message.newInitiator === clientId;
           initializeMaxClientsUI();
           updateMaxClientsUI();
+          logEvent('initiator_changed', { newInitiator: message.newInitiator });
         }
         if (message.type === 'join-notify' && message.code === code) {
           totalClients = message.totalClients;
@@ -809,6 +862,7 @@
             usernames.set(message.clientId, message.username);
           }
           updateMaxClientsUI();
+          logEvent('client_joined', { clientId: message.clientId, totalClients });
           if (isInitiator && message.clientId !== clientId && !peerConnections.has(message.clientId)) {
             console.log(`Initiating peer connection with client ${message.clientId}`);
             startPeerConnection(message.clientId, true);
@@ -820,6 +874,7 @@
           usernames.delete(message.clientId);
           cleanupPeerConnection(message.clientId);
           updateMaxClientsUI();
+          logEvent('client_disconnected', { clientId: message.clientId, totalClients });
           if (totalClients <= 1) {
             inputContainer.classList.add('hidden');
             messages.classList.add('waiting');
@@ -829,22 +884,27 @@
           maxClients = Math.min(message.maxClients, 10);
           console.log(`Max clients updated to ${maxClients} for code: ${code}`);
           updateMaxClientsUI();
+          logEvent('max_clients_updated', { maxClients });
         }
         if (message.type === 'offer' && message.clientId !== clientId) {
           console.log(`Received offer from ${message.clientId} for code: ${code}`);
           handleOffer(message.offer, message.clientId);
+          logEvent('offer_received', { fromClient: message.clientId });
         }
         if (message.type === 'answer' && message.clientId !== clientId) {
           console.log(`Received answer from ${message.clientId} for code: ${code}`);
           handleAnswer(message.answer, message.clientId);
+          logEvent('answer_received', { fromClient: message.clientId });
         }
         if (message.type === 'candidate' && message.clientId !== clientId) {
           console.log(`Received ICE candidate from ${message.clientId} for code: ${code}`);
           handleCandidate(message.candidate, message.clientId);
+          logEvent('candidate_received', { fromClient: message.clientId });
         }
       } catch (error) {
         console.error('Error parsing message:', error);
         showStatusMessage('Error receiving message, please try again.');
+        logEvent('message_parse_error', { error: error.message });
       }
     };
 
@@ -866,6 +926,7 @@
           input.addEventListener('change', () => {
             if (isInitiator) {
               setMaxClients(parseInt(input.value));
+              logEvent('max_clients_changed', { newMaxClients: input.value });
             }
           });
           const span = document.createElement('span');
@@ -950,18 +1011,21 @@
           console.log(`Sending ICE candidate to ${targetId} for code: ${code}`);
           if (socket.readyState === WebSocket.OPEN) {
             socket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate, code, targetId, clientId }));
+            logEvent('ice_candidate_sent', { toClient: targetId });
           }
         }
       };
 
       peerConnection.onicecandidateerror = (event) => {
         console.error(`ICE candidate error for ${targetId}: ${event.errorText}, code=${event.errorCode}`);
+        logEvent('ice_candidate_error', { errorCode: event.errorCode, errorText: event.errorText });
         if (event.errorCode !== 701) {
           const retryCount = retryCounts.get(targetId) || 0;
           if (retryCount < maxRetries) {
             retryCounts.set(targetId, retryCount + 1);
             console.log(`Retrying connection with ${targetId}, attempt ${retryCount + 1}`);
             startPeerConnection(targetId, isOfferer);
+            logEvent('peer_connection_retry', { targetId, attempt: retryCount + 1 });
           }
         } else {
           console.log(`Ignoring ICE 701 error for ${targetId}, continuing connection`);
@@ -970,10 +1034,12 @@
 
       peerConnection.onicegatheringstatechange = () => {
         console.log(`ICE gathering state for ${targetId}: ${peerConnection.iceGatheringState}`);
+        logEvent('ice_gathering_state', { targetId, state: peerConnection.iceGatheringState });
       };
 
       peerConnection.onconnectionstatechange = () => {
         console.log(`Connection state for ${targetId}: ${peerConnection.connectionState}`);
+        logEvent('connection_state_change', { targetId, state: peerConnection.connectionState });
         if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
           console.log(`Connection failed with ${targetId}`);
           showStatusMessage('Peer connection failed, attempting to reconnect...');
@@ -983,6 +1049,7 @@
             retryCounts.set(targetId, retryCount + 1);
             console.log(`Retrying connection attempt ${retryCount + 1} with ${targetId}`);
             startPeerConnection(targetId, isOfferer);
+            logEvent('peer_connection_retry', { targetId, attempt: retryCount + 1 });
           }
         } else if (peerConnection.connectionState === 'connected') {
           console.log(`WebRTC connection established with ${targetId} for code: ${code}`);
@@ -990,6 +1057,7 @@
           retryCounts.delete(targetId);
           clearTimeout(connectionTimeouts.get(targetId));
           updateMaxClientsUI();
+          logEvent('peer_connection_established', { targetId });
         }
       };
 
@@ -1003,6 +1071,7 @@
         dataChannel = event.channel;
         setupDataChannel(dataChannel, targetId);
         dataChannels.set(targetId, dataChannel);
+        logEvent('data_channel_received', { targetId });
       };
 
       if (isOfferer) {
@@ -1012,10 +1081,12 @@
           console.log(`Sending offer to ${targetId} for code: ${code}`);
           if (socket.readyState === WebSocket.OPEN) {
             socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code, targetId, clientId }));
+            logEvent('offer_sent', { toClient: targetId });
           }
         }).catch(error => {
           console.error(`Error creating offer for ${targetId}:`, error);
           showStatusMessage('Failed to establish peer connection.');
+          logEvent('offer_creation_error', { targetId, error: error.message });
         });
       }
 
@@ -1028,6 +1099,7 @@
             retryCounts.set(targetId, retryCount + 1);
             console.log(`Retrying connection attempt ${retryCount + 1} with ${targetId}`);
             startPeerConnection(targetId, isOfferer);
+            logEvent('peer_connection_timeout_retry', { targetId, attempt: retryCount + 1 });
           }
         }
       }, 30000);
@@ -1050,6 +1122,7 @@
         retryCounts.delete(targetId);
         updateMaxClientsUI();
         document.getElementById('messageInput').focus();
+        logEvent('data_channel_opened', { targetId });
       };
 
       dataChannel.onmessage = (event) => {
@@ -1064,6 +1137,7 @@
         if (rateLimit.count > 10) {
           console.warn(`Rate limit exceeded for ${targetId}: ${rateLimit.count} messages in 1s`);
           showStatusMessage('Message rate limit reached, please slow down.');
+          logEvent('message_rate_limit_exceeded', { targetId, count: rateLimit.count });
           return;
         }
 
@@ -1073,14 +1147,17 @@
         } catch (e) {
           console.error(`Invalid message from ${targetId}:`, e);
           showStatusMessage('Invalid message received.');
+          logEvent('invalid_message', { targetId, error: e.message });
           return;
         }
         if (!data.messageId || !data.username || (!data.content && data.type !== 'image') || (data.type === 'image' && !data.data)) {
           console.log(`Invalid message format from ${targetId}:`, data);
+          logEvent('invalid_message_format', { targetId });
           return;
         }
         if (processedMessageIds.has(data.messageId)) {
           console.log(`Duplicate message ${data.messageId} from ${targetId}`);
+          logEvent('duplicate_message', { messageId: data.messageId, targetId });
           return;
         }
         processedMessageIds.add(data.messageId);
@@ -1125,8 +1202,10 @@
             });
           });
           messageDiv.appendChild(img);
+          logEvent('image_received', { messageId: data.messageId, from: senderUsername });
         } else {
           messageDiv.textContent = `${senderUsername}: ${sanitizeMessage(data.content)}`;
+          logEvent('message_received', { messageId: data.messageId, from: senderUsername });
         }
         messages.prepend(messageDiv);
         messages.scrollTop = messages.scrollHeight;
@@ -1142,6 +1221,7 @@
       dataChannel.onerror = (error) => {
         console.error(`Data channel error with ${targetId}:`, error);
         showStatusMessage('Error in peer connection.');
+        logEvent('data_channel_error', { targetId, error: error.message });
       };
 
       dataChannel.onclose = () => {
@@ -1149,6 +1229,7 @@
         showStatusMessage('Peer disconnected.');
         cleanupPeerConnection(targetId);
         messageRateLimits.delete(targetId);
+        logEvent('data_channel_closed', { targetId });
         if (dataChannels.size === 0) {
           inputContainer.classList.add('hidden');
           messages.classList.add('waiting');
@@ -1160,6 +1241,7 @@
       console.log(`Handling offer from ${targetId} for code: ${code}`);
       if (offer.type !== 'offer') {
         console.error(`Invalid offer type from ${targetId}:`, offer.type);
+        logEvent('invalid_offer_type', { targetId, offerType: offer.type });
         return;
       }
       if (!peerConnections.has(targetId)) {
@@ -1173,6 +1255,7 @@
         await peerConnection.setLocalDescription(answer);
         if (socket.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({ type: 'answer', answer: peerConnection.localDescription, code, targetId, clientId }));
+          logEvent('answer_sent', { toClient: targetId });
         }
         const queue = candidatesQueues.get(targetId) || [];
         queue.forEach(candidate => {
@@ -1182,6 +1265,7 @@
       } catch (error) {
         console.error(`Error handling offer from ${targetId}:`, error);
         showStatusMessage('Failed to connect to peer.');
+        logEvent('offer_handling_error', { targetId, error: error.message });
       }
     }
 
@@ -1196,6 +1280,7 @@
       const peerConnection = peerConnections.get(targetId);
       if (answer.type !== 'answer') {
         console.error(`Invalid answer type from ${targetId}:`, answer.type);
+        logEvent('invalid_answer_type', { targetId, answerType: answer.type });
         return;
       }
       if (peerConnection.signalingState !== 'have-local-offer') {
@@ -1211,6 +1296,7 @@
             peerConnection.setRemoteDescription(new RTCSessionDescription(item.answer)).catch(error => {
               console.error(`Error applying queued answer from ${targetId}:`, error);
               showStatusMessage('Error processing peer response.');
+              logEvent('queued_answer_error', { targetId, error: error.message });
             });
           } else if (item.type === 'candidate') {
             handleCandidate(item.candidate, targetId);
@@ -1220,6 +1306,7 @@
       } catch (error) {
         console.error(`Error handling answer from ${targetId}:`, error);
         showStatusMessage('Error connecting to peer.');
+        logEvent('answer_handling_error', { targetId, error: error.message });
       }
     }
 
@@ -1230,6 +1317,7 @@
         peerConnection.addIceCandidate(new RTCIceCandidate(candidate)).catch(error => {
           console.error(`Error adding ICE candidate from ${targetId}:`, error);
           showStatusMessage('Error establishing peer connection.');
+          logEvent('ice_candidate_error', { targetId, error: error.message });
         });
       } else {
         const queue = candidatesQueues.get(targetId) || [];
@@ -1264,6 +1352,7 @@
         inputContainer.classList.add('hidden');
         messages.classList.add('waiting');
       }
+      logEvent('peer_connection_cleaned', { targetId });
     }
 
     function sendMessage(content) {
@@ -1284,8 +1373,10 @@
         messages.prepend(messageDiv);
         messages.scrollTop = messages.scrollHeight;
         processedMessageIds.add(messageId);
+        logEvent('message_sent', { messageId });
       } else {
         showStatusMessage('Error: No connections or username not set.');
+        logEvent('message_send_failed', { reason: 'No connections or username' });
       }
     }
 
@@ -1300,6 +1391,7 @@
       statusElement.textContent = 'Enter a username to start a chat';
       document.getElementById('usernameInput').value = username || '';
       document.getElementById('usernameInput').focus();
+      logEvent('start_chat_clicked');
     };
 
     document.getElementById('connectToggleButton').onclick = () => {
@@ -1313,6 +1405,7 @@
       statusElement.textContent = 'Enter a username and code to join a chat';
       document.getElementById('usernameConnectInput').value = username || '';
       document.getElementById('usernameConnectInput').focus();
+      logEvent('connect_toggle_clicked');
     };
 
     document.getElementById('joinWithUsernameButton').onclick = () => {
@@ -1320,6 +1413,7 @@
       if (!validateUsername(usernameInput)) {
         showStatusMessage('Invalid username: 1-16 alphanumeric characters.');
         document.getElementById('usernameInput').focus();
+        logEvent('join_failed', { reason: 'Invalid username' });
         return;
       }
       username = usernameInput;
@@ -1338,10 +1432,12 @@
       if (socket.readyState === WebSocket.OPEN) {
         console.log('Sending join message for new chat');
         socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+        logEvent('join_chat', { code, username });
       } else {
         socket.addEventListener('open', () => {
           console.log('WebSocket opened, sending join for new chat');
           socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+          logEvent('join_chat', { code, username });
         }, { once: true });
       }
     };
@@ -1352,11 +1448,13 @@
       if (!validateUsername(usernameInput)) {
         showStatusMessage('Invalid username: 1-16 alphanumeric characters.');
         document.getElementById('usernameConnectInput').focus();
+        logEvent('connect_failed', { reason: 'Invalid username' });
         return;
       }
       if (!validateCode(inputCode)) {
         showStatusMessage('Invalid code format: xxxx-xxxx-xxxx-xxxx.');
         document.getElementById('codeInput').focus();
+        logEvent('connect_failed', { reason: 'Invalid code' });
         return;
       }
       username = usernameInput;
@@ -1375,10 +1473,12 @@
       if (socket.readyState === WebSocket.OPEN) {
         console.log('Sending join message for existing chat');
         socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+        logEvent('join_chat', { code, username });
       } else {
         socket.addEventListener('open', () => {
           console.log('WebSocket opened, sending join for existing chat');
           socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+          logEvent('join_chat', { code, username });
         }, { once: true });
       }
     };
@@ -1395,6 +1495,7 @@
       messages.classList.remove('waiting');
       stopKeepAlive();
       document.getElementById('startChatToggleButton').focus();
+      logEvent('back_clicked', { from: 'usernameContainer' });
     };
 
     document.getElementById('backButtonConnect').onclick = () => {
@@ -1409,6 +1510,7 @@
       messages.classList.remove('waiting');
       stopKeepAlive();
       document.getElementById('connectToggleButton').focus();
+      logEvent('back_clicked', { from: 'connectContainer' });
     };
 
     document.getElementById('sendButton').onclick = () => {
@@ -1423,6 +1525,7 @@
 
     document.getElementById('imageButton').onclick = () => {
       document.getElementById('imageInput').click();
+      logEvent('image_button_clicked');
     };
 
     document.getElementById('imageInput').onchange = (event) => {
@@ -1493,6 +1596,7 @@
       button2.disabled = false;
       stopKeepAlive();
       document.getElementById('startChatToggleButton').focus();
+      logEvent('new_session_clicked');
     };
 
     document.getElementById('usernameInput').addEventListener('keydown', (event) => {
@@ -1523,9 +1627,11 @@
         setTimeout(() => {
           copyCodeButton.textContent = 'Copy Code';
         }, 2000);
+        logEvent('code_copied', { code: codeText });
       }).catch(err => {
         console.error('Failed to copy text: ', err);
         showStatusMessage('Failed to copy code.');
+        logEvent('code_copy_failed', { error: err.message });
       });
       copyCodeButton.focus();
     };
@@ -1536,8 +1642,10 @@
         showStatusMessage(`Sent code ${code} to random board.`);
         codeSentToRandom = true;
         button2.disabled = true;
+        logEvent('code_sent_to_random', { code });
       } else {
         showStatusMessage('Cannot send: Not initiator, no code, or room is full.');
+        logEvent('code_send_failed', { reason: 'Not initiator or room full' });
       }
       document.getElementById('button1').focus();
     };
@@ -1545,6 +1653,7 @@
     document.getElementById('button2').onclick = () => {
       if (!button2.disabled) {
         window.location.href = 'https://anonomoose.com/random.html';
+        logEvent('random_chat_clicked');
       }
     };
 
@@ -1553,72 +1662,51 @@
       code = codeParam;
       initialContainer.classList.add('hidden');
       connectContainer.classList.add('hidden');
-      usernameContainer.classList.add('hidden');
-      chatContainer.classList.remove('hidden');
+      usernameContainer.classList.remove('hidden');
+      chatContainer.classList.add('hidden');
       codeDisplayElement.classList.add('hidden');
       copyCodeButton.classList.add('hidden');
-      console.log('Loaded username from localStorage:', username);
+      statusElement.textContent = 'Enter a username to join the chat';
+      document.getElementById('usernameConnectInput').value = username || '';
+      document.getElementById('usernameConnectInput').focus();
       if (validateCode(codeParam)) {
         if (validateUsername(username)) {
           console.log('Valid username and code, joining chat');
           codeDisplayElement.textContent = `Using code: ${code}`;
           codeDisplayElement.classList.remove('hidden');
           copyCodeButton.classList.remove('hidden');
+          usernameContainer.classList.add('hidden');
+          chatContainer.classList.remove('hidden');
           messages.classList.add('waiting');
           statusElement.textContent = 'Waiting for connection...';
           if (socket.readyState === WebSocket.OPEN) {
             console.log('WebSocket open, sending join');
             socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+            logEvent('join_chat', { code, username });
           } else {
             console.log('WebSocket not open, waiting for open event');
             socket.addEventListener('open', () => {
               console.log('WebSocket opened in autoConnect, sending join');
               socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+              logEvent('join_chat', { code, username });
             }, { once: true });
           }
         } else {
           console.log('No valid username, prompting for username');
           usernameContainer.classList.remove('hidden');
-          chatContainer.classList.add('hidden');
-          statusElement.textContent = 'Please enter a username to join the chat';
           document.getElementById('usernameInput').value = username || '';
           document.getElementById('usernameInput').focus();
-          document.getElementById('joinWithUsernameButton').onclick = () => {
-            const usernameInput = document.getElementById('usernameInput').value.trim();
-            if (!validateUsername(usernameInput)) {
-              showStatusMessage('Invalid username: 1-16 alphanumeric characters.');
-              document.getElementById('usernameInput').focus();
-              return;
-            }
-            username = usernameInput;
-            localStorage.setItem('username', username);
-            console.log('Username set in localStorage during autoConnect:', username);
-            usernameContainer.classList.add('hidden');
-            chatContainer.classList.remove('hidden');
-            codeDisplayElement.textContent = `Using code: ${code}`;
-            codeDisplayElement.classList.remove('hidden');
-            copyCodeButton.classList.remove('hidden');
-            messages.classList.add('waiting');
-            statusElement.textContent = 'Waiting for connection...';
-            if (socket.readyState === WebSocket.OPEN) {
-              console.log('WebSocket open, sending join after username input');
-              socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
-            } else {
-              console.log('WebSocket not open, waiting for open event after username');
-              socket.addEventListener('open', () => {
-                console.log('WebSocket opened in autoConnect join, sending join');
-                socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
-              }, { once: true });
-            }
-          };
         }
       } else {
-        console.log('Invalid code, showing initial container');
+        console.log('Invalid code in URL, redirecting to initial screen');
         initialContainer.classList.remove('hidden');
         usernameContainer.classList.add('hidden');
+        connectContainer.classList.add('hidden');
         chatContainer.classList.add('hidden');
-        showStatusMessage('Invalid code format. Please enter a valid code.');
-        document.getElementById('startChatToggleButton').focus();
+        codeDisplayElement.classList.add('hidden');
+        copyCodeButton.classList.add('hidden');
+        statusElement.textContent = 'Invalid code in URL, start a new chat or connect to an existing one';
+        logEvent('autoconnect_failed', { reason: 'Invalid code', code: codeParam });
       }
     }
   </script>
