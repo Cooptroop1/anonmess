@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -402,70 +403,57 @@
         padding: 0.25rem 0;
       }
     }
-    /* Focus styles for accessibility */
-    button:focus-visible, input:focus-visible, textarea:focus-visible, #helpText:focus-visible {
-      outline: 2px solid #3b82f6;
-      outline-offset: 2px;
-    }
   </style>
 </head>
 <body class="bg-black min-h-screen flex items-center justify-center">
-  <div class="corner-logo" id="cornerLogo" role="img" aria-label="Anonomoose Chat logo"></div>
+  <div class="corner-logo" id="cornerLogo"></div>
   <div class="flex w-full max-w-xl">
     <div class="bg-white p-8 rounded-lg shadow-lg flex-grow">
       <h1 class="text-3xl font-bold mb-6 text-center text-gray-800">Anonomoose Chat</h1>
-      <div id="status" class="text-center mb-4 text-gray-600" role="alert">Start a new chat or connect to an existing one</div>
+      <div id="status" class="text-center mb-4 text-gray-600">Start a new chat or connect to an existing one</div>
       <div id="initialContainer">
-        <button id="startChatToggleButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full mb-2 hover:bg-blue-600 transition-colors" aria-label="Start a new chat">Start Chat</button>
-        <button id="connectToggleButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600 transition-colors" aria-label="Connect to an existing chat">Connect to Chat</button>
+        <button id="startChatToggleButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full mb-2 hover:bg-blue-600 transition-colors">Start Chat</button>
+        <button id="connectToggleButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600 transition-colors">Connect to Chat</button>
       </div>
       <div id="usernameContainer" class="hidden">
-        <label for="usernameInput" class="sr-only">Enter your username</label>
-        <input id="usernameInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)" aria-describedby="usernameHelp">
-        <div id="usernameHelp" class="text-sm text-gray-500 mb-2">Username must be 1-16 alphanumeric characters</div>
-        <button id="joinWithUsernameButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600 transition-colors" aria-label="Join chat with username">Join Chat</button>
-        <button id="backButton" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600 transition-colors" aria-label="Back to main menu">Back</button>
+        <input id="usernameInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)">
+        <button id="joinWithUsernameButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600 transition-colors">Join Chat</button>
+        <button id="backButton" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600 transition-colors">Back</button>
       </div>
-      <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800 hidden" role="status"></div>
+      <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800 hidden"></div>
       <div id="chatContainer" class="hidden">
-        <button id="newSessionButton" class="bg-red-500 text-white px-2 py-1 rounded w-full mb-1 rounded hover:bg-red-600 transition-colors hidden" aria-label="Start a new session">New Session</button>
+        <button id="newSessionButton" class="bg-red-500 text-white px-2 py-1 rounded w-full mb-1 rounded hover:bg-red-600 transition-colors hidden">New Session</button>
         <div class="button-group">
-          <button id="button1" aria-label="Send chat code to random board">Send Code</button>
-          <button id="button2" aria-label="Join a random chat">Random Chat</button>
-          <button id="copyCodeButton" aria-label="Copy chat code">Copy Code</button>
+          <button id="button1">Send Code</button>
+          <button id="button2">Random Chat</button>
+          <button id="copyCodeButton">Copy Code</button>
         </div>
-        <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded" role="log" aria-live="polite"></div>
+        <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded"></div>
         <div class="input-container hidden">
-          <label for="messageInput" class="sr-only">Type your message</label>
-          <textarea id="messageInput" placeholder="Type a message..." cols="30" maxlength="1000" aria-describedby="messageHelp"></textarea>
-          <div id="messageHelp" class="sr-only">Enter your message, press Enter to send, Shift+Enter for new line</div>
-          <input type="file" id="imageInput" accept="image/*" style="display: none;" aria-label="Select image to send" />
-          <button id="imageButton" aria-label="Send image">📷</button>
-          <button id="sendButton" aria-label="Send message">📤</button>
+          <textarea id="messageInput" placeholder="Type a message..." cols="30" maxlength="1000"></textarea>
+          <input type="file" id="imageInput" accept="image/*" style="display: none;" />
+          <button id="imageButton" title="Send Image">📷</button>
+          <button id="sendButton">📤</button>
         </div>
       </div>
       <div id="connectContainer" class="hidden">
-        <label for="usernameConnectInput" class="sr-only">Enter your username</label>
-        <input id="usernameConnectInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)" aria-describedby="usernameConnectHelp">
-        <div id="usernameConnectHelp" class="text-sm text-gray-500 mb-2">Username must be 1-16 alphanumeric characters</div>
-        <label for="codeInput" class="sr-only">Enter chat code</label>
-        <input id="codeInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter code (xxxx-xxxx-xxxx-xxxx)" aria-describedby="codeHelp">
-        <div id="codeHelp" class="text-sm text-gray-500 mb-2">Code format: xxxx-xxxx-xxxx-xxxx</div>
-        <button id="connectButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600 transition-colors" aria-label="Connect to chat with username and code">Connect</button>
-        <button id="backButtonConnect" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600 transition-colors" aria-label="Back to main menu">Back</button>
+        <input id="usernameConnectInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)">
+        <input id="codeInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter code (xxxx-xxxx-xxxx-xxxx)">
+        <button id="connectButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600 transition-colors">Connect</button>
+        <button id="backButtonConnect" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600 transition-colors">Back</button>
       </div>
       <div class="text-center mt-4">
-        <span id="helpText" class="text-blue-500 hover:underline" tabindex="0" role="button" aria-label="Show help information">Help</span>
+        <span id="helpText" class="text-blue-500 hover:underline">Help</span>
       </div>
     </div>
     <div id="maxClientsContainer" class="hidden flex flex-col justify-center bg-black p-4 rounded-lg shadow-lg">
-      <span class="text-white mb-2 font-bold" id="maxClientsLabel">Max Users</span>
-      <div id="maxClientsRadios" class="flex flex-col space-y-2" role="radiogroup" aria-labelledby="maxClientsLabel"></div>
+      <span class="text-white mb-2 font-bold">Max Users</span>
+      <div id="maxClientsRadios" class="flex flex-col space-y-2"></div>
     </div>
   </div>
-  <div id="helpModal" class="help-modal" role="dialog" aria-labelledby="helpModalTitle">
+  <div id="helpModal" class="help-modal">
     <div class="help-modal-content">
-      <h2 id="helpModalTitle" class="text-xl font-bold mb-4">Button Help</h2>
+      <h2 class="text-xl font-bold mb-4">Button Help</h2>
       <p><strong>Start Chat:</strong> Starts New Chat</p>
       <p><strong>Connect to Chat:</strong> This connects you to a chat that you have code for</p>
       <p><strong>Send Code:</strong> This sends your code to Random chat board</p>
@@ -479,31 +467,6 @@
     // Reconnection attempt counter for exponential backoff
     let reconnectAttempts = 0;
 
-    // Analytics: Track events with debouncing
-    const eventLogTimestamps = new Map();
-    async function logEvent(eventType, details = {}) {
-      const now = Date.now();
-      const lastLog = eventLogTimestamps.get(eventType) || 0;
-      if (now - lastLog < 1000) return; // Debounce: 1s per event type
-      eventLogTimestamps.set(eventType, now);
-      const eventData = {
-        eventType,
-        timestamp: new Date().toISOString(),
-        clientId: clientId, // Anonymized client ID
-        details: { ...details, code: code || 'none' }
-      };
-      try {
-        await fetch('/api/log', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(eventData)
-        });
-        console.log(`Logged event: ${eventType}`, details);
-      } catch (error) {
-        console.error(`Failed to log event ${eventType}:`, error);
-      }
-    }
-
     // Utility to show temporary status messages
     function showStatusMessage(message, duration = 3000) {
       statusElement.textContent = message;
@@ -516,7 +479,7 @@
     function sanitizeMessage(content) {
       const div = document.createElement('div');
       div.textContent = content;
-      return div.innerHTML.replace(/</g, '<').replace(/>/g, '>');
+      return div.innerHTML.replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
     function generateCode() {
@@ -546,14 +509,6 @@
     async function sendImage(file) {
       if (!file || !file.type.startsWith('image/') || !username || dataChannels.size === 0) {
         showStatusMessage('Error: Select an image and ensure you are connected.');
-        logEvent('image_send_failed', { reason: 'Invalid file or no connections' });
-        return;
-      }
-      // Image size check: 5MB limit
-      if (file.size > 5 * 1024 * 1024) {
-        showStatusMessage('Error: Image size exceeds 5MB limit.');
-        logEvent('image_send_failed', { reason: 'Image too large', size: file.size });
-        document.getElementById('imageButton').focus();
         return;
       }
 
@@ -600,7 +555,6 @@
       messageDiv.textContent = `${username}: `;
       const imgElement = document.createElement('img');
       imgElement.src = base64;
-      imgElement.alt = `Image sent by ${username}`;
       imgElement.style.maxWidth = '100%';
       imgElement.style.borderRadius = '0.5rem';
       imgElement.style.cursor = 'pointer';
@@ -610,32 +564,21 @@
           modal = document.createElement('div');
           modal.id = 'imageModal';
           modal.className = 'modal';
-          modal.setAttribute('role', 'dialog');
-          modal.setAttribute('aria-label', 'Image preview');
           document.body.appendChild(modal);
         }
         modal.innerHTML = '';
         const modalImg = document.createElement('img');
         modalImg.src = base64;
-        modalImg.alt = `Image sent by ${username}`;
         modal.appendChild(modalImg);
         modal.classList.add('active');
         modal.addEventListener('click', () => {
           modal.classList.remove('active');
-          document.getElementById('imageButton').focus();
-        });
-        modal.addEventListener('keydown', (e) => {
-          if (e.key === 'Escape') {
-            modal.classList.remove('active');
-            document.getElementById('imageButton').focus();
-          }
         });
       });
       messageDiv.appendChild(imgElement);
       messages.prepend(messageDiv);
       messages.scrollTop = messages.scrollHeight;
       processedMessageIds.add(messageId);
-      logEvent('image_sent', { messageId, size: file.size });
     }
 
     let code = generateCode();
@@ -677,34 +620,13 @@
     const helpText = document.getElementById('helpText');
     const helpModal = document.getElementById('helpModal');
 
-    // Help modal toggle with keyboard support
+    // Help modal toggle
     helpText.addEventListener('click', () => {
       helpModal.classList.add('active');
-      helpModal.querySelector('.help-modal-content').focus();
-      logEvent('help_modal_opened');
-    });
-
-    helpText.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        helpModal.classList.add('active');
-        helpModal.querySelector('.help-modal-content').focus();
-        logEvent('help_modal_opened');
-      }
     });
 
     helpModal.addEventListener('click', () => {
       helpModal.classList.remove('active');
-      helpText.focus();
-      logEvent('help_modal_closed');
-    });
-
-    helpModal.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        helpModal.classList.remove('active');
-        helpText.focus();
-        logEvent('help_modal_closed');
-      }
     });
 
     // Logo cycle animation
@@ -726,9 +648,8 @@
         if (socket.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({ type: 'ping', clientId }));
           console.log('Sent keepalive ping');
-          logEvent('keepalive_sent');
         }
-      }, 20000);
+      }, 20000); // Send every 20 seconds
     }
 
     function stopKeepAlive() {
@@ -736,29 +657,24 @@
         clearInterval(keepAliveTimer);
         keepAliveTimer = null;
         console.log('Stopped keepalive');
-        logEvent('keepalive_stopped');
       }
     }
 
     const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
     console.log('WebSocket created');
-    logEvent('websocket_created');
 
     socket.onopen = () => {
       console.log('WebSocket opened');
       socket.send(JSON.stringify({ type: 'connect', clientId }));
-      startKeepAlive();
-      reconnectAttempts = 0;
-      logEvent('websocket_opened');
+      startKeepAlive(); // Start keepalive on connection
+      reconnectAttempts = 0; // Reset reconnection attempts on successful connection
       const urlParams = new URLSearchParams(window.location.search);
       const codeParam = urlParams.get('code');
       if (codeParam && validateCode(codeParam)) {
         console.log('Detected code in URL, triggering autoConnect');
-        logEvent('autoconnect_triggered', { code: codeParam });
         autoConnect(codeParam);
       } else {
         console.log('No valid code in URL, showing initial container');
-        logEvent('initial_container_shown');
         initialContainer.classList.remove('hidden');
         usernameContainer.classList.add('hidden');
         connectContainer.classList.add('hidden');
@@ -774,15 +690,13 @@
       showStatusMessage('Connection error, please try again later.');
       stopKeepAlive();
       connectionTimeouts.forEach((timeout) => clearTimeout(timeout));
-      logEvent('websocket_error', { error: 'WebSocket error occurred' });
     };
 
     socket.onclose = () => {
       console.error('WebSocket closed, attempting reconnect');
       stopKeepAlive();
       showStatusMessage('Lost connection, reconnecting...');
-      logEvent('websocket_closed', { reconnectAttempts });
-      const delay = Math.min(30000, 5000 * Math.pow(2, reconnectAttempts));
+      const delay = Math.min(30000, 5000 * Math.pow(2, reconnectAttempts)); // Exponential backoff: 5s, 10s, 20s, max 30s
       reconnectAttempts++;
       setTimeout(() => {
         const newSocket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
@@ -790,11 +704,9 @@
           console.log('Reconnected, sending connect');
           newSocket.send(JSON.stringify({ type: 'connect', clientId }));
           startKeepAlive();
-          logEvent('websocket_reconnected', { attempts: reconnectAttempts });
           if (code && username && validateCode(code) && validateUsername(username)) {
             console.log('Rejoining with code:', code);
             newSocket.send(JSON.stringify({ type: 'join', code, clientId, username }));
-            logEvent('rejoin_attempt', { code });
           }
         };
         newSocket.onerror = socket.onerror;
@@ -811,13 +723,11 @@
         console.log('Parsed message:', message);
         if (message.type === 'pong') {
           console.log('Received keepalive pong');
-          logEvent('keepalive_pong');
           return;
         }
         if (message.type === 'error') {
           showStatusMessage(message.message);
           console.error('Server error:', message.message);
-          logEvent('server_error', { message: message.message });
           if (message.message.includes('Chat is full') || message.message.includes('Username already taken') || message.message.includes('Initiator offline')) {
             socket.send(JSON.stringify({ type: 'leave', code, clientId }));
             initialContainer.classList.remove('hidden');
@@ -833,7 +743,6 @@
             codeSentToRandom = false;
             button2.disabled = false;
             stopKeepAlive();
-            logEvent('chat_terminated', { reason: message.message });
           }
           return;
         }
@@ -846,14 +755,12 @@
           usernames.set(clientId, username);
           initializeMaxClientsUI();
           updateMaxClientsUI();
-          logEvent('chat_initialized', { isInitiator, maxClients });
         }
         if (message.type === 'initiator-changed') {
           console.log(`Initiator changed to ${message.newInitiator} for code: ${code}`);
           isInitiator = message.newInitiator === clientId;
           initializeMaxClientsUI();
           updateMaxClientsUI();
-          logEvent('initiator_changed', { newInitiator: message.newInitiator });
         }
         if (message.type === 'join-notify' && message.code === code) {
           totalClients = message.totalClients;
@@ -862,7 +769,6 @@
             usernames.set(message.clientId, message.username);
           }
           updateMaxClientsUI();
-          logEvent('client_joined', { clientId: message.clientId, totalClients });
           if (isInitiator && message.clientId !== clientId && !peerConnections.has(message.clientId)) {
             console.log(`Initiating peer connection with client ${message.clientId}`);
             startPeerConnection(message.clientId, true);
@@ -874,7 +780,6 @@
           usernames.delete(message.clientId);
           cleanupPeerConnection(message.clientId);
           updateMaxClientsUI();
-          logEvent('client_disconnected', { clientId: message.clientId, totalClients });
           if (totalClients <= 1) {
             inputContainer.classList.add('hidden');
             messages.classList.add('waiting');
@@ -884,27 +789,22 @@
           maxClients = Math.min(message.maxClients, 10);
           console.log(`Max clients updated to ${maxClients} for code: ${code}`);
           updateMaxClientsUI();
-          logEvent('max_clients_updated', { maxClients });
         }
         if (message.type === 'offer' && message.clientId !== clientId) {
           console.log(`Received offer from ${message.clientId} for code: ${code}`);
           handleOffer(message.offer, message.clientId);
-          logEvent('offer_received', { fromClient: message.clientId });
         }
         if (message.type === 'answer' && message.clientId !== clientId) {
           console.log(`Received answer from ${message.clientId} for code: ${code}`);
           handleAnswer(message.answer, message.clientId);
-          logEvent('answer_received', { fromClient: message.clientId });
         }
         if (message.type === 'candidate' && message.clientId !== clientId) {
           console.log(`Received ICE candidate from ${message.clientId} for code: ${code}`);
           handleCandidate(message.candidate, message.clientId);
-          logEvent('candidate_received', { fromClient: message.clientId });
         }
       } catch (error) {
         console.error('Error parsing message:', error);
         showStatusMessage('Error receiving message, please try again.');
-        logEvent('message_parse_error', { error: error.message });
       }
     };
 
@@ -922,11 +822,9 @@
           input.value = n;
           input.className = 'mr-2';
           input.checked = n === maxClients;
-          input.setAttribute('aria-label', `Set maximum users to ${n}`);
           input.addEventListener('change', () => {
             if (isInitiator) {
               setMaxClients(parseInt(input.value));
-              logEvent('max_clients_changed', { newMaxClients: input.value });
             }
           });
           const span = document.createElement('span');
@@ -1011,21 +909,18 @@
           console.log(`Sending ICE candidate to ${targetId} for code: ${code}`);
           if (socket.readyState === WebSocket.OPEN) {
             socket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate, code, targetId, clientId }));
-            logEvent('ice_candidate_sent', { toClient: targetId });
           }
         }
       };
 
       peerConnection.onicecandidateerror = (event) => {
         console.error(`ICE candidate error for ${targetId}: ${event.errorText}, code=${event.errorCode}`);
-        logEvent('ice_candidate_error', { errorCode: event.errorCode, errorText: event.errorText });
         if (event.errorCode !== 701) {
           const retryCount = retryCounts.get(targetId) || 0;
           if (retryCount < maxRetries) {
             retryCounts.set(targetId, retryCount + 1);
             console.log(`Retrying connection with ${targetId}, attempt ${retryCount + 1}`);
             startPeerConnection(targetId, isOfferer);
-            logEvent('peer_connection_retry', { targetId, attempt: retryCount + 1 });
           }
         } else {
           console.log(`Ignoring ICE 701 error for ${targetId}, continuing connection`);
@@ -1034,12 +929,10 @@
 
       peerConnection.onicegatheringstatechange = () => {
         console.log(`ICE gathering state for ${targetId}: ${peerConnection.iceGatheringState}`);
-        logEvent('ice_gathering_state', { targetId, state: peerConnection.iceGatheringState });
       };
 
       peerConnection.onconnectionstatechange = () => {
         console.log(`Connection state for ${targetId}: ${peerConnection.connectionState}`);
-        logEvent('connection_state_change', { targetId, state: peerConnection.connectionState });
         if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
           console.log(`Connection failed with ${targetId}`);
           showStatusMessage('Peer connection failed, attempting to reconnect...');
@@ -1049,7 +942,6 @@
             retryCounts.set(targetId, retryCount + 1);
             console.log(`Retrying connection attempt ${retryCount + 1} with ${targetId}`);
             startPeerConnection(targetId, isOfferer);
-            logEvent('peer_connection_retry', { targetId, attempt: retryCount + 1 });
           }
         } else if (peerConnection.connectionState === 'connected') {
           console.log(`WebRTC connection established with ${targetId} for code: ${code}`);
@@ -1057,7 +949,6 @@
           retryCounts.delete(targetId);
           clearTimeout(connectionTimeouts.get(targetId));
           updateMaxClientsUI();
-          logEvent('peer_connection_established', { targetId });
         }
       };
 
@@ -1071,7 +962,6 @@
         dataChannel = event.channel;
         setupDataChannel(dataChannel, targetId);
         dataChannels.set(targetId, dataChannel);
-        logEvent('data_channel_received', { targetId });
       };
 
       if (isOfferer) {
@@ -1081,12 +971,10 @@
           console.log(`Sending offer to ${targetId} for code: ${code}`);
           if (socket.readyState === WebSocket.OPEN) {
             socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code, targetId, clientId }));
-            logEvent('offer_sent', { toClient: targetId });
           }
         }).catch(error => {
           console.error(`Error creating offer for ${targetId}:`, error);
           showStatusMessage('Failed to establish peer connection.');
-          logEvent('offer_creation_error', { targetId, error: error.message });
         });
       }
 
@@ -1099,7 +987,6 @@
             retryCounts.set(targetId, retryCount + 1);
             console.log(`Retrying connection attempt ${retryCount + 1} with ${targetId}`);
             startPeerConnection(targetId, isOfferer);
-            logEvent('peer_connection_timeout_retry', { targetId, attempt: retryCount + 1 });
           }
         }
       }, 30000);
@@ -1121,8 +1008,6 @@
         clearTimeout(connectionTimeouts.get(targetId));
         retryCounts.delete(targetId);
         updateMaxClientsUI();
-        document.getElementById('messageInput').focus();
-        logEvent('data_channel_opened', { targetId });
       };
 
       dataChannel.onmessage = (event) => {
@@ -1137,7 +1022,6 @@
         if (rateLimit.count > 10) {
           console.warn(`Rate limit exceeded for ${targetId}: ${rateLimit.count} messages in 1s`);
           showStatusMessage('Message rate limit reached, please slow down.');
-          logEvent('message_rate_limit_exceeded', { targetId, count: rateLimit.count });
           return;
         }
 
@@ -1147,17 +1031,14 @@
         } catch (e) {
           console.error(`Invalid message from ${targetId}:`, e);
           showStatusMessage('Invalid message received.');
-          logEvent('invalid_message', { targetId, error: e.message });
           return;
         }
         if (!data.messageId || !data.username || (!data.content && data.type !== 'image') || (data.type === 'image' && !data.data)) {
           console.log(`Invalid message format from ${targetId}:`, data);
-          logEvent('invalid_message_format', { targetId });
           return;
         }
         if (processedMessageIds.has(data.messageId)) {
           console.log(`Duplicate message ${data.messageId} from ${targetId}`);
-          logEvent('duplicate_message', { messageId: data.messageId, targetId });
           return;
         }
         processedMessageIds.add(data.messageId);
@@ -1170,7 +1051,6 @@
           messageDiv.textContent = `${senderUsername}: `;
           const img = document.createElement('img');
           img.src = data.data;
-          img.alt = `Image sent by ${senderUsername}`;
           img.style.maxWidth = '100%';
           img.style.borderRadius = '0.5rem';
           img.style.cursor = 'pointer';
@@ -1180,32 +1060,20 @@
               modal = document.createElement('div');
               modal.id = 'imageModal';
               modal.className = 'modal';
-              modal.setAttribute('role', 'dialog');
-              modal.setAttribute('aria-label', 'Image preview');
               document.body.appendChild(modal);
             }
             modal.innerHTML = '';
             const modalImg = document.createElement('img');
             modalImg.src = data.data;
-            modalImg.alt = `Image sent by ${senderUsername}`;
             modal.appendChild(modalImg);
             modal.classList.add('active');
             modal.addEventListener('click', () => {
               modal.classList.remove('active');
-              document.getElementById('imageButton').focus();
-            });
-            modal.addEventListener('keydown', (e) => {
-              if (e.key === 'Escape') {
-                modal.classList.remove('active');
-                document.getElementById('imageButton').focus();
-              }
             });
           });
           messageDiv.appendChild(img);
-          logEvent('image_received', { messageId: data.messageId, from: senderUsername });
         } else {
           messageDiv.textContent = `${senderUsername}: ${sanitizeMessage(data.content)}`;
-          logEvent('message_received', { messageId: data.messageId, from: senderUsername });
         }
         messages.prepend(messageDiv);
         messages.scrollTop = messages.scrollHeight;
@@ -1221,7 +1089,6 @@
       dataChannel.onerror = (error) => {
         console.error(`Data channel error with ${targetId}:`, error);
         showStatusMessage('Error in peer connection.');
-        logEvent('data_channel_error', { targetId, error: error.message });
       };
 
       dataChannel.onclose = () => {
@@ -1229,7 +1096,6 @@
         showStatusMessage('Peer disconnected.');
         cleanupPeerConnection(targetId);
         messageRateLimits.delete(targetId);
-        logEvent('data_channel_closed', { targetId });
         if (dataChannels.size === 0) {
           inputContainer.classList.add('hidden');
           messages.classList.add('waiting');
@@ -1241,7 +1107,6 @@
       console.log(`Handling offer from ${targetId} for code: ${code}`);
       if (offer.type !== 'offer') {
         console.error(`Invalid offer type from ${targetId}:`, offer.type);
-        logEvent('invalid_offer_type', { targetId, offerType: offer.type });
         return;
       }
       if (!peerConnections.has(targetId)) {
@@ -1255,7 +1120,6 @@
         await peerConnection.setLocalDescription(answer);
         if (socket.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({ type: 'answer', answer: peerConnection.localDescription, code, targetId, clientId }));
-          logEvent('answer_sent', { toClient: targetId });
         }
         const queue = candidatesQueues.get(targetId) || [];
         queue.forEach(candidate => {
@@ -1265,7 +1129,6 @@
       } catch (error) {
         console.error(`Error handling offer from ${targetId}:`, error);
         showStatusMessage('Failed to connect to peer.');
-        logEvent('offer_handling_error', { targetId, error: error.message });
       }
     }
 
@@ -1280,7 +1143,6 @@
       const peerConnection = peerConnections.get(targetId);
       if (answer.type !== 'answer') {
         console.error(`Invalid answer type from ${targetId}:`, answer.type);
-        logEvent('invalid_answer_type', { targetId, answerType: answer.type });
         return;
       }
       if (peerConnection.signalingState !== 'have-local-offer') {
@@ -1296,7 +1158,6 @@
             peerConnection.setRemoteDescription(new RTCSessionDescription(item.answer)).catch(error => {
               console.error(`Error applying queued answer from ${targetId}:`, error);
               showStatusMessage('Error processing peer response.');
-              logEvent('queued_answer_error', { targetId, error: error.message });
             });
           } else if (item.type === 'candidate') {
             handleCandidate(item.candidate, targetId);
@@ -1306,7 +1167,6 @@
       } catch (error) {
         console.error(`Error handling answer from ${targetId}:`, error);
         showStatusMessage('Error connecting to peer.');
-        logEvent('answer_handling_error', { targetId, error: error.message });
       }
     }
 
@@ -1317,7 +1177,6 @@
         peerConnection.addIceCandidate(new RTCIceCandidate(candidate)).catch(error => {
           console.error(`Error adding ICE candidate from ${targetId}:`, error);
           showStatusMessage('Error establishing peer connection.');
-          logEvent('ice_candidate_error', { targetId, error: error.message });
         });
       } else {
         const queue = candidatesQueues.get(targetId) || [];
@@ -1352,7 +1211,6 @@
         inputContainer.classList.add('hidden');
         messages.classList.add('waiting');
       }
-      logEvent('peer_connection_cleaned', { targetId });
     }
 
     function sendMessage(content) {
@@ -1372,11 +1230,12 @@
         messageDiv.textContent = `${username}: ${sanitizedContent}`;
         messages.prepend(messageDiv);
         messages.scrollTop = messages.scrollHeight;
+        const messageInput = document.getElementById('messageInput');
+        messageInput.value = '';
+        messageInput.style.height = '2.5rem';
         processedMessageIds.add(messageId);
-        logEvent('message_sent', { messageId });
       } else {
         showStatusMessage('Error: No connections or username not set.');
-        logEvent('message_send_failed', { reason: 'No connections or username' });
       }
     }
 
@@ -1390,8 +1249,6 @@
       copyCodeButton.classList.add('hidden');
       statusElement.textContent = 'Enter a username to start a chat';
       document.getElementById('usernameInput').value = username || '';
-      document.getElementById('usernameInput').focus();
-      logEvent('start_chat_clicked');
     };
 
     document.getElementById('connectToggleButton').onclick = () => {
@@ -1404,22 +1261,18 @@
       copyCodeButton.classList.add('hidden');
       statusElement.textContent = 'Enter a username and code to join a chat';
       document.getElementById('usernameConnectInput').value = username || '';
-      document.getElementById('usernameConnectInput').focus();
-      logEvent('connect_toggle_clicked');
     };
 
     document.getElementById('joinWithUsernameButton').onclick = () => {
       const usernameInput = document.getElementById('usernameInput').value.trim();
       if (!validateUsername(usernameInput)) {
         showStatusMessage('Invalid username: 1-16 alphanumeric characters.');
-        document.getElementById('usernameInput').focus();
-        logEvent('join_failed', { reason: 'Invalid username' });
         return;
       }
       username = usernameInput;
       localStorage.setItem('username', username);
       console.log('Username set in localStorage:', username);
-      code = generateCode();
+      code = generateCode(); // Generate new code for new chat
       codeDisplayElement.textContent = `Your code: ${code}`;
       codeDisplayElement.classList.remove('hidden');
       copyCodeButton.classList.remove('hidden');
@@ -1432,12 +1285,10 @@
       if (socket.readyState === WebSocket.OPEN) {
         console.log('Sending join message for new chat');
         socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
-        logEvent('join_chat', { code, username });
       } else {
         socket.addEventListener('open', () => {
           console.log('WebSocket opened, sending join for new chat');
           socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
-          logEvent('join_chat', { code, username });
         }, { once: true });
       }
     };
@@ -1447,14 +1298,10 @@
       const inputCode = document.getElementById('codeInput').value.trim();
       if (!validateUsername(usernameInput)) {
         showStatusMessage('Invalid username: 1-16 alphanumeric characters.');
-        document.getElementById('usernameConnectInput').focus();
-        logEvent('connect_failed', { reason: 'Invalid username' });
         return;
       }
       if (!validateCode(inputCode)) {
         showStatusMessage('Invalid code format: xxxx-xxxx-xxxx-xxxx.');
-        document.getElementById('codeInput').focus();
-        logEvent('connect_failed', { reason: 'Invalid code' });
         return;
       }
       username = usernameInput;
@@ -1473,12 +1320,10 @@
       if (socket.readyState === WebSocket.OPEN) {
         console.log('Sending join message for existing chat');
         socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
-        logEvent('join_chat', { code, username });
       } else {
         socket.addEventListener('open', () => {
           console.log('WebSocket opened, sending join for existing chat');
           socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
-          logEvent('join_chat', { code, username });
         }, { once: true });
       }
     };
@@ -1494,8 +1339,6 @@
       statusElement.textContent = 'Start a new chat or connect to an existing one';
       messages.classList.remove('waiting');
       stopKeepAlive();
-      document.getElementById('startChatToggleButton').focus();
-      logEvent('back_clicked', { from: 'usernameContainer' });
     };
 
     document.getElementById('backButtonConnect').onclick = () => {
@@ -1509,8 +1352,6 @@
       statusElement.textContent = 'Start a new chat or connect to an existing one';
       messages.classList.remove('waiting');
       stopKeepAlive();
-      document.getElementById('connectToggleButton').focus();
-      logEvent('back_clicked', { from: 'connectContainer' });
     };
 
     document.getElementById('sendButton').onclick = () => {
@@ -1518,14 +1359,11 @@
       const message = messageInput.value.trim();
       if (message) {
         sendMessage(message);
-        messageInput.value = '';
-        messageInput.focus();
       }
     };
 
     document.getElementById('imageButton').onclick = () => {
       document.getElementById('imageInput').click();
-      logEvent('image_button_clicked');
     };
 
     document.getElementById('imageInput').onchange = (event) => {
@@ -1533,7 +1371,6 @@
       if (file) {
         sendImage(file);
         event.target.value = '';
-        document.getElementById('imageButton').focus();
       }
     };
 
@@ -1548,8 +1385,6 @@
         const message = event.target.value.trim();
         if (message) {
           sendMessage(message);
-          event.target.value = '';
-          event.target.focus();
         }
       }
     });
@@ -1595,8 +1430,6 @@
       codeSentToRandom = false;
       button2.disabled = false;
       stopKeepAlive();
-      document.getElementById('startChatToggleButton').focus();
-      logEvent('new_session_clicked');
     };
 
     document.getElementById('usernameInput').addEventListener('keydown', (event) => {
@@ -1627,13 +1460,10 @@
         setTimeout(() => {
           copyCodeButton.textContent = 'Copy Code';
         }, 2000);
-        logEvent('code_copied', { code: codeText });
       }).catch(err => {
         console.error('Failed to copy text: ', err);
         showStatusMessage('Failed to copy code.');
-        logEvent('code_copy_failed', { error: err.message });
       });
-      copyCodeButton.focus();
     };
 
     document.getElementById('button1').onclick = () => {
@@ -1642,18 +1472,14 @@
         showStatusMessage(`Sent code ${code} to random board.`);
         codeSentToRandom = true;
         button2.disabled = true;
-        logEvent('code_sent_to_random', { code });
       } else {
         showStatusMessage('Cannot send: Not initiator, no code, or room is full.');
-        logEvent('code_send_failed', { reason: 'Not initiator or room full' });
       }
-      document.getElementById('button1').focus();
     };
 
     document.getElementById('button2').onclick = () => {
       if (!button2.disabled) {
         window.location.href = 'https://anonomoose.com/random.html';
-        logEvent('random_chat_clicked');
       }
     };
 
@@ -1662,51 +1488,69 @@
       code = codeParam;
       initialContainer.classList.add('hidden');
       connectContainer.classList.add('hidden');
-      usernameContainer.classList.remove('hidden');
-      chatContainer.classList.add('hidden');
+      usernameContainer.classList.add('hidden');
+      chatContainer.classList.remove('hidden');
       codeDisplayElement.classList.add('hidden');
       copyCodeButton.classList.add('hidden');
-      statusElement.textContent = 'Enter a username to join the chat';
-      document.getElementById('usernameConnectInput').value = username || '';
-      document.getElementById('usernameConnectInput').focus();
+      console.log('Loaded username from localStorage:', username);
       if (validateCode(codeParam)) {
         if (validateUsername(username)) {
           console.log('Valid username and code, joining chat');
           codeDisplayElement.textContent = `Using code: ${code}`;
           codeDisplayElement.classList.remove('hidden');
           copyCodeButton.classList.remove('hidden');
-          usernameContainer.classList.add('hidden');
-          chatContainer.classList.remove('hidden');
           messages.classList.add('waiting');
           statusElement.textContent = 'Waiting for connection...';
           if (socket.readyState === WebSocket.OPEN) {
             console.log('WebSocket open, sending join');
             socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
-            logEvent('join_chat', { code, username });
           } else {
             console.log('WebSocket not open, waiting for open event');
             socket.addEventListener('open', () => {
               console.log('WebSocket opened in autoConnect, sending join');
               socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
-              logEvent('join_chat', { code, username });
             }, { once: true });
           }
         } else {
           console.log('No valid username, prompting for username');
           usernameContainer.classList.remove('hidden');
+          chatContainer.classList.add('hidden');
+          statusElement.textContent = 'Please enter a username to join the chat';
           document.getElementById('usernameInput').value = username || '';
-          document.getElementById('usernameInput').focus();
+          document.getElementById('joinWithUsernameButton').onclick = () => {
+            const usernameInput = document.getElementById('usernameInput').value.trim();
+            if (!validateUsername(usernameInput)) {
+              showStatusMessage('Invalid username: 1-16 alphanumeric characters.');
+              return;
+            }
+            username = usernameInput;
+            localStorage.setItem('username', username);
+            console.log('Username set in localStorage during autoConnect:', username);
+            usernameContainer.classList.add('hidden');
+            chatContainer.classList.remove('hidden');
+            codeDisplayElement.textContent = `Using code: ${code}`;
+            codeDisplayElement.classList.remove('hidden');
+            copyCodeButton.classList.remove('hidden');
+            messages.classList.add('waiting');
+            statusElement.textContent = 'Waiting for connection...';
+            if (socket.readyState === WebSocket.OPEN) {
+              console.log('WebSocket open, sending join after username input');
+              socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+            } else {
+              console.log('WebSocket not open, waiting for open event after username');
+              socket.addEventListener('open', () => {
+                console.log('WebSocket opened in autoConnect join, sending join');
+                socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+              }, { once: true });
+            }
+          };
         }
       } else {
-        console.log('Invalid code in URL, redirecting to initial screen');
+        console.log('Invalid code, showing initial container');
         initialContainer.classList.remove('hidden');
         usernameContainer.classList.add('hidden');
-        connectContainer.classList.add('hidden');
         chatContainer.classList.add('hidden');
-        codeDisplayElement.classList.add('hidden');
-        copyCodeButton.classList.add('hidden');
-        statusElement.textContent = 'Invalid code in URL, start a new chat or connect to an existing one';
-        logEvent('autoconnect_failed', { reason: 'Invalid code', code: codeParam });
+        showStatusMessage('Invalid code format. Please enter a valid code.');
       }
     }
   </script>
