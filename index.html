@@ -466,7 +466,6 @@
       <p><strong>Send Code:</strong> This sends your code to Random chat board</p>
       <p><strong>Random Chat:</strong> This takes you to random chat board for a random chat</p>
       <p><strong>Copy Code:</strong> Copies the code so you can send to people in text or social chats</p>
-      <button id="closeHelpModal" class="bg-blue-500 text-white px-4 py-2 rounded mt-4 hover:bg-blue-600 transition-colors" aria-label="Close help modal">Close</button>
     </div>
   </div>
   <script>
@@ -549,7 +548,7 @@
 
       const maxWidth = 640;
       const maxHeight = 360;
-      const quality = 0.6;
+      const quality = 0.4;
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       const img = new Image();
@@ -668,15 +667,14 @@
     const button2 = document.getElementById('button2');
     const helpText = document.getElementById('helpText');
     const helpModal = document.getElementById('helpModal');
-    const closeHelpModal = document.getElementById('closeHelpModal');
 
     // Help modal toggle
     helpText.addEventListener('click', () => {
       helpModal.classList.add('active');
-      closeHelpModal.focus();
+      helpModal.focus();
     });
 
-    closeHelpModal.addEventListener('click', () => {
+    helpModal.addEventListener('click', () => {
       helpModal.classList.remove('active');
       helpText.focus();
     });
@@ -925,7 +923,7 @@
       console.log(`Starting peer connection with ${targetId} for code: ${code}, offerer: ${isOfferer}`);
       if (peerConnections.has(targetId)) {
         console.log(`Cleaning up existing connection with ${targetId}`);
-        cleanupPeerConnection(targetId);
+        cleanupÉlémentPeerConnection(targetId);
       }
       const peerConnection = new RTCPeerConnection({
         iceServers: [
