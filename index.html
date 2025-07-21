@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -406,52 +405,60 @@
   </style>
 </head>
 <body class="bg-black min-h-screen flex items-center justify-center">
-  <div class="corner-logo" id="cornerLogo"></div>
+  <div class="corner-logo" id="cornerLogo" role="img" aria-label="Anonomoose Chat logo"></div>
   <div class="flex w-full max-w-xl">
     <div class="bg-white p-8 rounded-lg shadow-lg flex-grow">
       <h1 class="text-3xl font-bold mb-6 text-center text-gray-800">Anonomoose Chat</h1>
-      <div id="status" class="text-center mb-4 text-gray-600">Start a new chat or connect to an existing one</div>
+      <div id="status" class="text-center mb-4 text-gray-600" role="status" aria-live="polite">Start a new chat or connect to an existing one</div>
       <div id="initialContainer">
-        <button id="startChatToggleButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full mb-2 hover:bg-blue-600 transition-colors">Start Chat</button>
-        <button id="connectToggleButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600 transition-colors">Connect to Chat</button>
+        <button id="startChatToggleButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full mb-2 hover:bg-blue-600 transition-colors" aria-label="Start a new chat">Start Chat</button>
+        <button id="connectToggleButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600 transition-colors" aria-label="Connect to an existing chat">Connect to Chat</button>
       </div>
       <div id="usernameContainer" class="hidden">
-        <input id="usernameInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)">
-        <button id="joinWithUsernameButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600 transition-colors">Join Chat</button>
-        <button id="backButton" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600 transition-colors">Back</button>
+        <label for="usernameInput" class="sr-only">Enter your username</label>
+        <input id="usernameInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)" aria-describedby="usernameHelp" maxlength="16">
+        <div id="usernameHelp" class="text-sm text-gray-600 mb-2">Username must be 1-16 alphanumeric characters</div>
+        <button id="joinWithUsernameButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600 transition-colors" aria-label="Join chat with username">Join Chat</button>
+        <button id="backButton" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600 transition-colors" aria-label="Back to main menu">Back</button>
       </div>
-      <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800 hidden"></div>
+      <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800 hidden" role="region" aria-live="polite"></div>
       <div id="chatContainer" class="hidden">
-        <button id="newSessionButton" class="bg-red-500 text-white px-2 py-1 rounded w-full mb-1 rounded hover:bg-red-600 transition-colors hidden">New Session</button>
+        <button id="newSessionButton" class="bg-red-500 text-white px-2 py-1 rounded w-full mb-1 rounded hover:bg-red-600 transition-colors hidden" aria-label="Start a new session">New Session</button>
         <div class="button-group">
-          <button id="button1">Send Code</button>
-          <button id="button2">Random Chat</button>
-          <button id="copyCodeButton">Copy Code</button>
+          <button id="button1" aria-label="Send code to random chat board">Send Code</button>
+          <button id="button2" aria-label="Join a random chat">Random Chat</button>
+          <button id="copyCodeButton" aria-label="Copy chat code">Copy Code</button>
         </div>
-        <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded"></div>
+        <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded" role="log" aria-live="polite"></div>
         <div class="input-container hidden">
-          <textarea id="messageInput" placeholder="Type a message..." cols="30" maxlength="1000"></textarea>
-          <input type="file" id="imageInput" accept="image/*" style="display: none;" />
-          <button id="imageButton" title="Send Image">📷</button>
-          <button id="sendButton">📤</button>
+          <label for="messageInput" class="sr-only">Type a message</label>
+          <textarea id="messageInput" placeholder="Type a message..." cols="30" maxlength="1000" aria-describedby="messageHelp"></textarea>
+          <div id="messageHelp" class="sr-only">Maximum 1000 characters. Press Enter to send, Shift+Enter for new line.</div>
+          <input type="file" id="imageInput" accept="image/jpeg,image/png" style="display: none;" aria-label="Upload image" />
+          <button id="imageButton" title="Send Image" aria-label="Send image">📷</button>
+          <button id="sendButton" aria-label="Send message">📤</button>
         </div>
       </div>
       <div id="connectContainer" class="hidden">
-        <input id="usernameConnectInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)">
-        <input id="codeInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter code (xxxx-xxxx-xxxx-xxxx)">
-        <button id="connectButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600 transition-colors">Connect</button>
-        <button id="backButtonConnect" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600 transition-colors">Back</button>
+        <label for="usernameConnectInput" class="sr-only">Enter your username</label>
+        <input id="usernameConnectInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)" aria-describedby="usernameConnectHelp" maxlength="16">
+        <div id="usernameConnectHelp" class="text-sm text-gray-600 mb-2">Username must be 1-16 alphanumeric characters</div>
+        <label for="codeInput" class="sr-only">Enter chat code</label>
+        <input id="codeInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter code (xxxx-xxxx-xxxx-xxxx)" aria-describedby="codeHelp" maxlength="19">
+        <div id="codeHelp" class="text-sm text-gray-600 mb-2">Code format: xxxx-xxxx-xxxx-xxxx</div>
+        <button id="connectButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600 transition-colors" aria-label="Connect to chat">Connect</button>
+        <button id="backButtonConnect" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600 transition-colors" aria-label="Back to main menu">Back</button>
       </div>
       <div class="text-center mt-4">
-        <span id="helpText" class="text-blue-500 hover:underline">Help</span>
+        <button id="helpText" class="text-blue-500 hover:underline" aria-label="View help information">Help</button>
       </div>
     </div>
     <div id="maxClientsContainer" class="hidden flex flex-col justify-center bg-black p-4 rounded-lg shadow-lg">
       <span class="text-white mb-2 font-bold">Max Users</span>
-      <div id="maxClientsRadios" class="flex flex-col space-y-2"></div>
+      <div id="maxClientsRadios" class="flex flex-col space-y-2" role="radiogroup" aria-label="Select maximum number of users"></div>
     </div>
   </div>
-  <div id="helpModal" class="help-modal">
+  <div id="helpModal" class="help-modal" role="dialog" aria-label="Help information" tabindex="-1">
     <div class="help-modal-content">
       <h2 class="text-xl font-bold mb-4">Button Help</h2>
       <p><strong>Start Chat:</strong> Starts New Chat</p>
@@ -459,6 +466,7 @@
       <p><strong>Send Code:</strong> This sends your code to Random chat board</p>
       <p><strong>Random Chat:</strong> This takes you to random chat board for a random chat</p>
       <p><strong>Copy Code:</strong> Copies the code so you can send to people in text or social chats</p>
+      <button id="closeHelpModal" class="bg-blue-500 text-white px-4 py-2 rounded mt-4 hover:bg-blue-600 transition-colors" aria-label="Close help modal">Close</button>
     </div>
   </div>
   <script>
@@ -466,12 +474,17 @@
     let keepAliveTimer = null;
     // Reconnection attempt counter for exponential backoff
     let reconnectAttempts = 0;
+    // Image rate limiting
+    const imageRateLimits = new Map();
 
     // Utility to show temporary status messages
     function showStatusMessage(message, duration = 3000) {
+      const statusElement = document.getElementById('status');
       statusElement.textContent = message;
+      statusElement.setAttribute('aria-live', 'assertive');
       setTimeout(() => {
         statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...';
+        statusElement.setAttribute('aria-live', 'polite');
       }, duration);
     }
 
@@ -479,7 +492,7 @@
     function sanitizeMessage(content) {
       const div = document.createElement('div');
       div.textContent = content;
-      return div.innerHTML.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      return div.innerHTML.replace(/</g, '<').replace(/>/g, '>');
     }
 
     function generateCode() {
@@ -507,8 +520,30 @@
     }
 
     async function sendImage(file) {
-      if (!file || !file.type.startsWith('image/') || !username || dataChannels.size === 0) {
-        showStatusMessage('Error: Select an image and ensure you are connected.');
+      const validImageTypes = ['image/jpeg', 'image/png'];
+      if (!file || !validImageTypes.includes(file.type) || !username || dataChannels.size === 0) {
+        showStatusMessage('Error: Select a JPEG or PNG image and ensure you are connected.');
+        document.getElementById('imageButton').focus();
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        showStatusMessage('Error: Image size exceeds 5MB limit.');
+        document.getElementById('imageButton').focus();
+        return;
+      }
+
+      // Image rate limiting
+      const now = performance.now();
+      const rateLimit = imageRateLimits.get(clientId) || { count: 0, startTime: now };
+      if (now - rateLimit.startTime >= 60000) {
+        rateLimit.count = 0;
+        rateLimit.startTime = now;
+      }
+      rateLimit.count += 1;
+      imageRateLimits.set(clientId, rateLimit);
+      if (rateLimit.count > 5) {
+        showStatusMessage('Image rate limit reached (5 images/min). Please wait.');
+        document.getElementById('imageButton').focus();
         return;
       }
 
@@ -558,27 +593,41 @@
       imgElement.style.maxWidth = '100%';
       imgElement.style.borderRadius = '0.5rem';
       imgElement.style.cursor = 'pointer';
+      imgElement.setAttribute('alt', 'Sent image');
       imgElement.addEventListener('click', () => {
         let modal = document.getElementById('imageModal');
         if (!modal) {
           modal = document.createElement('div');
           modal.id = 'imageModal';
           modal.className = 'modal';
+          modal.setAttribute('role', 'dialog');
+          modal.setAttribute('aria-label', 'Image viewer');
+          modal.setAttribute('tabindex', '-1');
           document.body.appendChild(modal);
         }
         modal.innerHTML = '';
         const modalImg = document.createElement('img');
         modalImg.src = base64;
+        modalImg.setAttribute('alt', 'Enlarged image');
         modal.appendChild(modalImg);
         modal.classList.add('active');
+        modal.focus();
         modal.addEventListener('click', () => {
           modal.classList.remove('active');
+          document.getElementById('imageButton').focus();
+        });
+        modal.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape') {
+            modal.classList.remove('active');
+            document.getElementById('imageButton').focus();
+          }
         });
       });
       messageDiv.appendChild(imgElement);
       messages.prepend(messageDiv);
       messages.scrollTop = messages.scrollHeight;
       processedMessageIds.add(messageId);
+      document.getElementById('imageButton').focus();
     }
 
     let code = generateCode();
@@ -619,14 +668,24 @@
     const button2 = document.getElementById('button2');
     const helpText = document.getElementById('helpText');
     const helpModal = document.getElementById('helpModal');
+    const closeHelpModal = document.getElementById('closeHelpModal');
 
     // Help modal toggle
     helpText.addEventListener('click', () => {
       helpModal.classList.add('active');
+      closeHelpModal.focus();
     });
 
-    helpModal.addEventListener('click', () => {
+    closeHelpModal.addEventListener('click', () => {
       helpModal.classList.remove('active');
+      helpText.focus();
+    });
+
+    helpModal.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        helpModal.classList.remove('active');
+        helpText.focus();
+      }
     });
 
     // Logo cycle animation
@@ -649,7 +708,7 @@
           socket.send(JSON.stringify({ type: 'ping', clientId }));
           console.log('Sent keepalive ping');
         }
-      }, 20000); // Send every 20 seconds
+      }, 20000);
     }
 
     function stopKeepAlive() {
@@ -666,8 +725,8 @@
     socket.onopen = () => {
       console.log('WebSocket opened');
       socket.send(JSON.stringify({ type: 'connect', clientId }));
-      startKeepAlive(); // Start keepalive on connection
-      reconnectAttempts = 0; // Reset reconnection attempts on successful connection
+      startKeepAlive();
+      reconnectAttempts = 0;
       const urlParams = new URLSearchParams(window.location.search);
       const codeParam = urlParams.get('code');
       if (codeParam && validateCode(codeParam)) {
@@ -696,7 +755,7 @@
       console.error('WebSocket closed, attempting reconnect');
       stopKeepAlive();
       showStatusMessage('Lost connection, reconnecting...');
-      const delay = Math.min(30000, 5000 * Math.pow(2, reconnectAttempts)); // Exponential backoff: 5s, 10s, 20s, max 30s
+      const delay = Math.min(30000, 5000 * Math.pow(2, reconnectAttempts));
       reconnectAttempts++;
       setTimeout(() => {
         const newSocket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
@@ -822,6 +881,7 @@
           input.value = n;
           input.className = 'mr-2';
           input.checked = n === maxClients;
+          input.setAttribute('aria-label', `Set maximum users to ${n}`);
           input.addEventListener('change', () => {
             if (isInitiator) {
               setMaxClients(parseInt(input.value));
@@ -1008,6 +1068,7 @@
         clearTimeout(connectionTimeouts.get(targetId));
         retryCounts.delete(targetId);
         updateMaxClientsUI();
+        document.getElementById('messageInput').focus();
       };
 
       dataChannel.onmessage = (event) => {
@@ -1054,21 +1115,34 @@
           img.style.maxWidth = '100%';
           img.style.borderRadius = '0.5rem';
           img.style.cursor = 'pointer';
+          img.setAttribute('alt', 'Received image');
           img.addEventListener('click', () => {
             let modal = document.getElementById('imageModal');
             if (!modal) {
               modal = document.createElement('div');
               modal.id = 'imageModal';
               modal.className = 'modal';
+              modal.setAttribute('role', 'dialog');
+              modal.setAttribute('aria-label', 'Image viewer');
+              modal.setAttribute('tabindex', '-1');
               document.body.appendChild(modal);
             }
             modal.innerHTML = '';
             const modalImg = document.createElement('img');
             modalImg.src = data.data;
+            modalImg.setAttribute('alt', 'Enlarged image');
             modal.appendChild(modalImg);
             modal.classList.add('active');
+            modal.focus();
             modal.addEventListener('click', () => {
               modal.classList.remove('active');
+              document.getElementById('messageInput').focus();
+            });
+            modal.addEventListener('keydown', (event) => {
+              if (event.key === 'Escape') {
+                modal.classList.remove('active');
+                document.getElementById('messageInput').focus();
+              }
             });
           });
           messageDiv.appendChild(img);
@@ -1096,6 +1170,7 @@
         showStatusMessage('Peer disconnected.');
         cleanupPeerConnection(targetId);
         messageRateLimits.delete(targetId);
+        imageRateLimits.delete(targetId);
         if (dataChannels.size === 0) {
           inputContainer.classList.add('hidden');
           messages.classList.add('waiting');
@@ -1205,6 +1280,7 @@
       connectionTimeouts.delete(targetId);
       retryCounts.delete(targetId);
       messageRateLimits.delete(targetId);
+      imageRateLimits.delete(targetId);
       isConnected = dataChannels.size > 0;
       updateMaxClientsUI();
       if (!isConnected) {
@@ -1234,8 +1310,10 @@
         messageInput.value = '';
         messageInput.style.height = '2.5rem';
         processedMessageIds.add(messageId);
+        messageInput.focus();
       } else {
         showStatusMessage('Error: No connections or username not set.');
+        document.getElementById('messageInput').focus();
       }
     }
 
@@ -1249,6 +1327,7 @@
       copyCodeButton.classList.add('hidden');
       statusElement.textContent = 'Enter a username to start a chat';
       document.getElementById('usernameInput').value = username || '';
+      document.getElementById('usernameInput').focus();
     };
 
     document.getElementById('connectToggleButton').onclick = () => {
@@ -1261,18 +1340,20 @@
       copyCodeButton.classList.add('hidden');
       statusElement.textContent = 'Enter a username and code to join a chat';
       document.getElementById('usernameConnectInput').value = username || '';
+      document.getElementById('usernameConnectInput').focus();
     };
 
     document.getElementById('joinWithUsernameButton').onclick = () => {
       const usernameInput = document.getElementById('usernameInput').value.trim();
       if (!validateUsername(usernameInput)) {
         showStatusMessage('Invalid username: 1-16 alphanumeric characters.');
+        document.getElementById('usernameInput').focus();
         return;
       }
       username = usernameInput;
       localStorage.setItem('username', username);
       console.log('Username set in localStorage:', username);
-      code = generateCode(); // Generate new code for new chat
+      code = generateCode();
       codeDisplayElement.textContent = `Your code: ${code}`;
       codeDisplayElement.classList.remove('hidden');
       copyCodeButton.classList.remove('hidden');
@@ -1291,6 +1372,7 @@
           socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
         }, { once: true });
       }
+      document.getElementById('messageInput').focus();
     };
 
     document.getElementById('connectButton').onclick = () => {
@@ -1298,10 +1380,12 @@
       const inputCode = document.getElementById('codeInput').value.trim();
       if (!validateUsername(usernameInput)) {
         showStatusMessage('Invalid username: 1-16 alphanumeric characters.');
+        document.getElementById('usernameConnectInput').focus();
         return;
       }
       if (!validateCode(inputCode)) {
         showStatusMessage('Invalid code format: xxxx-xxxx-xxxx-xxxx.');
+        document.getElementById('codeInput').focus();
         return;
       }
       username = usernameInput;
@@ -1326,6 +1410,7 @@
           socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
         }, { once: true });
       }
+      document.getElementById('messageInput').focus();
     };
 
     document.getElementById('backButton').onclick = () => {
@@ -1339,6 +1424,7 @@
       statusElement.textContent = 'Start a new chat or connect to an existing one';
       messages.classList.remove('waiting');
       stopKeepAlive();
+      document.getElementById('startChatToggleButton').focus();
     };
 
     document.getElementById('backButtonConnect').onclick = () => {
@@ -1352,6 +1438,7 @@
       statusElement.textContent = 'Start a new chat or connect to an existing one';
       messages.classList.remove('waiting');
       stopKeepAlive();
+      document.getElementById('connectToggleButton').focus();
     };
 
     document.getElementById('sendButton').onclick = () => {
@@ -1376,7 +1463,8 @@
 
     const messageInput = document.getElementById('messageInput');
     messageInput.addEventListener('input', () => {
-      // Removed dynamic height adjustment
+      messageInput.style.height = '2.5rem';
+      messageInput.style.height = `${Math.min(messageInput.scrollHeight, 12.5 * 16)}px`;
     });
 
     messageInput.addEventListener('keydown', (event) => {
@@ -1404,6 +1492,7 @@
       processedAnswers.clear();
       usernames.clear();
       messageRateLimits.clear();
+      imageRateLimits.clear();
       isConnected = false;
       isInitiator = false;
       maxClients = 2;
@@ -1430,6 +1519,7 @@
       codeSentToRandom = false;
       button2.disabled = false;
       stopKeepAlive();
+      document.getElementById('startChatToggleButton').focus();
     };
 
     document.getElementById('usernameInput').addEventListener('keydown', (event) => {
@@ -1464,6 +1554,7 @@
         console.error('Failed to copy text: ', err);
         showStatusMessage('Failed to copy code.');
       });
+      copyCodeButton.focus();
     };
 
     document.getElementById('button1').onclick = () => {
@@ -1475,12 +1566,14 @@
       } else {
         showStatusMessage('Cannot send: Not initiator, no code, or room is full.');
       }
+      document.getElementById('button1').focus();
     };
 
     document.getElementById('button2').onclick = () => {
       if (!button2.disabled) {
         window.location.href = 'https://anonomoose.com/random.html';
       }
+      document.getElementById('button2').focus();
     };
 
     function autoConnect(codeParam) {
@@ -1511,16 +1604,19 @@
               socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
             }, { once: true });
           }
+          document.getElementById('messageInput').focus();
         } else {
           console.log('No valid username, prompting for username');
           usernameContainer.classList.remove('hidden');
           chatContainer.classList.add('hidden');
           statusElement.textContent = 'Please enter a username to join the chat';
           document.getElementById('usernameInput').value = username || '';
+          document.getElementById('usernameInput').focus();
           document.getElementById('joinWithUsernameButton').onclick = () => {
             const usernameInput = document.getElementById('usernameInput').value.trim();
             if (!validateUsername(usernameInput)) {
               showStatusMessage('Invalid username: 1-16 alphanumeric characters.');
+              document.getElementById('usernameInput').focus();
               return;
             }
             username = usernameInput;
@@ -1543,6 +1639,7 @@
                 socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
               }, { once: true });
             }
+            document.getElementById('messageInput').focus();
           };
         }
       } else {
@@ -1551,6 +1648,7 @@
         usernameContainer.classList.add('hidden');
         chatContainer.classList.add('hidden');
         showStatusMessage('Invalid code format. Please enter a valid code.');
+        document.getElementById('connectToggleButton').focus();
       }
     }
   </script>
