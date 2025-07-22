@@ -379,32 +379,34 @@
       }
     }
     /* Desktop-specific styles for maxClientsRadios */
-    #maxClientsRadios {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-      align-items: center;
-    }
-    #maxClientsRadios button {
-      background-color: #3b82f6;
-      color: white;
-      border-radius: 0.5rem;
-      padding: 0.5rem;
-      font-size: 1rem;
-      width: 60px; /* Fixed width for consistency */
-      text-align: center;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      transition: all 0.2s ease;
-    }
-    #maxClientsRadios button.active {
-      background-color: #10b981;
-    }
-    #maxClientsRadios button:hover:not(:disabled) {
-      background-color: #1d4ed8;
-    }
-    #maxClientsRadios button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
+    @media (min-width: 641px) {
+      #maxClientsRadios {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        align-items: center;
+      }
+      #maxClientsRadios button {
+        background-color: #3b82f6;
+        color: white;
+        border-radius: 0.5rem;
+        padding: 0.5rem;
+        font-size: 1rem;
+        width: 60px;
+        text-align: center;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: all 0.2s ease;
+      }
+      #maxClientsRadios button.active {
+        background-color: #10b981;
+      }
+      #maxClientsRadios button:hover:not(:disabled) {
+        background-color: #1d4ed8;
+      }
+      #maxClientsRadios button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
     }
   </style>
 </head>
