@@ -501,7 +501,7 @@
     function sanitizeMessage(content) {
       const div = document.createElement('div');
       div.textContent = content;
-      return div.innerHTML.replace(/</g, '<').replace(/>/g, '>');
+      return div.innerHTML.replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
     function generateCode() {
@@ -1792,151 +1792,164 @@
 
     document.getElementById('copyCodeButton').onclick = () => {
       console.log('Copy code button clicked');
-      navigator.clipboard.writeText(code).then(() => {
-        showStatusMessage('Code copied to clipboard!');
-      }).catch(() => {
-        showStatusMessage('Failed to copy code.');
-      });
-    };
+      navigator.clipboard.writeText(code
+                                    document.getElementById('copyCodeButton').onclick = () => {
+  console.log('Copy code button clicked');
+  navigator.clipboard.writeText(code).then(() => {
+    showStatusMessage('Code copied to clipboard!');
+  }).catch(err => {
+    console.error('Failed to copy code:', err);
+    showStatusMessage('Failed to copy code.');
+  });
+};
 
-    document.getElementById('button1').onclick = () => {
-      console.log('Send code button clicked');
-      if (socket.readyState === WebSocket.OPEN && !codeSentToRandom) {
-        socket.send(JSON.stringify({ type: 'send-code', code,
-                                            codeSentToRandom = true;
-        button2.disabled = true;
-        showStatusMessage('Code sent to random chat board!');
-      } else if (codeSentToRandom) {
-        showStatusMessage('Code already sent to random chat board.');
-      } else {
-        showStatusMessage('Error: Cannot send code, not connected.');
-      }
-    };
+// Send code to random chat board
+document.getElementById('button1').onclick = () => {
+  console.log('Send Code button clicked');
+  if (socket.readyState === WebSocket.OPEN && !codeSentToRandom) {
+    socket.send(JSON.stringify({ type: 'send-to-random', code, clientId }));
+    codeSentToRandom = true;
+    showStatusMessage('Code sent to random chat board!');
+    document.getElementById('button1').disabled = true;
+  } else {
+    showStatusMessage('Cannot send code: Already sent or not connected.');
+  }
+};
 
-    document.getElementById('button2').onclick = () => {
-      console.log('Random chat button clicked');
-      if (socket.readyState === WebSocket.OPEN && !codeSentToRandom) {
-        socket.send(JSON.stringify({ type: 'get-random-code', clientId }));
-        showStatusMessage('Joining a random chat...');
-      } else if (codeSentToRandom) {
-        showStatusMessage('Already sent code to random chat board.');
-      } else {
-        showStatusMessage('Error: Cannot join random chat, not connected.');
-      }
-    };
+// Join a random chat
+document.getElementById('button2').onclick = () => {
+  console.log('Random Chat button clicked');
+  if (socket.readyState === WebSocket.OPEN) {
+    button2.disabled = true;
+    socket.send(JSON.stringify({ type: 'get-random-code', clientId, username }));
+    showStatusMessage('Searching for a random chat...');
+  } else {
+    showStatusMessage('Error: Not connected to server.');
+  }
+};
 
-    document.getElementById('sendButton').onclick = () => {
-      console.log('Send button clicked');
-      const messageInput = document.getElementById('messageInput');
-      const content = messageInput.value.trim();
-      if (content) {
-        sendMessage(content);
-      } else {
-        showStatusMessage('Please enter a message.');
-        messageInput.focus();
-      }
-    };
+// Send message or image
+document.getElementById('sendButton').onclick = () => {
+  console.log('Send button clicked');
+  const messageInput = document.getElementById('messageInput');
+  const content = messageInput.value.trim();
+  if (content) {
+    sendMessage(content);
+  } else {
+    showStatusMessage('Please enter a message.');
+    messageInput.focus();
+  }
+};
 
-    document.getElementById('messageInput').addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' && !event.shiftKey) {
-        event.preventDefault();
-        const content = event.target.value.trim();
-        if (content) {
-          sendMessage(content);
-        } else {
-          showStatusMessage('Please enter a message.');
-          event.target.focus();
-        }
-      }
-    });
+// Handle image upload
+document.getElementById('imageButton').onclick = () => {
+  console.log('Image button clicked');
+  document.getElementById('imageInput').click();
+};
 
-    document.getElementById('messageInput').addEventListener('input', (event) => {
-      const textarea = event.target;
-      textarea.style.height = '2.5rem';
-      textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
-    });
+document.getElementById('imageInput').onchange = (event) => {
+  console.log('Image selected');
+  const file = event.target.files[0];
+  if (file) {
+    sendImage(file);
+    event.target.value = ''; // Reset input
+  }
+};
 
-    document.getElementById('imageButton').onclick = () => {
-      console.log('Image button clicked');
-      document.getElementById('imageInput').click();
-    };
+// Handle message input and auto-resize
+document.getElementById('messageInput').addEventListener('input', (event) => {
+  const textarea = event.target;
+  textarea.style.height = '2.5rem';
+  textarea.style.height = `${Math.min(textarea.scrollHeight, 12.5 * 16)}px`; // Max height: 12.5rem
+});
 
-    document.getElementById('imageInput').addEventListener('change', (event) => {
-      console.log('Image input changed');
-      const file = event.target.files[0];
-      if (file) {
-        sendImage(file);
-        event.target.value = '';
-      }
-    });
-
-    // Auto-connect from URL
-    function autoConnect(codeParam) {
-      console.log('autoConnect triggered with code:', codeParam);
-      initialContainer.classList.add('hidden');
-      usernameContainer.classList.remove('hidden');
-      connectContainer.classList.add('hidden');
-      chatContainer.classList.add('hidden');
-      codeDisplayElement.classList.add('hidden');
-      copyCodeButton.classList.add('hidden');
-      statusElement.textContent = 'Enter a username to join the chat';
-      document.getElementById('usernameInput').value = username || '';
-      document.getElementById('usernameInput').focus();
-      document.getElementById('joinWithUsernameButton').onclick = () => {
-        const usernameInput = document.getElementById('usernameInput').value.trim();
-        if (!validateUsername(usernameInput)) {
-          showStatusMessage('Invalid username: 1-16 alphanumeric characters.');
-          document.getElementById('usernameInput').focus();
-          return;
-        }
-        username = usernameInput;
-        localStorage.setItem('username', username);
-        console.log('Username set in localStorage:', username);
-        code = codeParam;
-        codeDisplayElement.textContent = `Using code: ${code}`;
-        codeDisplayElement.classList.remove('hidden');
-        copyCodeButton.classList.remove('hidden');
-        usernameContainer.classList.add('hidden');
-        connectContainer.classList.add('hidden');
-        initialContainer.classList.add('hidden');
-        chatContainer.classList.remove('hidden');
-        messages.classList.add('waiting');
-        statusElement.textContent = 'Waiting for connection...';
-        if (socket.readyState === WebSocket.OPEN) {
-          console.log('Sending join message for auto-connect');
-          socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
-        } else {
-          socket.addEventListener('open', () => {
-            console.log('WebSocket opened, sending join for auto-connect');
-            socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
-          }, { once: true });
-        }
-        if (relaySocket && relaySocket.readyState === WebSocket.OPEN) {
-          console.log('Sending join to relay server for auto-connect');
-          relaySocket.send(JSON.stringify({ type: 'join', code, clientId, username }));
-        } else {
-          initRelaySocket();
-        }
-        document.getElementById('messageInput').focus();
-      };
+// Send message on Enter, new line on Shift+Enter
+document.getElementById('messageInput').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault();
+    const content = event.target.value.trim();
+    if (content) {
+      sendMessage(content);
+    } else {
+      showStatusMessage('Please enter a message.');
+      event.target.focus();
     }
+  }
+});
 
-    // Handle page unload
-    window.addEventListener('beforeunload', () => {
-      console.log('Window unloading, sending leave message');
-      if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: 'leave', code, clientId }));
-      }
-      if (relaySocket && relaySocket.readyState === WebSocket.OPEN) {
-        relaySocket.send(JSON.stringify({ type: 'leave', code, clientId }));
-      }
-      peerConnections.forEach((pc) => pc.close());
-      dataChannels.forEach((dc) => dc.close());
-      stopKeepAlive();
-      stopRelayKeepAlive();
-    });
+// Auto-connect from URL parameter
+function autoConnect(codeFromUrl) {
+  console.log('Attempting auto-connect with code:', codeFromUrl);
+  const usernameInput = document.getElementById('usernameConnectInput').value.trim() || username;
+  if (!validateUsername(usernameInput)) {
+    showStatusMessage('Invalid username: 1-16 alphanumeric characters.');
+    document.getElementById('usernameConnectInput').focus();
+    resetToInitialState();
+    return;
+  }
+  if (!validateCode(codeFromUrl)) {
+    showStatusMessage('Invalid code format in URL.');
+    resetToInitialState();
+    return;
+  }
+  username = usernameInput;
+  localStorage.setItem('username', username);
+  code = codeFromUrl;
+  codeDisplayElement.textContent = `Using code: ${code}`;
+  codeDisplayElement.classList.remove('hidden');
+  copyCodeButton.classList.remove('hidden');
+  initialContainer.classList.add('hidden');
+  usernameContainer.classList.add('hidden');
+  connectContainer.classList.add('hidden');
+  chatContainer.classList.remove('hidden');
+  messages.classList.add('waiting');
+  statusElement.textContent = 'Waiting for connection...';
+  if (socket.readyState === WebSocket.OPEN) {
+    console.log('Sending join message for URL code');
+    socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+  } else {
+    socket.addEventListener('open', () => {
+      console.log('WebSocket opened, sending join for URL code');
+      socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+    }, { once: true });
+  }
+  if (relaySocket && relaySocket.readyState === WebSocket.OPEN) {
+    console.log('Sending join to relay server for URL code');
+    relaySocket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+  } else {
+    initRelaySocket();
+  }
+  document.getElementById('messageInput').focus();
+}
 
-  </script>
+// Ensure WebSocket is initialized and URL params are processed
+if (socket.readyState === WebSocket.CONNECTING) {
+  socket.addEventListener('open', () => {
+    console.log('WebSocket connecting, awaiting open for initial setup');
+    const urlParams = new URLSearchParams(window.location.search);
+    const codeParam = urlParams.get('code');
+    if (codeParam && validateCode(codeParam)) {
+      autoConnect(codeParam);
+    }
+  }, { once: true });
+}
+
+// Handle page unload to clean up connections
+window.addEventListener('beforeunload', () => {
+  console.log('Page unloading, cleaning up connections');
+  if (socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({ type: 'leave', code, clientId }));
+    socket.close();
+  }
+  if (relaySocket && relaySocket.readyState === WebSocket.OPEN) {
+    relaySocket.send(JSON.stringify({ type: 'leave', code, clientId }));
+    relaySocket.close();
+  }
+  peerConnections.forEach((pc) => pc.close());
+  dataChannels.forEach((dc) => dc.close());
+  stopKeepAlive();
+  stopRelayKeepAlive();
+});
+</script>
 </body>
 </html>
-    
