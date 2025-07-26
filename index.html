@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -91,7 +90,7 @@
       }
       #maxClientsContainer {
         position: absolute;
-        bottom: -335px;
+        bottom: -300px;
         left: 50%;
         transform: translateX(-50%);
         width: 100%;
@@ -409,6 +408,11 @@
         cursor: not-allowed;
       }
     }
+    .timestamp {
+      font-size: 0.75rem;
+      opacity: 0.8;
+      margin-bottom: 0.25rem;
+    }
   </style>
 </head>
 <body class="bg-black min-h-screen flex items-center justify-center">
@@ -582,7 +586,8 @@
       URL.revokeObjectURL(img.src);
 
       const messageId = generateMessageId();
-      const message = { messageId, type: 'image', data: base64, username };
+      const timestamp = Date.now();
+      const message = { messageId, type: 'image', data: base64, username, timestamp };
       const jsonString = JSON.stringify(message);
       dataChannels.forEach((dataChannel, targetId) => {
         if (dataChannel.readyState === 'open') {
@@ -593,7 +598,11 @@
       const messages = document.getElementById('messages');
       const messageDiv = document.createElement('div');
       messageDiv.className = 'message-bubble self';
-      messageDiv.textContent = `${username}: `;
+      const timeSpan = document.createElement('span');
+      timeSpan.className = 'timestamp';
+      timeSpan.textContent = new Date(timestamp).toLocaleTimeString();
+      messageDiv.appendChild(timeSpan);
+      messageDiv.appendChild(document.createTextNode(`${username}: `));
       const imgElement = document.createElement('img');
       imgElement.src = base64;
       imgElement.style.maxWidth = '100%';
@@ -1109,7 +1118,7 @@
           showStatusMessage('Invalid message received.');
           return;
         }
-        if (!data.messageId || !data.username || (!data.content && data.type !== 'image') || (data.type === 'image' && !data.data)) {
+        if (!data.messageId || !data.username || (!data.content && data.type !== 'image') || (data.type === 'image' && !data.data) || !data.timestamp) {
           console.log(`Invalid message format from ${targetId}:`, data);
           return;
         }
@@ -1123,8 +1132,12 @@
         const isSelf = senderUsername === username;
         const messageDiv = document.createElement('div');
         messageDiv.className = `message-bubble ${isSelf ? 'self' : 'other'}`;
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'timestamp';
+        timeSpan.textContent = new Date(data.timestamp).toLocaleTimeString();
+        messageDiv.appendChild(timeSpan);
         if (data.type === 'image') {
-          messageDiv.textContent = `${senderUsername}: `;
+          messageDiv.appendChild(document.createTextNode(`${senderUsername}: `));
           const img = document.createElement('img');
           img.src = data.data;
           img.style.maxWidth = '100%';
@@ -1162,7 +1175,7 @@
           });
           messageDiv.appendChild(img);
         } else {
-          messageDiv.textContent = `${senderUsername}: ${sanitizeMessage(data.content)}`;
+          messageDiv.appendChild(document.createTextNode(`${senderUsername}: ${sanitizeMessage(data.content)}`));
         }
         messages.prepend(messageDiv);
         messages.scrollTop = messages.scrollHeight;
@@ -1308,7 +1321,8 @@
       if (content && dataChannels.size > 0 && username) {
         const messageId = generateMessageId();
         const sanitizedContent = sanitizeMessage(content);
-        const message = { messageId, content: sanitizedContent, username };
+        const timestamp = Date.now();
+        const message = { messageId, content: sanitizedContent, username, timestamp };
         const jsonString = JSON.stringify(message);
         dataChannels.forEach((dataChannel, targetId) => {
           if (dataChannel.readyState === 'open') {
@@ -1318,7 +1332,11 @@
         const messages = document.getElementById('messages');
         const messageDiv = document.createElement('div');
         messageDiv.className = 'message-bubble self';
-        messageDiv.textContent = `${username}: ${sanitizedContent}`;
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'timestamp';
+        timeSpan.textContent = new Date(timestamp).toLocaleTimeString();
+        messageDiv.appendChild(timeSpan);
+        messageDiv.appendChild(document.createTextNode(`${username}: ${sanitizedContent}`));
         messages.prepend(messageDiv);
         messages.scrollTop = messages.scrollHeight;
         const messageInput = document.getElementById('messageInput');
