@@ -6,8 +6,101 @@
   <title>Anonomoose Chat</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
   <link rel="icon" type="image/png" href="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f60e.png"/>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
   <style>
+    :root {
+      --bg-color: #fff;
+      --text-color: #000;
+      --bg-messages: #fce7f3;
+      --bg-self: #3b82f6;
+      --bg-other: #10b981;
+      --text-msg: white;
+      --bg-input: #3b82f6;
+      --bg-button1: #9b59b6;
+      --bg-button2: #f1c40f;
+      --bg-copy: #10b981;
+      --bg-status: #f5f5f5;
+      --text-status: #666;
+      --bg-help: white;
+      --text-help: #000;
+      --bg-max: #000;
+      --text-max: white;
+    }
+    .dark {
+      --bg-color: #111;
+      --text-color: #fff;
+      --bg-messages: #333;
+      --bg-self: #1e40af;
+      --bg-other: #065f46;
+      --text-msg: #ddd;
+      --bg-input: #1e40af;
+      --bg-button1: #6d28d9;
+      --bg-button2: #a16207;
+      --bg-copy: #065f46;
+      --bg-status: #222;
+      --text-status: #aaa;
+      --bg-help: #222;
+      --text-help: #fff;
+      --bg-max: #222;
+      --text-max: #ddd;
+    }
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      min-height: 100vh;
+      padding-top: 140px;
+      padding-bottom: 140px;
+    }
+    .bg-white {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+    }
+    #status {
+      color: var(--text-status);
+    }
+    #messages {
+      background-color: var(--bg-messages);
+    }
+    .message-bubble.self {
+      background-color: var(--bg-self);
+      color: var(--text-msg);
+    }
+    .message-bubble.other {
+      background-color: var(--bg-other);
+      color: var(--text-msg);
+    }
+    #messageInput {
+      background-color: var(--bg-input);
+      color: var(--text-msg);
+    }
+    #button1 {
+      background-color: var(--bg-button1);
+      color: var(--text-msg);
+    }
+    #button2 {
+      background-color: var(--bg-button2);
+      color: var(--text-msg);
+    }
+    #copyCodeButton {
+      background-color: var(--bg-copy);
+      color: var(--text-msg);
+    }
+    .help-modal-content {
+      background-color: var(--bg-help);
+      color: var(--text-help);
+    }
+    #maxClientsContainer {
+      background-color: var(--bg-max);
+    }
+    #maxClientsContainer span {
+      color: var(--text-max);
+    }
+    #toggleDarkMode {
+      background-color: var(--bg-copy);
+      color: var(--text-msg);
+    }
+    #toggleDarkMode:hover {
+      background-color: #059669; /* Adjust for dark if needed */
+    }
     * {
       cursor: default;
       user-select: none;
@@ -22,11 +115,6 @@
     #codeDisplay {
       user-select: text;
     }
-    body {
-      min-height: 100vh;
-      padding-top: 140px;
-      padding-bottom: 140px;
-    }
     #messages {
       display: flex;
       flex-direction: column-reverse;
@@ -38,7 +126,6 @@
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       position: relative;
       height: 296px;
-      background-color: #fce7f3;
       background-image: none;
       background-size: 100% 100%;
       background-position: center;
@@ -63,9 +150,6 @@
     }
     .corner-logo.wink {
       background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/corner%20logoWink.png?sanitize=true');
-    }
-    .bg-white {
-      z-index: 10;
     }
     @media (min-width: 641px) and (max-width: 1024px) {
       .corner-logo {
@@ -98,7 +182,6 @@
         max-width: 360px;
         margin: 0;
         padding: 0.75rem;
-        background-color: #000000;
         border-radius: 0.5rem;
         z-index: 1000;
       }
@@ -109,8 +192,6 @@
         justify-items: center;
       }
       #maxClientsRadios button {
-        background-color: #3b82f6; /* Blue like messageInput */
-        color: white;
         border-radius: 0.5rem;
         padding: 0.4rem;
         font-size: 0.9rem;
@@ -148,20 +229,12 @@
       margin-bottom: 0.5rem;
     }
     .message-bubble.self {
-      background-color: #3b82f6;
-      color: white;
       margin-left: auto;
       border-bottom-right-radius: 0.25rem;
     }
     .message-bubble.other {
-      background-color: #10b981;
-      color: white;
       margin-right: auto;
       border-bottom-left-radius: 0.25rem;
-    }
-    .timestamp {
-      font-size: 0.5rem;
-      opacity: 0.8;
     }
     .modal {
       display: none;
@@ -196,7 +269,6 @@
       justify-content: center;
     }
     .help-modal-content {
-      background-color: white;
       padding: 1.5rem;
       border-radius: 0.5rem;
       max-width: 90%;
@@ -239,8 +311,6 @@
       line-height: 1.5rem;
       width: 110%;
       max-width: 110%;
-      background-color: #3b82f6;
-      color: white;
       border-radius: 1rem;
       padding: 0.5rem 1rem;
       border: none;
@@ -252,8 +322,6 @@
     #imageButton {
       width: 2.5rem;
       height: 2.5rem;
-      background-color: #10b981;
-      color: white;
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -283,8 +351,6 @@
     #sendButton {
       width: 2.5rem;
       height: 2.5rem;
-      background-color: #2563eb;
-      color: white;
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -312,36 +378,20 @@
       flex: 1;
       margin: 0 0.25rem;
     }
-    #button1 {
-      background-color: #9b59b6;
-      color: white;
-      margin-left: -3.25mm;
-    }
     #button1:hover {
       background-color: #8e44ad;
-    }
-    #button2 {
-      background-color: #f1c40f;
-      color: white;
     }
     #button2:hover {
       background-color: #d4a017;
     }
     #button2:disabled {
-      background-color: #d4a017;
       opacity: 0.6;
       cursor: not-allowed;
-    }
-    #copyCodeButton {
-      background-color: #10b981;
-      color: white;
-      margin-right: -3.25mm;
     }
     #copyCodeButton:hover {
       background-color: #059669;
     }
     #helpText {
-      color: #3b82f6;
       cursor: pointer;
       transition: color 0.2s ease;
     }
@@ -392,8 +442,6 @@
         align-items: center;
       }
       #maxClientsRadios button {
-        background-color: #3b82f6;
-        color: white;
         border-radius: 0.5rem;
         padding: 0.5rem;
         font-size: 1rem;
@@ -462,6 +510,7 @@
       </div>
       <div class="text-center mt-4">
         <button id="helpText" class="text-blue-500 hover:underline" aria-label="View help information">Help</button>
+        <button id="toggleDarkMode" class="ml-2 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition-colors" aria-label="Toggle dark mode">Toggle Dark Mode</button>
       </div>
     </div>
     <div id="maxClientsContainer" class="hidden flex flex-col justify-center bg-black p-4 rounded-lg shadow-lg">
@@ -479,7 +528,6 @@
       <p><strong>Copy Code:</strong> Copies the code so you can send to people in text or social chats</p>
     </div>
   </div>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
