@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anonomoose Admin Dashboard</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+    <link rel="icon" type="image/png" href="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f60e.png"/>
+    <style>
+        body {
+            background-color: #000;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+            padding-top: 140px;
+        }
+        .container {
+            text-align: center;
+            padding: 20px;
+            background-color: #fff;
+            color: #000;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            max-width: 600px;
+            width: 100%;
+        }
+        #statsList {
+            list-style: none;
+            padding: 0;
+            text-align: left;
+        }
+        .stat-item {
+            padding: 10px;
+            margin: 5px 0;
+            background-color: #edf2f7;
+            color: #2d3748;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">Anonomoose Admin Dashboard</h1>
+        <div id="status" class="text-center mb-4 text-gray-600">Loading stats...</div>
+        <ul id="statsList"></ul>
+        <button id="refreshButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full mb-4 hover:bg-blue-600 transition-colors" aria-label="Refresh stats">Refresh</button>
+        <div class="text-center mt-4">
+            <a href="https://anonomoose.com/index.html" class="text-blue-500 hover:underline">Back to Chat</a>
+        </div>
+    </div>
+    <script>
+        const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
+        const statsList = document.getElementById('statsList');
+        const statusElement = document.getElementById('status');
+        const refreshButton = document.getElementById('refreshButton');
+        const adminSecret = Pig12Bannapets34Shitbits@; // Replace with a secure secret key
+
+        function fetchStats() {
+            if (socket.readyState === WebSocket.OPEN) {
+                statusElement.textContent = 'Loading stats...';
+                socket.send(JSON.stringify({ type: 'get-stats', secret: adminSecret }));
+            } else {
+                statusElement.textContent = 'Connecting...';
+            }
+        }
+
+        socket.onopen = () => {
+            console.log('Admin dashboard WebSocket opened');
+            fetchStats();
+        };
+
+        socket.onmessage = (event) => {
+            console.log('Received message:', event.data);
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'stats') {
+                    statsList.innerHTML = '';
+                    statusElement.textContent = 'Stats loaded.';
+                    const stats = [
+                        { label: 'Daily Unique Users', value: data.dailyUsers },
+                        { label: 'Daily WebRTC Connections', value: data.dailyConnections },
+                        { label: 'All-Time Unique Users', value: data.allTimeUsers },
+                        { label: 'Active Rooms', value: data.activeRooms },
+                        { label: 'Total Clients Online', value: data.totalClients }
+                    ];
+                    stats.forEach(stat => {
+                        const li = document.createElement('li');
+                        li.className = 'stat-item';
+                        li.textContent = `${stat.label}: ${stat.value}`;
+                        statsList.appendChild(li);
+                    });
+                } else if (data.type === 'error') {
+                    statusElement.textContent = data.message;
+                }
+            } catch (error) {
+                console.error('Error parsing message:', error);
+                statusElement.textContent = 'Error loading stats. Please try again.';
+            }
+        };
+
+        socket.onerror = (error) => {
+            console.error('WebSocket error:', error);
+            statusElement.textContent = 'Connection error. Please try again.';
+        };
+
+        socket.onclose = () => {
+            console.log('WebSocket closed');
+            statusElement.textContent = 'Disconnected. Reconnecting...';
+            setTimeout(() => {
+                window.location.reload();
+            }, 5000);
+        };
+
+        refreshButton.onclick = () => {
+            fetchStats();
+        };
+    </script>
+</body>
+</html>
