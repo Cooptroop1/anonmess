@@ -43,6 +43,12 @@
         .code-item:hover {
             background-color: #059669;
         }
+        #noChatsMessage {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #e53e3e;
+            margin: 1rem 0;
+        }
     </style>
 </head>
 <body>
@@ -50,6 +56,7 @@
         <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">Pick a Random Chat</h1>
         <div id="status" class="text-center mb-4 text-gray-600">Loading available chats...</div>
         <ul id="codeList"></ul>
+        <button id="refreshButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full mb-4 hover:bg-blue-600 transition-colors" aria-label="Refresh available chats">Refresh</button>
         <div class="text-center mt-4">
             <a href="https://anonomoose.com/index.html" class="text-blue-500 hover:underline">Back to Chat</a>
         </div>
@@ -58,11 +65,20 @@
         const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
         const codeList = document.getElementById('codeList');
         const statusElement = document.getElementById('status');
+        const refreshButton = document.getElementById('refreshButton');
+
+        function fetchRandomCodes() {
+            if (socket.readyState === WebSocket.OPEN) {
+                statusElement.textContent = 'Loading available chats...';
+                socket.send(JSON.stringify({ type: 'get-random-codes' }));
+            } else {
+                statusElement.textContent = 'Connecting...';
+            }
+        }
 
         socket.onopen = () => {
             console.log('Random page WebSocket opened');
-            statusElement.textContent = 'Loading available chats...';
-            socket.send(JSON.stringify({ type: 'get-random-codes' }));
+            fetchRandomCodes();
         };
 
         socket.onmessage = (event) => {
@@ -72,7 +88,11 @@
                 if (data.type === 'random-codes') {
                     codeList.innerHTML = '';
                     if (data.codes.length === 0) {
-                        statusElement.textContent = 'No available chats. Try again later.';
+                        statusElement.textContent = 'No available chats.';
+                        const noChatsMsg = document.createElement('p');
+                        noChatsMsg.id = 'noChatsMessage';
+                        noChatsMsg.textContent = 'Try again later or create your own!';
+                        codeList.appendChild(noChatsMsg);
                     } else {
                         statusElement.textContent = 'Select a chat to join:';
                         data.codes.forEach(code => {
@@ -105,6 +125,10 @@
             setTimeout(() => {
                 window.location.reload();
             }, 5000);
+        };
+
+        refreshButton.onclick = () => {
+            fetchRandomCodes();
         };
     </script>
 </body>
