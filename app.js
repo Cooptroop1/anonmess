@@ -16,9 +16,11 @@ function showStatusMessage(message, duration = 3000) {
   }, duration);
 }
 
-// Sanitize message content to prevent XSS using DOMPurify
+// Sanitize message content to prevent XSS
 function sanitizeMessage(content) {
-  return DOMPurify.sanitize(content, { ALLOWED_TAGS: [] }); // No HTML tags allowed
+  const div = document.createElement('div');
+  div.textContent = content;
+  return div.innerHTML.replace(/</g, '<').replace(/>/g, '>');
 }
 
 function generateCode() {
@@ -98,16 +100,8 @@ async function sendImage(file) {
   canvas.width = width;
   canvas.height = height;
   ctx.drawImage(img, 0, 0, width, height);
-  let base64 = canvas.toDataURL('image/jpeg', quality);
+  const base64 = canvas.toDataURL('image/jpeg', quality);
   URL.revokeObjectURL(img.src);
-
-  // Sanitize base64 to prevent XSS
-  try {
-    base64 = DOMPurify.sanitize(base64, { ALLOWED_URI_REGEXP: /^data:image\/jpeg;base64,/ });
-  } catch (e) {
-    showStatusMessage('Error: Invalid image data.');
-    return;
-  }
 
   const messageId = generateMessageId();
   const timestamp = Date.now();
@@ -218,6 +212,22 @@ const cornerLogo = document.getElementById('cornerLogo');
 const button2 = document.getElementById('button2');
 const helpText = document.getElementById('helpText');
 const helpModal = document.getElementById('helpModal');
+const darkModeToggle = document.getElementById('darkModeToggle');
+
+// Dark mode toggle
+function toggleDarkMode() {
+  document.body.classList.toggle('dark');
+  const isDark = document.body.classList.contains('dark');
+  localStorage.setItem('darkMode', isDark ? 'enabled' : 'disabled');
+  darkModeToggle.textContent = isDark ? 'Light Mode' : 'Dark Mode';
+}
+
+// Load dark mode preference
+if (localStorage.getItem('darkMode') === 'enabled') {
+  toggleDarkMode();
+}
+
+darkModeToggle.addEventListener('click', toggleDarkMode);
 
 // Help modal toggle
 helpText.addEventListener('click', () => {
@@ -425,16 +435,9 @@ socket.onmessage = (event) => {
       timeSpan.textContent = new Date(message.timestamp).toLocaleTimeString();
       messageDiv.appendChild(timeSpan);
       if (message.type === 'image') {
-        let base64 = message.data;
-        try {
-          base64 = sanitizeImageBase64(base64);
-        } catch (e) {
-          console.error('Invalid image base64 in relay');
-          return;
-        }
         messageDiv.appendChild(document.createTextNode(`${senderUsername}: `));
         const img = document.createElement('img');
-        img.src = base64;
+        img.src = message.data;
         img.style.maxWidth = '100%';
         img.style.borderRadius = '0.5rem';
         img.style.cursor = 'pointer';
@@ -452,7 +455,7 @@ socket.onmessage = (event) => {
           }
           modal.innerHTML = '';
           const modalImg = document.createElement('img');
-          modalImg.src = base64;
+          modalImg.src = message.data;
           modalImg.setAttribute('alt', 'Enlarged image');
           modal.appendChild(modalImg);
           modal.classList.add('active');
@@ -553,8 +556,27 @@ function startPeerConnection(targetId, isOfferer) {
   }
   const peerConnection = new RTCPeerConnection({
     iceServers: [
-      { urls: "stun:stun.relay.metered.ca:80" }
-      // TURN servers removed - use server-provided if implemented
+      { urls: "stun:stun.relay.metered.ca:80" },
+      {
+        urls: "turn:global.relay.metered.ca:80",
+        username: "8008f3d422fbe49ca4157b23",
+        credential: "E7rLb3LegFMDdjem"
+      },
+      {
+        urls: "turn:global.relay.metered.ca:80?transport=tcp",
+        username: "8008f3d422fbe49ca4157b23",
+        credential: "E7rLb3LegFMDdjem"
+      },
+      {
+        urls: "turn:global.relay.metered.ca:443",
+        username: "8008f3d422fbe49ca4157b23",
+        credential: "E7rLb3LegFMDdjem"
+      },
+      {
+        urls: "turns:global.relay.metered.ca:443?transport=tcp",
+        username: "8008f3d422fbe49ca4157b23",
+        credential: "E7rLb3LegFMDdjem"
+      }
     ],
     iceTransportPolicy: 'all'
   });
@@ -714,16 +736,9 @@ function setupDataChannel(dataChannel, targetId) {
     timeSpan.textContent = new Date(data.timestamp).toLocaleTimeString();
     messageDiv.appendChild(timeSpan);
     if (data.type === 'image') {
-      let base64 = data.data;
-      try {
-        base64 = sanitizeImageBase64(base64);
-      } catch (e) {
-        console.error('Invalid image base64 in P2P');
-        return;
-      }
       messageDiv.appendChild(document.createTextNode(`${senderUsername}: `));
       const img = document.createElement('img');
-      img.src = base64;
+      img.src = data.data;
       img.style.maxWidth = '100%';
       img.style.borderRadius = '0.5rem';
       img.style.cursor = 'pointer';
@@ -741,7 +756,7 @@ function setupDataChannel(dataChannel, targetId) {
         }
         modal.innerHTML = '';
         const modalImg = document.createElement('img');
-        modalImg.src = base64;
+        modalImg.src = data.data;
         modalImg.setAttribute('alt', 'Enlarged image');
         modal.appendChild(modalImg);
         modal.classList.add('active');
