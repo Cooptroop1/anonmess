@@ -16,15 +16,13 @@ function showStatusMessage(message, duration = 3000) {
   }, duration);
 }
 
-// Sanitize message content to prevent XSS
+// Sanitize message content to prevent XSS using DOMPurify
 function sanitizeMessage(content) {
-  const div = document.createElement('div');
-  div.textContent = content;
-  return div.innerHTML.replace(/</g, '<').replace(/>/g, '>');
+  return DOMPurify.sanitize(content, { ALLOWED_TAGS: [] }); // No HTML tags allowed
 }
 
 function generateCode() {
-  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const chars= 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let result = '';
   for (let i = 0; i < 16; i++) {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -100,8 +98,16 @@ async function sendImage(file) {
   canvas.width = width;
   canvas.height = height;
   ctx.drawImage(img, 0, 0, width, height);
-  const base64 = canvas.toDataURL('image/jpeg', quality);
+  let base64 = canvas.toDataURL('image/jpeg', quality);
   URL.revokeObjectURL(img.src);
+
+  // Sanitize base64 to prevent XSS
+  try {
+    base64 = DOMPurify.sanitize(base64, { ALLOWED_URI_REGEXP: /^data:image\/jpeg;base64,/ });
+  } catch (e) {
+    showStatusMessage('Error: Invalid image data.');
+    return;
+  }
 
   const messageId = generateMessageId();
   const timestamp = Date.now();
@@ -419,9 +425,16 @@ socket.onmessage = (event) => {
       timeSpan.textContent = new Date(message.timestamp).toLocaleTimeString();
       messageDiv.appendChild(timeSpan);
       if (message.type === 'image') {
+        let base64 = message.data;
+        try {
+          base64 = sanitizeImageBase64(base64);
+        } catch (e) {
+          console.error('Invalid image base64 in relay');
+          return;
+        }
         messageDiv.appendChild(document.createTextNode(`${senderUsername}: `));
         const img = document.createElement('img');
-        img.src = message.data;
+        img.src = base64;
         img.style.maxWidth = '100%';
         img.style.borderRadius = '0.5rem';
         img.style.cursor = 'pointer';
@@ -439,7 +452,7 @@ socket.onmessage = (event) => {
           }
           modal.innerHTML = '';
           const modalImg = document.createElement('img');
-          modalImg.src = message.data;
+          modalImg.src = base64;
           modalImg.setAttribute('alt', 'Enlarged image');
           modal.appendChild(modalImg);
           modal.classList.add('active');
@@ -540,27 +553,8 @@ function startPeerConnection(targetId, isOfferer) {
   }
   const peerConnection = new RTCPeerConnection({
     iceServers: [
-      { urls: "stun:stun.relay.metered.ca:80" },
-      {
-        urls: "turn:global.relay.metered.ca:80",
-        username: "8008f3d422fbe49ca4157b23",
-        credential: "E7rLb3LegFMDdjem"
-      },
-      {
-        urls: "turn:global.relay.metered.ca:80?transport=tcp",
-        username: "8008f3d422fbe49ca4157b23",
-        credential: "E7rLb3LegFMDdjem"
-      },
-      {
-        urls: "turn:global.relay.metered.ca:443",
-        username: "8008f3d422fbe49ca4157b23",
-        credential: "E7rLb3LegFMDdjem"
-      },
-      {
-        urls: "turns:global.relay.metered.ca:443?transport=tcp",
-        username: "8008f3d422fbe49ca4157b23",
-        credential: "E7rLb3LegFMDdjem"
-      }
+      { urls: "stun:stun.relay.metered.ca:80" }
+      // TURN servers removed - use server-provided if implemented
     ],
     iceTransportPolicy: 'all'
   });
@@ -715,10 +709,21 @@ function setupDataChannel(dataChannel, targetId) {
     const isSelf = senderUsername === username;
     const messageDiv = document.createElement('div');
     messageDiv.className = `message-bubble ${isSelf ? 'self' : 'other'}`;
-    messageDiv.textContent = `${senderUsername}: `;
+    const timeSpan = document.createElement('span');
+    timeSpan.className = 'timestamp';
+    timeSpan.textContent = new Date(data.timestamp).toLocaleTimeString();
+    messageDiv.appendChild(timeSpan);
     if (data.type === 'image') {
+      let base64 = data.data;
+      try {
+        base64 = sanitizeImageBase64(base64);
+      } catch (e) {
+        console.error('Invalid image base64 in P2P');
+        return;
+      }
+      messageDiv.appendChild(document.createTextNode(`${senderUsername}: `));
       const img = document.createElement('img');
-      img.src = data.data;
+      img.src = base64;
       img.style.maxWidth = '100%';
       img.style.borderRadius = '0.5rem';
       img.style.cursor = 'pointer';
@@ -736,7 +741,7 @@ function setupDataChannel(dataChannel, targetId) {
         }
         modal.innerHTML = '';
         const modalImg = document.createElement('img');
-        modalImg.src = data.data;
+        modalImg.src = base64;
         modalImg.setAttribute('alt', 'Enlarged image');
         modal.appendChild(modalImg);
         modal.classList.add('active');
@@ -754,7 +759,7 @@ function setupDataChannel(dataChannel, targetId) {
       });
       messageDiv.appendChild(img);
     } else {
-      messageDiv.textContent += sanitizeMessage(data.content);
+      messageDiv.appendChild(document.createTextNode(`${senderUsername}: ${sanitizeMessage(data.content)}`));
     }
     messages.prepend(messageDiv);
     messages.scrollTop = messages.scrollHeight;
