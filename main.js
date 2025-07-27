@@ -1,4 +1,3 @@
-// main.js
 // Core logic: peer connections, message sending, handling offers, etc.
 
 // Global vars for dynamic TURN creds from server
@@ -72,7 +71,7 @@ async function sendImage(file) {
   if (useRelay) {
     // Fallback: Send to server for relay
     if (socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({ type: 'relay-image', code, clientId, ...message }));
+      socket.send(JSON.stringify({ type: 'relay-image', code, clientId, token, ...message })); // New: include token
     }
   } else if (dataChannels.size > 0) {
     // P2P mode
@@ -183,7 +182,7 @@ function startPeerConnection(targetId, isOfferer) {
     if (event.candidate) {
       console.log(`Sending ICE candidate to ${targetId} for code: ${code}`);
       if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate, code, targetId, clientId }));
+        socket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate, code, targetId, clientId, token })); // New: include token
       }
     }
   };
@@ -245,7 +244,7 @@ function startPeerConnection(targetId, isOfferer) {
     }).then(() => {
       console.log(`Sending offer to ${targetId} for code: ${code}`);
       if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code, targetId, clientId }));
+        socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code, targetId, clientId, token })); // New: include token
       }
     }).catch(error => {
       console.error(`Error creating offer for ${targetId}:`, error);
@@ -409,7 +408,7 @@ async function handleOffer(offer, targetId) {
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
     if (socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({ type: 'answer', answer: peerConnection.localDescription, code, targetId, clientId }));
+      socket.send(JSON.stringify({ type: 'answer', answer: peerConnection.localDescription, code, targetId, clientId, token })); // New: include token
     }
     const queue = candidatesQueues.get(targetId) || [];
     queue.forEach(candidate => {
@@ -484,7 +483,7 @@ function sendMessage(content) {
     if (useRelay) {
       // Fallback: Send to server for relay
       if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: 'relay-message', code, clientId, ...message }));
+        socket.send(JSON.stringify({ type: 'relay-message', code, clientId, token, ...message })); // New: include token
       }
     } else {
       // P2P mode
@@ -536,12 +535,12 @@ function autoConnect(codeParam) {
       statusElement.textContent = 'Waiting for connection...';
       if (socket.readyState === WebSocket.OPEN) {
         console.log('WebSocket open, sending join');
-        socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+        socket.send(JSON.stringify({ type: 'join', code, clientId, username, token })); // New: include token
       } else {
         console.log('WebSocket not open, waiting for open event');
         socket.addEventListener('open', () => {
           console.log('WebSocket opened in autoConnect, sending join');
-          socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+          socket.send(JSON.stringify({ type: 'join', code, clientId, username, token })); // New: include token
         }, { once: true });
       }
       document.getElementById('messageInput')?.focus();
@@ -571,12 +570,12 @@ function autoConnect(codeParam) {
         statusElement.textContent = 'Waiting for connection...';
         if (socket.readyState === WebSocket.OPEN) {
           console.log('WebSocket open, sending join after username input');
-          socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+          socket.send(JSON.stringify({ type: 'join', code, clientId, username, token })); // New: include token
         } else {
           console.log('WebSocket not open, waiting for open event after username');
           socket.addEventListener('open', () => {
             console.log('WebSocket opened in autoConnect join, sending join');
-            socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+            socket.send(JSON.stringify({ type: 'join', code, clientId, username, token })); // New: include token
           }, { once: true });
         }
         document.getElementById('messageInput')?.focus();
