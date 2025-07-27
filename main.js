@@ -5,10 +5,6 @@
 let turnUsername = '';
 let turnCredential = '';
 
-// Pending messages for batching DOM updates
-const pendingMessages = [];
-let batchingMessages = false;
-
 async function sendImage(file) {
   const validImageTypes = ['image/jpeg', 'image/png'];
   if (!file || !validImageTypes.includes(file.type) || !username || dataChannels.size === 0) {
@@ -39,13 +35,7 @@ async function sendImage(file) {
 
   const maxWidth = 640;
   const maxHeight = 360;
-  // Adaptive quality based on file size
-  let quality = 0.4;
-  if (file.size > 2 * 1024 * 1024) {
-    quality = 0.3; // Lower for larger files
-  } else if (file.size < 1 * 1024 * 1024) {
-    quality = 0.5; // Higher for smaller
-  }
+  const quality = 0.4;
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   const img = new Image();
@@ -94,6 +84,8 @@ async function sendImage(file) {
   const messages = document.getElementById('messages');
   const messageDiv = document.createElement('div');
   messageDiv.className = 'message-bubble self';
+  messageDiv.setAttribute('role', 'listitem');
+  messageDiv.setAttribute('aria-label', `Message from ${username}`);
   const timeSpan = document.createElement('span');
   timeSpan.className = 'timestamp';
   timeSpan.textContent = new Date(timestamp).toLocaleTimeString();
@@ -136,7 +128,9 @@ async function sendImage(file) {
   });
   messageDiv.appendChild(imgElement);
   messages.appendChild(messageDiv);
-  messages.scrollTop = messages.scrollHeight;
+  if (messages.scrollHeight - messages.scrollTop - messages.clientHeight < 50) {
+    messages.scrollTop = messages.scrollHeight;
+  }
   processedMessageIds.add(messageId);
   document.getElementById('imageButton')?.focus();
 }
@@ -324,6 +318,8 @@ function setupDataChannel(dataChannel, targetId) {
     const isSelf = senderUsername === username;
     const messageDiv = document.createElement('div');
     messageDiv.className = `message-bubble ${isSelf ? 'self' : 'other'}`;
+    messageDiv.setAttribute('role', 'listitem');
+    messageDiv.setAttribute('aria-label', `Message from ${senderUsername}`);
     const timeSpan = document.createElement('span');
     timeSpan.className = 'timestamp';
     timeSpan.textContent = new Date(data.timestamp).toLocaleTimeString();
@@ -369,10 +365,9 @@ function setupDataChannel(dataChannel, targetId) {
     } else {
       messageDiv.appendChild(document.createTextNode(sanitizeMessage(data.content)));
     }
-    pendingMessages.push(messageDiv);
-    if (!batchingMessages) {
-      batchingMessages = true;
-      requestAnimationFrame(flushPendingMessages);
+    messages.appendChild(messageDiv);
+    if (messages.scrollHeight - messages.scrollTop - messages.clientHeight < 50) {
+      messages.scrollTop = messages.scrollHeight;
     }
     if (isInitiator) {
       dataChannels.forEach((dc, id) => {
@@ -399,16 +394,6 @@ function setupDataChannel(dataChannel, targetId) {
       messages.classList.add('waiting');
     }
   };
-}
-
-function flushPendingMessages() {
-  const messages = document.getElementById('messages');
-  const fragment = document.createDocumentFragment();
-  pendingMessages.forEach(div => fragment.appendChild(div));
-  messages.appendChild(fragment);
-  messages.scrollTop = messages.scrollHeight;
-  pendingMessages.length = 0;
-  batchingMessages = false;
 }
 
 async function handleOffer(offer, targetId) {
@@ -516,13 +501,17 @@ function sendMessage(content) {
     const messages = document.getElementById('messages');
     const messageDiv = document.createElement('div');
     messageDiv.className = 'message-bubble self';
+    messageDiv.setAttribute('role', 'listitem');
+    messageDiv.setAttribute('aria-label', `Message from ${username}`);
     const timeSpan = document.createElement('span');
     timeSpan.className = 'timestamp';
     timeSpan.textContent = new Date(timestamp).toLocaleTimeString();
     messageDiv.appendChild(timeSpan);
     messageDiv.appendChild(document.createTextNode(`${username}: ${sanitizedContent}`));
     messages.appendChild(messageDiv);
-    messages.scrollTop = messages.scrollHeight;
+    if (messages.scrollHeight - messages.scrollTop - messages.clientHeight < 50) {
+      messages.scrollTop = messages.scrollHeight;
+    }
     const messageInput = document.getElementById('messageInput');
     messageInput.value = '';
     messageInput.style.height = '2.5rem';
