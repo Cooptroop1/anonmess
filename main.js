@@ -377,8 +377,8 @@ function setupDataChannel(dataChannel, targetId) {
     timeSpan.className = 'timestamp';
     timeSpan.textContent = new Date(data.timestamp).toLocaleTimeString();
     messageDiv.appendChild(timeSpan);
+    messageDiv.appendChild(document.createTextNode(`${senderUsername}: `));
     if (data.type === 'image') {
-      messageDiv.appendChild(document.createTextNode(`${senderUsername}: `));
       const img = document.createElement('img');
       img.src = data.data;
       img.style.maxWidth = '100%';
@@ -416,7 +416,7 @@ function setupDataChannel(dataChannel, targetId) {
       });
       messageDiv.appendChild(img);
     } else {
-      messageDiv.appendChild(document.createTextNode(`${senderUsername}: ${sanitizeMessage(data.content)}`));
+      messageDiv.appendChild(document.createTextNode(sanitizeMessage(data.content)));
     }
     messages.prepend(messageDiv);
     messages.scrollTop = messages.scrollHeight;
