@@ -1,4 +1,4 @@
-
+// main.js
 // Core logic: peer connections, message sending, handling offers, etc.
 
 // Global vars for dynamic TURN creds from server
@@ -125,7 +125,7 @@ async function sendImage(file) {
     });
   });
   messageDiv.appendChild(imgElement);
-  messages.prepend(messageDiv);
+  messages.appendChild(messageDiv);
   messages.scrollTop = messages.scrollHeight;
   processedMessageIds.add(messageId);
   document.getElementById('imageButton').focus();
@@ -423,7 +423,7 @@ function setupDataChannel(dataChannel, targetId) {
     } else {
       messageDiv.appendChild(document.createTextNode(sanitizeMessage(data.content)));
     }
-    messages.prepend(messageDiv);
+    messages.appendChild(messageDiv);
     messages.scrollTop = messages.scrollHeight;
     if (isInitiator) {
       dataChannels.forEach((dc, id) => {
@@ -591,7 +591,7 @@ function sendMessage(content) {
     timeSpan.textContent = new Date(timestamp).toLocaleTimeString();
     messageDiv.appendChild(timeSpan);
     messageDiv.appendChild(document.createTextNode(`${username}: ${sanitizedContent}`));
-    messages.prepend(messageDiv);
+    messages.appendChild(messageDiv);
     messages.scrollTop = messages.scrollHeight;
     const messageInput = document.getElementById('messageInput');
     messageInput.value = '';
