@@ -1,3 +1,4 @@
+
 // Keepalive timer ID
 let keepAliveTimer = null;
 // Reconnection attempt counter for exponential backoff
@@ -24,7 +25,7 @@ function sanitizeMessage(content) {
 }
 
 function generateCode() {
-  const chars= 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  constchars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let result = '';
   for (let i = 0; i < 16; i++) {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -212,22 +213,6 @@ const cornerLogo = document.getElementById('cornerLogo');
 const button2 = document.getElementById('button2');
 const helpText = document.getElementById('helpText');
 const helpModal = document.getElementById('helpModal');
-const darkModeToggle = document.getElementById('darkModeToggle');
-
-// Dark mode toggle
-function toggleDarkMode() {
-  document.body.classList.toggle('dark');
-  const isDark = document.body.classList.contains('dark');
-  localStorage.setItem('darkMode', isDark ? 'enabled' : 'disabled');
-  darkModeToggle.textContent = isDark ? 'Light Mode' : 'Dark Mode';
-}
-
-// Load dark mode preference
-if (localStorage.getItem('darkMode') === 'enabled') {
-  toggleDarkMode();
-}
-
-darkModeToggle.addEventListener('click', toggleDarkMode);
 
 // Help modal toggle
 helpText.addEventListener('click', () => {
@@ -731,12 +716,8 @@ function setupDataChannel(dataChannel, targetId) {
     const isSelf = senderUsername === username;
     const messageDiv = document.createElement('div');
     messageDiv.className = `message-bubble ${isSelf ? 'self' : 'other'}`;
-    const timeSpan = document.createElement('span');
-    timeSpan.className = 'timestamp';
-    timeSpan.textContent = new Date(data.timestamp).toLocaleTimeString();
-    messageDiv.appendChild(timeSpan);
+    messageDiv.textContent = `${senderUsername}: `;
     if (data.type === 'image') {
-      messageDiv.appendChild(document.createTextNode(`${senderUsername}: `));
       const img = document.createElement('img');
       img.src = data.data;
       img.style.maxWidth = '100%';
@@ -774,7 +755,7 @@ function setupDataChannel(dataChannel, targetId) {
       });
       messageDiv.appendChild(img);
     } else {
-      messageDiv.appendChild(document.createTextNode(`${senderUsername}: ${sanitizeMessage(data.content)}`));
+      messageDiv.textContent += sanitizeMessage(data.content);
     }
     messages.prepend(messageDiv);
     messages.scrollTop = messages.scrollHeight;
