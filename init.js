@@ -5,6 +5,8 @@ let keepAliveTimer = null;
 let reconnectAttempts = 0;
 // Image rate limiting
 const imageRateLimits = new Map();
+// Global message rate limit (shared for DoS mitigation)
+const globalMessageRate = { count: 0, startTime: performance.now() };
 
 let code = generateCode();
 let clientId = localStorage.getItem('clientId');
@@ -64,10 +66,4 @@ setTimeout(() => triggerCycle(), 60000);
 document.addEventListener('DOMContentLoaded', () => {
   console.log('DOM loaded, initializing maxClients UI');
   initializeMaxClientsUI();
-
-  // Add CSP meta tag for XSS prevention
-  const cspMeta = document.createElement('meta');
-  cspMeta.setAttribute('http-equiv', 'Content-Security-Policy');
-  cspMeta.setAttribute('content', "default-src 'self'; script-src 'self'; img-src data: blob: https://raw.githubusercontent.com https://cdnjs.cloudflare.com");
-  document.head.appendChild(cspMeta);
 });
