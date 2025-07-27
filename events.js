@@ -18,6 +18,8 @@ helpModal.addEventListener('keydown', (event) => {
   }
 });
 
+let pendingCode = null; // New: To handle random redirect token race
+
 socket.onopen = () => {
   console.log('WebSocket opened');
   socket.send(JSON.stringify({ type: 'connect', clientId }));
@@ -26,8 +28,8 @@ socket.onopen = () => {
   const urlParams = new URLSearchParams(window.location.search);
   const codeParam = urlParams.get('code');
   if (codeParam && validateCode(codeParam)) {
-    console.log('Detected code in URL, triggering autoConnect');
-    autoConnect(codeParam);
+    console.log('Detected code in URL, setting pendingCode for autoConnect after token');
+    pendingCode = codeParam;
   } else {
     console.log('No valid code in URL, showing initial container');
     initialContainer.classList.remove('hidden');
@@ -71,7 +73,7 @@ socket.onclose = () => {
   }, delay);
 };
 
-socket.onmessage = (event) => {
+socket.onmessage = async (event) => { // Updated: Make async for awaits
   console.log('Received WebSocket message:', event.data);
   try {
     const message = JSON.parse(event.data);
@@ -83,6 +85,10 @@ socket.onmessage = (event) => {
     if (message.type === 'connected') {
       token = message.token;
       console.log('Received authentication token:', token);
+      if (pendingCode) { // New: Trigger autoConnect after token if pending from random
+        autoConnect(pendingCode);
+        pendingCode = null;
+      }
       return;
     }
     if (message.type === 'error') {
@@ -122,6 +128,10 @@ socket.onmessage = (event) => {
           true,
           ['encrypt', 'decrypt']
         );
+      } else {
+        // New: Joiner sends public key to initiator
+        const exportedPublicKey = await window.crypto.subtle.exportKey('raw', keyPair.publicKey);
+        socket.send(JSON.stringify({ type: 'public-key', publicKey: arrayBufferToBase64(exportedPublicKey), code, clientId, token }));
       }
       updateMaxClientsUI();
       turnUsername = message.turnUsername;
@@ -151,7 +161,7 @@ socket.onmessage = (event) => {
       // New: Joiner receives encrypted room key, derives shared secret, decrypts
       const initiatorPublicKey = await window.crypto.subtle.importKey(
         'raw',
-        base64ToArrayBuffer(message.publicKey), // Assume public key is sent if needed; or use a separate message if not
+        base64ToArrayBuffer(message.publicKey), // Assume initiator sends their public key too; adjust if needed
         { name: 'ECDH', namedCurve: 'P-256' },
         false,
         []
@@ -284,8 +294,7 @@ socket.onmessage = (event) => {
       messages.scrollTop = 0;
     }
   } catch (error) {
-    console.error('Error parsing message:', error);
-    showStatusMessage('Error receiving message, please try again.');
+    console.error('Error parsing message:', error, 'Raw data:', event.data); // Updated: Log raw data, no user message to avoid flash
   }
 };
 
