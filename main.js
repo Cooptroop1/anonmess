@@ -4,12 +4,7 @@
 let turnUsername = '';
 let turnCredential = '';
 
-let sendDebounceTimer = null; // New: For client-side debounce on sends
-
 async function sendImage(file) {
-  if (sendDebounceTimer) return; // Debounce: Prevent multiple sends in short time
-  sendDebounceTimer = setTimeout(() => sendDebounceTimer = null, 1000); // 1s debounce
-
   const validImageTypes = ['image/jpeg', 'image/png'];
   if (!file || !validImageTypes.includes(file.type) || !username || dataChannels.size === 0) {
     showStatusMessage('Error: Select a JPEG or PNG image and ensure you are connected.');
@@ -265,6 +260,8 @@ function startPeerConnection(targetId, isOfferer) {
       useRelay = true;
       showStatusMessage('P2P connection failed, switching to server relay mode.');
       cleanupPeerConnection(targetId);
+      isConnected = true; // Set connected on fallback to relay
+      updateMaxClientsUI(); // Update UI on fallback
     }
   }, 10000); // 10s timeout for fallback
   connectionTimeouts.set(targetId, timeout);
@@ -392,7 +389,7 @@ function setupDataChannel(dataChannel, targetId) {
     cleanupPeerConnection(targetId);
     messageRateLimits.delete(targetId);
     imageRateLimits.delete(targetId);
-    if (dataChannels.size === 0) {
+    if (dataChannels.size === 0 && !useRelay) { // Updated: Don't hide if in relay mode
       inputContainer.classList.add('hidden');
       messages.classList.add('waiting');
     }
@@ -482,9 +479,6 @@ function handleCandidate(candidate, targetId) {
 }
 
 async function sendMessage(content) {
-  if (sendDebounceTimer) return; // New: Debounce sends (client-side, 1s)
-  sendDebounceTimer = setTimeout(() => sendDebounceTimer = null, 1000);
-
   if (content && dataChannels.size > 0 && username) {
     const messageId = generateMessageId();
     const sanitizedContent = sanitizeMessage(content);
