@@ -18,18 +18,6 @@ helpModal.addEventListener('keydown', (event) => {
   }
 });
 
-// Logo cycle animation
-let cycleTimeout;
-function triggerCycle() {
-  if (cycleTimeout) clearTimeout(cycleTimeout);
-  cornerLogo.classList.add('wink');
-  cycleTimeout = setTimeout(() => {
-    cornerLogo.classList.remove('wink');
-  }, 500);
-  setTimeout(() => triggerCycle(), 60000);
-}
-setTimeout(() => triggerCycle(), 60000);
-
 socket.onopen = () => {
   console.log('WebSocket opened');
   socket.send(JSON.stringify({ type: 'connect', clientId }));
