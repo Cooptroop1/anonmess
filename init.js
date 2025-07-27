@@ -1,3 +1,5 @@
+// init.js (updated with onbeforeunload for cleanup)
+
 // Keepalive timer ID
 let keepAliveTimer = null;
 // Reconnection attempt counter for exponential backoff
@@ -22,12 +24,10 @@ let retryCounts = new Map();
 const maxRetries = 2;
 let candidatesQueues = new Map();
 let processedMessageIds = new Set();
-let processedAnswers = new Set();
-let username = localStorage.getItem('username')?.trim() || '';
 let usernames = new Map();
 const messageRateLimits = new Map();
 let codeSentToRandom = false;
-let useRelay = false; // Flag for fallback to server relay
+let useRelay = false; // Flag for fallback to fallback server relay
 
 const statusElement = document.getElementById('status');
 const codeDisplayElement = document.getElementById('codeDisplay');
@@ -59,6 +59,13 @@ function triggerCycle() {
   setTimeout(() => triggerCycle(), 60000);
 }
 setTimeout(() => triggerCycle(), 60000);
+
+// Cleanup on page unload
+window.onbeforeunload = () => {
+  if (code && clientId) {
+    socket.send(JSON.stringify({ type: 'leave', code, clientId }));
+  }
+};
 
 // Ensure maxClients UI is initialized after DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
