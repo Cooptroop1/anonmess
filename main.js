@@ -5,6 +5,10 @@
 let turnUsername = '';
 let turnCredential = '';
 
+// Batch messages for DOM updates
+let messageBatch = [];
+let batchTimeout = null;
+
 async function sendImage(file) {
   const validImageTypes = ['image/jpeg', 'image/png'];
   if (!file || !validImageTypes.includes(file.type) || !username || dataChannels.size === 0) {
@@ -125,8 +129,8 @@ async function sendImage(file) {
     });
   });
   messageDiv.appendChild(imgElement);
-  messages.prepend(messageDiv);
-  messages.scrollTop = 0;
+  messages.appendChild(messageDiv);
+  messages.scrollTop = messages.scrollHeight;
   processedMessageIds.add(messageId);
   document.getElementById('imageButton')?.focus();
 }
