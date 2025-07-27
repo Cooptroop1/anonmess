@@ -19,8 +19,6 @@ helpModal.addEventListener('keydown', (event) => {
   }
 });
 
-let pendingCode = null; // New: To handle random redirect token race
-
 socket.onopen = () => {
   console.log('WebSocket opened');
   socket.send(JSON.stringify({ type: 'connect', clientId }));
@@ -29,8 +27,8 @@ socket.onopen = () => {
   const urlParams = new URLSearchParams(window.location.search);
   const codeParam = urlParams.get('code');
   if (codeParam && validateCode(codeParam)) {
-    console.log('Detected code in URL, setting pendingCode for autoConnect after token');
-    pendingCode = codeParam;
+    console.log('Detected code in URL, triggering autoConnect');
+    autoConnect(codeParam);
   } else {
     console.log('No valid code in URL, showing initial container');
     initialContainer.classList.remove('hidden');
@@ -64,7 +62,7 @@ socket.onclose = () => {
       startKeepAlive();
       if (code && username && validateCode(code) && validateUsername(username)) {
         console.log('Rejoining with code:', code);
-        newSocket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
+        newSocket.send(JSON.stringify({ type: 'join', code, clientId, username, token })); // New: include token (will be refreshed if expired)
       }
     };
     newSocket.onerror = socket.onerror;
@@ -83,20 +81,16 @@ socket.onmessage = (event) => {
       console.log('Received keepalive pong');
       return;
     }
-    if (message.type === 'connected') {
+    if (message.type === 'connected') { // New: Handle token from connect
       token = message.token;
       console.log('Received authentication token:', token);
-      if (pendingCode) { // New: Trigger autoConnect after token if pending from random
-        autoConnect(pendingCode);
-        pendingCode = null;
-      }
       return;
     }
     if (message.type === 'error') {
       showStatusMessage(message.message);
       console.error('Server error:', message.message);
       if (message.message.includes('Chat is full') || message.message.includes('Username already taken') || message.message.includes('Initiator offline')) {
-        socket.send(JSON.stringify({ type: 'leave', code, clientId, token }));
+        socket.send(JSON.stringify({ type: 'leave', code, clientId, token })); // New: include token
         initialContainer.classList.remove('hidden');
         usernameContainer.classList.add('hidden');
         connectContainer.classList.add('hidden');
@@ -283,11 +277,11 @@ document.getElementById('joinWithUsernameButton').onclick = () => {
   statusElement.textContent = 'Waiting for connection...';
   if (socket.readyState === WebSocket.OPEN) {
     console.log('Sending join message for new chat');
-    socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
+    socket.send(JSON.stringify({ type: 'join', code, clientId, username, token })); // New: include token
   } else {
     socket.addEventListener('open', () => {
       console.log('WebSocket opened, sending join for new chat');
-      socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
+      socket.send(JSON.stringify({ type: 'join', code, clientId, username, token })); // New: include token
     }, { once: true });
   }
   document.getElementById('messageInput')?.focus();
@@ -321,11 +315,11 @@ document.getElementById('connectButton').onclick = () => {
   statusElement.textContent = 'Waiting for connection...';
   if (socket.readyState === WebSocket.OPEN) {
     console.log('Sending join message for existing chat');
-    socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
+    socket.send(JSON.stringify({ type: 'join', code, clientId, username, token })); // New: include token
   } else {
     socket.addEventListener('open', () => {
       console.log('WebSocket opened, sending join for existing chat');
-      socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
+      socket.send(JSON.stringify({ type: 'join', code, clientId, username, token })); // New: include token
     }, { once: true });
   }
   document.getElementById('messageInput')?.focus();
@@ -397,7 +391,7 @@ messageInput.addEventListener('keydown', (event) => {
 
 document.getElementById('newSessionButton').onclick = () => {
   console.log('New session button clicked');
-  socket.send(JSON.stringify({ type: 'leave', code, clientId, token }));
+  socket.send(JSON.stringify({ type: 'leave', code, clientId, token })); // New: include token
   peerConnections.forEach((pc) => pc.close());
   dataChannels.forEach((dc) => dc.close());
   peerConnections.clear();
@@ -476,7 +470,7 @@ document.getElementById('copyCodeButton').onclick = () => {
 
 document.getElementById('button1').onclick = () => {
   if (isInitiator && socket.readyState === WebSocket.OPEN && code && totalClients < maxClients) {
-    socket.send(JSON.stringify({ type: 'submit-random', code, clientId, token }));
+    socket.send(JSON.stringify({ type: 'submit-random', code, clientId, token })); // New: include token
     showStatusMessage(`Sent code ${code} to random board.`);
     codeSentToRandom = true;
     button2.disabled = true;
