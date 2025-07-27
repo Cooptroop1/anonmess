@@ -1,4 +1,4 @@
-
+// init.js
 // Keepalive timer ID
 let keepAliveTimer = null;
 // Reconnection attempt counter for exponential backoff
