@@ -64,4 +64,10 @@ setTimeout(() => triggerCycle(), 60000);
 document.addEventListener('DOMContentLoaded', () => {
   console.log('DOM loaded, initializing maxClients UI');
   initializeMaxClientsUI();
+
+  // Add CSP meta tag for XSS prevention
+  const cspMeta = document.createElement('meta');
+  cspMeta.setAttribute('http-equiv', 'Content-Security-Policy');
+  cspMeta.setAttribute('content', "default-src 'self'; script-src 'self'; img-src data: blob:");
+  document.head.appendChild(cspMeta);
 });
