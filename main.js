@@ -1,4 +1,9 @@
+
 // Core logic: peer connections, message sending, handling offers, etc.
+
+// Global vars for dynamic TURN creds from server
+let turnUsername = '';
+let turnCredential = '';
 
 async function sendImage(file) {
   const validImageTypes = ['image/jpeg', 'image/png'];
@@ -201,8 +206,8 @@ function startPeerConnection(targetId, isOfferer) {
       { urls: "stun:stun.relay.metered.ca:80" },
       {
         urls: "turn:global.relay.metered.ca:80",
-        username: turnUsername,  // Dynamic from server
-        credential: turnCredential  // Dynamic from server
+        username: turnUsername, // Dynamic from server
+        credential: turnCredential // Dynamic from server
       },
       {
         urls: "turn:global.relay.metered.ca:80?transport=tcp",
@@ -313,10 +318,6 @@ function startPeerConnection(targetId, isOfferer) {
       useRelay = true;
       showStatusMessage('P2P connection failed, switching to server relay mode.');
       cleanupPeerConnection(targetId);
-      isConnected = true; // Set connected in relay mode
-      updateMaxClientsUI();
-      inputContainer.classList.remove('hidden');
-      messages.classList.remove('waiting');
     }
   }, 10000); // 10s timeout for fallback
   connectionTimeouts.set(targetId, timeout);
