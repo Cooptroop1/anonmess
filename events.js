@@ -110,6 +110,8 @@ socket.onmessage = (event) => {
       usernames.set(clientId, username);
       initializeMaxClientsUI();
       updateMaxClientsUI();
+      turnUsername = message.turnUsername;
+      turnCredential = message.turnCredential;
     }
     if (message.type === 'initiator-changed') {
       console.log(`Initiator changed to ${message.newInitiator} for code: ${code}`);
@@ -479,9 +481,3 @@ document.getElementById('button2').onclick = () => {
   }
   document.getElementById('button2').focus();
 };
-
-//Ensure maxClients UI is initialized after DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-  console.log('DOM loaded, initializing maxClients UI');
-  initializeMaxClientsUI();
-});
