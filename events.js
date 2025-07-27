@@ -18,8 +18,6 @@ helpModal.addEventListener('keydown', (event) => {
   }
 });
 
-let pendingCode = null; // New: To handle random redirect token race
-
 socket.onopen = () => {
   console.log('WebSocket opened');
   socket.send(JSON.stringify({ type: 'connect', clientId }));
@@ -28,8 +26,8 @@ socket.onopen = () => {
   const urlParams = new URLSearchParams(window.location.search);
   const codeParam = urlParams.get('code');
   if (codeParam && validateCode(codeParam)) {
-    console.log('Detected code in URL, setting pendingCode for autoConnect after token');
-    pendingCode = codeParam;
+    console.log('Detected code in URL, triggering autoConnect');
+    autoConnect(codeParam);
   } else {
     console.log('No valid code in URL, showing initial container');
     initialContainer.classList.remove('hidden');
@@ -85,10 +83,6 @@ socket.onmessage = (event) => {
     if (message.type === 'connected') {
       token = message.token;
       console.log('Received authentication token:', token);
-      if (pendingCode) { // New: Trigger autoConnect after token if pending from random
-        autoConnect(pendingCode);
-        pendingCode = null;
-      }
       return;
     }
     if (message.type === 'error') {
@@ -122,10 +116,61 @@ socket.onmessage = (event) => {
       initializeMaxClientsUI();
       if (isInitiator) {
         isConnected = true; // New: Set connected for initiator even if solo
+        // New: Generate room key if initiator
+        roomKey = await window.crypto.subtle.generateKey(
+          { name: 'AES-GCM', length: 256 },
+          true,
+          ['encrypt', 'decrypt']
+        );
       }
       updateMaxClientsUI();
       turnUsername = message.turnUsername;
       turnCredential = message.turnCredential;
+    }
+    if (message.type === 'public-key') {
+      // New: Initiator receives public key from joiner, derives shared secret, encrypts room key, sends back
+      const joinerPublicKey = await window.crypto.subtle.importKey(
+        'raw',
+        base64ToArrayBuffer(message.publicKey),
+        { name: 'ECDH', namedCurve: 'P-256' },
+        false,
+        []
+      );
+      const sharedSecret = await window.crypto.subtle.deriveKey(
+        { name: 'ECDH', public: joinerPublicKey },
+        keyPair.privateKey,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['encrypt']
+      );
+      const exportedRoomKey = await window.crypto.subtle.exportKey('raw', roomKey);
+      const { encrypted, iv } = await encrypt(arrayBufferToBase64(exportedRoomKey), sharedSecret);
+      socket.send(JSON.stringify({ type: 'encrypted-room-key', encryptedKey: encrypted, iv, targetId: message.clientId, code, clientId, token }));
+    }
+    if (message.type === 'encrypted-room-key') {
+      // New: Joiner receives encrypted room key, derives shared secret, decrypts
+      const initiatorPublicKey = await window.crypto.subtle.importKey(
+        'raw',
+        base64ToArrayBuffer(message.publicKey), // Assume public key is sent if needed; or use a separate message if not
+        { name: 'ECDH', namedCurve: 'P-256' },
+        false,
+        []
+      );
+      const sharedSecret = await window.crypto.subtle.deriveKey(
+        { name: 'ECDH', public: initiatorPublicKey },
+        keyPair.privateKey,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['decrypt']
+      );
+      const decryptedKey = await decrypt(message.encryptedKey, message.iv, sharedSecret);
+      roomKey = await window.crypto.subtle.importKey(
+        'raw',
+        base64ToArrayBuffer(decryptedKey),
+        'AES-GCM',
+        true,
+        ['encrypt', 'decrypt']
+      );
     }
     if (message.type === 'initiator-changed') {
       console.log(`Initiator changed to ${message.newInitiator} for code: ${code}`);
@@ -175,22 +220,29 @@ socket.onmessage = (event) => {
     }
     // Add for relay fallback
     if ((message.type === 'message' || message.type === 'image') && useRelay) {
-      // Process relayed message from server
+      // New: Decrypt relayed message
       if (processedMessageIds.has(message.messageId)) return;
       processedMessageIds.add(message.messageId);
       const senderUsername = message.username;
+      let decrypted;
+      if (message.type === 'image') {
+        decrypted = await decrypt(message.encryptedData, message.iv);
+      } else {
+        decrypted = await decrypt(message.encryptedContent, message.iv);
+      }
+      const data = JSON.parse(decrypted);
       const messages = document.getElementById('messages');
       const isSelf = senderUsername === username;
       const messageDiv = document.createElement('div');
       messageDiv.className = `message-bubble ${isSelf ? 'self' : 'other'}`;
       const timeSpan = document.createElement('span');
       timeSpan.className = 'timestamp';
-      timeSpan.textContent = new Date(message.timestamp).toLocaleTimeString();
+      timeSpan.textContent = new Date(data.timestamp).toLocaleTimeString();
       messageDiv.appendChild(timeSpan);
       if (message.type === 'image') {
         messageDiv.appendChild(document.createTextNode(`${senderUsername}: `));
         const img = document.createElement('img');
-        img.src = message.data;
+        img.src = data.data;
         img.style.maxWidth = '100%';
         img.style.borderRadius = '0.5rem';
         img.style.cursor = 'pointer';
@@ -208,7 +260,7 @@ socket.onmessage = (event) => {
           }
           modal.innerHTML = '';
           const modalImg = document.createElement('img');
-          modalImg.src = message.data;
+          modalImg.src = data.data;
           modalImg.setAttribute('alt', 'Enlarged image');
           modal.appendChild(modalImg);
           modal.classList.add('active');
@@ -226,13 +278,14 @@ socket.onmessage = (event) => {
         });
         messageDiv.appendChild(img);
       } else {
-        messageDiv.appendChild(document.createTextNode(`${senderUsername}: ${sanitizeMessage(message.content)}`));
+        messageDiv.appendChild(document.createTextNode(`${senderUsername}: ${sanitizeMessage(data.content)}`));
       }
       messages.prepend(messageDiv);
       messages.scrollTop = 0;
     }
   } catch (error) {
-    console.error('Error parsing message:', error, 'Raw data:', event.data); // Updated: Log raw data, no user message to avoid flash
+    console.error('Error parsing message:', error);
+    showStatusMessage('Error receiving message, please try again.');
   }
 };
 
