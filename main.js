@@ -1,5 +1,9 @@
 // Core logic: peer connections, message sending, handling offers, etc.
 
+// Global vars for dynamic TURN creds from server
+let turnUsername = '';
+let turnCredential = '';
+
 async function sendImage(file) {
   const validImageTypes = ['image/jpeg', 'image/png'];
   if (!file || !validImageTypes.includes(file.type) || !username || dataChannels.size === 0) {
@@ -201,23 +205,23 @@ function startPeerConnection(targetId, isOfferer) {
       { urls: "stun:stun.relay.metered.ca:80" },
       {
         urls: "turn:global.relay.metered.ca:80",
-        username: "8008f3d422fbe49ca4157b23",
-        credential: "E7rLb3LegFMDdjem"
+        username: turnUsername, // Dynamic from server
+        credential: turnCredential // Dynamic from server
       },
       {
         urls: "turn:global.relay.metered.ca:80?transport=tcp",
-        username: "8008f3d422fbe49ca4157b23",
-        credential: "E7rLb3LegFMDdjem"
+        username: turnUsername,
+        credential: turnCredential
       },
       {
         urls: "turn:global.relay.metered.ca:443",
-        username: "8008f3d422fbe49ca4157b23",
-        credential: "E7rLb3LegFMDdjem"
+        username: turnUsername,
+        credential: turnCredential
       },
       {
         urls: "turns:global.relay.metered.ca:443?transport=tcp",
-        username: "8008f3d422fbe49ca4157b23",
-        credential: "E7rLb3LegFMDdjem"
+        username: turnUsername,
+        credential: turnCredential
       }
     ],
     iceTransportPolicy: 'all'
