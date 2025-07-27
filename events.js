@@ -1,4 +1,4 @@
-
+// events.js
 // Event handlers and listeners
 
 // Help modal toggle
@@ -215,7 +215,7 @@ socket.onmessage = (event) => {
       } else {
         messageDiv.appendChild(document.createTextNode(`${senderUsername}: ${sanitizeMessage(message.content)}`));
       }
-      messages.prepend(messageDiv);
+      messages.appendChild(messageDiv);
       messages.scrollTop = messages.scrollHeight;
     }
   } catch (error) {
