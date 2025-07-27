@@ -47,7 +47,7 @@ function startKeepAlive() {
   keepAliveTimer = setInterval(() => {
     if (socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({ type: 'ping', clientId }));
-      console.log('Sent keepalive ping');
+      log('info', 'Sent keepalive ping');
     }
   }, 20000);
 }
@@ -56,7 +56,7 @@ function stopKeepAlive() {
   if (keepAliveTimer) {
     clearInterval(keepAliveTimer);
     keepAliveTimer = null;
-    console.log('Stopped keepalive');
+    log('info', 'Stopped keepalive');
   }
 }
 
@@ -64,7 +64,7 @@ function cleanupPeerConnection(targetId) {
   const peerConnection = peerConnections.get(targetId);
   const dataChannel = dataChannels.get(targetId);
   if (dataChannel && dataChannel.readyState === 'open') {
-    console.log(`Skipping cleanup for ${targetId}: data channel is open`);
+    log('info', `Skipping cleanup for ${targetId}: data channel is open`);
     return;
   }
   if (peerConnection) {
@@ -90,16 +90,16 @@ function cleanupPeerConnection(targetId) {
 }
 
 function initializeMaxClientsUI() {
-  console.log('initializeMaxClientsUI called, isInitiator:', isInitiator);
+  log('info', 'initializeMaxClientsUI called, isInitiator:', isInitiator);
   const maxClientsRadios = document.getElementById('maxClientsRadios');
   if (!maxClientsRadios) {
-    console.error('maxClientsRadios element not found');
+    log('error', 'maxClientsRadios element not found');
     showStatusMessage('Error: UI initialization failed.');
     return;
   }
   maxClientsRadios.innerHTML = '';
   if (isInitiator) {
-    console.log('Creating buttons for maxClients, current maxClients:', maxClients);
+    log('info', 'Creating buttons for maxClients, current maxClients:', maxClients);
     maxClientsContainer.classList.remove('hidden');
     for (let n = 2; n <= 10; n++) {
       const button = document.createElement('button');
@@ -109,7 +109,7 @@ function initializeMaxClientsUI() {
       button.disabled = !isInitiator;
       button.addEventListener('click', () => {
         if (isInitiator) {
-          console.log(`Button clicked for maxClients: ${n}`);
+          log('info', `Button clicked for maxClients: ${n}`);
           setMaxClients(n);
           document.querySelectorAll('#maxClientsRadios button').forEach(btn => btn.classList.remove('active'));
           button.classList.add('active');
@@ -117,18 +117,18 @@ function initializeMaxClientsUI() {
       });
       maxClientsRadios.appendChild(button);
     }
-    console.log('Buttons appended to maxClientsRadios');
+    log('info', 'Buttons appended to maxClientsRadios');
   } else {
-    console.log('Hiding maxClientsContainer for non-initiator');
+    log('info', 'Hiding maxClientsContainer for non-initiator');
     maxClientsContainer.classList.add('hidden');
   }
 }
 
 function updateMaxClientsUI() {
-  console.log('updateMaxClientsUI called, maxClients:', maxClients, 'isInitiator:', isInitiator);
+  log('info', 'updateMaxClientsUI called, maxClients:', maxClients, 'isInitiator:', isInitiator);
   statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...';
   const buttons = document.querySelectorAll('#maxClientsRadios button');
-  console.log('Found buttons:', buttons.length);
+  log('info', 'Found buttons:', buttons.length);
   buttons.forEach(button => {
     const value = parseInt(button.textContent);
     button.classList.toggle('active', value === maxClients);
@@ -142,13 +142,69 @@ function updateMaxClientsUI() {
   }
 }
 
+/**
+ * Sets the maximum number of clients allowed in the chat.
+ * @param {number} n - The new maximum number of clients (2-10).
+ */
 function setMaxClients(n) {
   if (isInitiator && clientId && socket.readyState === WebSocket.OPEN) {
     maxClients = Math.min(n, 10);
-    console.log(`setMaxClients called with n: ${n}, new maxClients: ${maxClients}`);
+    log('info', `setMaxClients called with n: ${n}, new maxClients: ${maxClients}`);
     socket.send(JSON.stringify({ type: 'set-max-clients', maxClients: maxClients, code, clientId }));
     updateMaxClientsUI();
   } else {
-    console.warn('setMaxClients failed: not initiator or socket not open');
+    log('warn', 'setMaxClients failed: not initiator or socket not open');
   }
+}
+
+/**
+ * Centralized logger for consistent logging.
+ * @param {string} level - The log level ('info', 'warn', 'error').
+ * @param {...any} msg - The message parts to log.
+ */
+function log(level, ...msg) {
+  const timestamp = new Date().toISOString();
+  const fullMsg = `[${timestamp}] ${msg.join(' ')}`;
+  if (level === 'error') {
+    console.error(fullMsg);
+  } else if (level === 'warn') {
+    console.warn(fullMsg);
+  } else {
+    console.log(fullMsg);
+  }
+}
+
+/**
+ * Creates and shows an image modal.
+ * @param {string} base64 - The base64 image data.
+ * @param {string} focusId - The ID of the element to focus after closing the modal.
+ */
+function createImageModal(base64, focusId) {
+  let modal = document.getElementById('imageModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'imageModal';
+    modal.className = 'modal';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-label', 'Image viewer');
+    modal.setAttribute('tabindex', '-1');
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = '';
+  const modalImg = document.createElement('img');
+  modalImg.src = base64;
+  modalImg.setAttribute('alt', 'Enlarged image');
+  modal.appendChild(modalImg);
+  modal.classList.add('active');
+  modal.focus();
+  modal.addEventListener('click', () => {
+    modal.classList.remove('active');
+    document.getElementById(focusId)?.focus();
+  });
+  modal.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      modal.classList.remove('active');
+      document.getElementById(focusId)?.focus();
+    }
+  });
 }
