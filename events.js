@@ -20,18 +20,18 @@ helpModal.addEventListener('keydown', (event) => {
 });
 
 socket.onopen = () => {
-  log('info', 'WebSocket opened');
+  console.log('WebSocket opened');
   socket.send(JSON.stringify({ type: 'connect', clientId }));
   startKeepAlive();
   reconnectAttempts = 0;
   const urlParams = new URLSearchParams(window.location.search);
   const codeParam = urlParams.get('code');
   if (codeParam && validateCode(codeParam)) {
-    log('info', 'Detected code in URL, triggering autoConnect');
+    console.log('Detected code in URL, triggering autoConnect');
     autoConnect(codeParam);
   } else {
-    log('info', 'No valid code in URL, showing initial container');
-    initialContainer.classList.add('hidden');
+    console.log('No valid code in URL, showing initial container');
+    initialContainer.classList.remove('hidden');
     usernameContainer.classList.add('hidden');
     connectContainer.classList.add('hidden');
     chatContainer.classList.add('hidden');
@@ -42,14 +42,14 @@ socket.onopen = () => {
 };
 
 socket.onerror = (error) => {
-  log('error', 'WebSocket error:', error);
+  console.error('WebSocket error:', error);
   showStatusMessage('Connection error, please try again later.');
   stopKeepAlive();
   connectionTimeouts.forEach((timeout) => clearTimeout(timeout));
 };
 
 socket.onclose = () => {
-  log('error', 'WebSocket closed, attempting reconnect');
+  console.error('WebSocket closed, attempting reconnect');
   stopKeepAlive();
   showStatusMessage('Lost connection, reconnecting...');
   const delay = Math.min(30000, 5000 * Math.pow(2, reconnectAttempts));
@@ -57,11 +57,11 @@ socket.onclose = () => {
   setTimeout(() => {
     const newSocket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
     newSocket.onopen = () => {
-      log('info', 'Reconnected, sending connect');
+      console.log('Reconnected, sending connect');
       newSocket.send(JSON.stringify({ type: 'connect', clientId }));
       startKeepAlive();
       if (code && username && validateCode(code) && validateUsername(username)) {
-        log('info', 'Rejoining with code:', code);
+        console.log('Rejoining with code:', code);
         newSocket.send(JSON.stringify({ type: 'join', code, clientId, username }));
       }
     };
@@ -73,17 +73,17 @@ socket.onclose = () => {
 };
 
 socket.onmessage = (event) => {
-  log('info', 'Received WebSocket message:', event.data);
+  console.log('Received WebSocket message:', event.data);
   try {
     const message = JSON.parse(event.data);
-    log('info', 'Parsed message:', message);
+    console.log('Parsed message:', message);
     if (message.type === 'pong') {
-      log('info', 'Received keepalive pong');
+      console.log('Received keepalive pong');
       return;
     }
     if (message.type === 'error') {
       showStatusMessage(message.message);
-      log('error', 'Server error:', message.message);
+      console.error('Server error:', message.message);
       if (message.message.includes('Chat is full') || message.message.includes('Username already taken') || message.message.includes('Initiator offline')) {
         socket.send(JSON.stringify({ type: 'leave', code, clientId }));
         initialContainer.classList.remove('hidden');
@@ -107,7 +107,7 @@ socket.onmessage = (event) => {
       maxClients = Math.min(message.maxClients, 10);
       isInitiator = message.isInitiator;
       totalClients = 1;
-      log('info', `Initialized client ${clientId}, username: ${username}, maxClients: ${maxClients}, isInitiator: ${isInitiator}`);
+      console.log(`Initialized client ${clientId}, username: ${username}, maxClients: ${maxClients}, isInitiator: ${isInitiator}`);
       usernames.set(clientId, username);
       initializeMaxClientsUI();
       updateMaxClientsUI();
@@ -115,26 +115,26 @@ socket.onmessage = (event) => {
       turnCredential = message.turnCredential;
     }
     if (message.type === 'initiator-changed') {
-      log('info', `Initiator changed to ${message.newInitiator} for code: ${code}`);
+      console.log(`Initiator changed to ${message.newInitiator} for code: ${code}`);
       isInitiator = message.newInitiator === clientId;
       initializeMaxClientsUI();
       updateMaxClientsUI();
     }
     if (message.type === 'join-notify' && message.code === code) {
       totalClients = message.totalClients;
-      log('info', `Join-notify received for code: ${code}, client: ${message.clientId}, total: ${totalClients}, username: ${message.username}`);
+      console.log(`Join-notify received for code: ${code}, client: ${message.clientId}, total: ${totalClients}, username: ${message.username}`);
       if (message.username) {
         usernames.set(message.clientId, message.username);
       }
       updateMaxClientsUI();
       if (isInitiator && message.clientId !== clientId && !peerConnections.has(message.clientId)) {
-        log('info', `Initiating peer connection with client ${message.clientId}`);
+        console.log(`Initiating peer connection with client ${message.clientId}`);
         startPeerConnection(message.clientId, true);
       }
     }
     if (message.type === 'client-disconnected') {
       totalClients = message.totalClients;
-      log('info', `Client ${message.clientId} disconnected from code: ${code}, total: ${totalClients}`);
+      console.log(`Client ${message.clientId} disconnected from code: ${code}, total: ${totalClients}`);
       usernames.delete(message.clientId);
       cleanupPeerConnection(message.clientId);
       updateMaxClientsUI();
@@ -145,19 +145,19 @@ socket.onmessage = (event) => {
     }
     if (message.type === 'max-clients') {
       maxClients = Math.min(message.maxClients, 10);
-      log('info', `Max clients updated to ${maxClients} for code: ${code}`);
+      console.log(`Max clients updated to ${maxClients} for code: ${code}`);
       updateMaxClientsUI();
     }
     if (message.type === 'offer' && message.clientId !== clientId) {
-      log('info', `Received offer from ${message.clientId} for code: ${code}`);
+      console.log(`Received offer from ${message.clientId} for code: ${code}`);
       handleOffer(message.offer, message.clientId);
     }
     if (message.type === 'answer' && message.clientId !== clientId) {
-      log('info', `Received answer from ${message.clientId} for code: ${code}`);
+      console.log(`Received answer from ${message.clientId} for code: ${code}`);
       handleAnswer(message.answer, message.clientId);
     }
     if (message.type === 'candidate' && message.clientId !== clientId) {
-      log('info', `Received ICE candidate from ${message.clientId} for code: ${code}`);
+      console.log(`Received ICE candidate from ${message.clientId} for code: ${code}`);
       handleCandidate(message.candidate, message.clientId);
     }
     // Add for relay fallback
@@ -182,22 +182,50 @@ socket.onmessage = (event) => {
         img.style.borderRadius = '0.5rem';
         img.style.cursor = 'pointer';
         img.setAttribute('alt', 'Received image');
-        img.addEventListener('click', () => createImageModal(message.data, 'messageInput'));
+        img.addEventListener('click', () => {
+          let modal = document.getElementById('imageModal');
+          if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'imageModal';
+            modal.className = 'modal';
+            modal.setAttribute('role', 'dialog');
+            modal.setAttribute('aria-label', 'Image viewer');
+            modal.setAttribute('tabindex', '-1');
+            document.body.appendChild(modal);
+          }
+          modal.innerHTML = '';
+          const modalImg = document.createElement('img');
+          modalImg.src = message.data;
+          modalImg.setAttribute('alt', 'Enlarged image');
+          modal.appendChild(modalImg);
+          modal.classList.add('active');
+          modal.focus();
+          modal.addEventListener('click', () => {
+            modal.classList.remove('active');
+            document.getElementById('messageInput')?.focus();
+          });
+          modal.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+              modal.classList.remove('active');
+              document.getElementById('messageInput')?.focus();
+            }
+          });
+        });
         messageDiv.appendChild(img);
       } else {
         messageDiv.appendChild(document.createTextNode(`${senderUsername}: ${sanitizeMessage(message.content)}`));
       }
-      messages.appendChild(messageDiv);
-      messages.scrollTop = messages.scrollHeight;
+      messages.prepend(messageDiv);
+      messages.scrollTop = 0;
     }
   } catch (error) {
-    log('error', 'Error parsing message:', error);
+    console.error('Error parsing message:', error);
     showStatusMessage('Error receiving message, please try again.');
   }
 };
 
 document.getElementById('startChatToggleButton').onclick = () => {
-  log('info', 'Start chat toggle clicked');
+  console.log('Start chat toggle clicked');
   initialContainer.classList.add('hidden');
   usernameContainer.classList.remove('hidden');
   connectContainer.classList.add('hidden');
@@ -210,7 +238,7 @@ document.getElementById('startChatToggleButton').onclick = () => {
 };
 
 document.getElementById('connectToggleButton').onclick = () => {
-  log('info', 'Connect toggle clicked');
+  console.log('Connect toggle clicked');
   initialContainer.classList.add('hidden');
   usernameContainer.classList.add('hidden');
   connectContainer.classList.remove('hidden');
@@ -231,7 +259,7 @@ document.getElementById('joinWithUsernameButton').onclick = () => {
   }
   username = usernameInput;
   localStorage.setItem('username', username);
-  log('info', 'Username set in localStorage:', username);
+  console.log('Username set in localStorage:', username);
   code = generateCode();
   codeDisplayElement.textContent = `Your code: ${code}`;
   codeDisplayElement.classList.remove('hidden');
@@ -243,11 +271,11 @@ document.getElementById('joinWithUsernameButton').onclick = () => {
   messages.classList.add('waiting');
   statusElement.textContent = 'Waiting for connection...';
   if (socket.readyState === WebSocket.OPEN) {
-    log('info', 'Sending join message for new chat');
+    console.log('Sending join message for new chat');
     socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
   } else {
     socket.addEventListener('open', () => {
-      log('info', 'WebSocket opened, sending join for new chat');
+      console.log('WebSocket opened, sending join for new chat');
       socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
     }, { once: true });
   }
@@ -269,7 +297,7 @@ document.getElementById('connectButton').onclick = () => {
   }
   username = usernameInput;
   localStorage.setItem('username', username);
-  log('info', 'Username set in localStorage:', username);
+  console.log('Username set in localStorage:', username);
   code = inputCode;
   codeDisplayElement.textContent = `Using code: ${code}`;
   codeDisplayElement.classList.remove('hidden');
@@ -281,11 +309,11 @@ document.getElementById('connectButton').onclick = () => {
   messages.classList.add('waiting');
   statusElement.textContent = 'Waiting for connection...';
   if (socket.readyState === WebSocket.OPEN) {
-    log('info', 'Sending join message for existing chat');
+    console.log('Sending join message for existing chat');
     socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
   } else {
     socket.addEventListener('open', () => {
-      log('info', 'WebSocket opened, sending join for existing chat');
+      console.log('WebSocket opened, sending join for existing chat');
       socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
     }, { once: true });
   }
@@ -293,7 +321,7 @@ document.getElementById('connectButton').onclick = () => {
 };
 
 document.getElementById('backButton').onclick = () => {
-  log('info', 'Back button clicked from usernameContainer');
+  console.log('Back button clicked from usernameContainer');
   usernameContainer.classList.add('hidden');
   initialContainer.classList.remove('hidden');
   connectContainer.classList.add('hidden');
@@ -307,7 +335,7 @@ document.getElementById('backButton').onclick = () => {
 };
 
 document.getElementById('backButtonConnect').onclick = () => {
-  log('info', 'Back button clicked from connectContainer');
+  console.log('Back button clicked from connectContainer');
   connectContainer.classList.add('hidden');
   initialContainer.classList.remove('hidden');
   usernameContainer.classList.add('hidden');
@@ -357,7 +385,7 @@ messageInput.addEventListener('keydown', (event) => {
 });
 
 document.getElementById('newSessionButton').onclick = () => {
-  log('info', 'New session button clicked');
+  console.log('New session button clicked');
   socket.send(JSON.stringify({ type: 'leave', code, clientId }));
   peerConnections.forEach((pc) => pc.close());
   dataChannels.forEach((dc) => dc.close());
@@ -429,7 +457,7 @@ document.getElementById('copyCodeButton').onclick = () => {
       copyCodeButton.textContent = 'Copy Code';
     }, 2000);
   }).catch(err => {
-    log('error', 'Failed to copy text: ', err);
+    console.error('Failed to copy text: ', err);
     showStatusMessage('Failed to copy code.');
   });
   copyCodeButton?.focus();
