@@ -1,3 +1,4 @@
+// main.js
 // Core logic: peer connections, message sending, handling offers, etc.
 
 // Global vars for dynamic TURN creds from server
