@@ -4,18 +4,18 @@
 // Help modal toggle
 helpText.addEventListener('click', () => {
   helpModal.classList.add('active');
-  helpModal?.focus();
+  helpModal.focus();
 });
 
 helpModal.addEventListener('click', () => {
   helpModal.classList.remove('active');
-  helpText?.focus();
+  helpText.focus();
 });
 
 helpModal.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     helpModal.classList.remove('active');
-    helpText?.focus();
+    helpText.focus();
   }
 });
 
@@ -396,7 +396,6 @@ document.getElementById('newSessionButton').onclick = () => {
   connectionTimeouts.clear();
   retryCounts.clear();
   processedMessageIds.clear();
-  processedAnswers.clear();
   usernames.clear();
   messageRateLimits.clear();
   imageRateLimits.clear();
