@@ -279,6 +279,18 @@ function setupDataChannel(dataChannel, targetId) {
 
   dataChannel.onmessage = (event) => {
     const now = performance.now();
+    // Global rate limit check (50 msg/sec total across all peers)
+    if (now - globalMessageRate.startTime >= 1000) {
+      globalMessageRate.count = 0;
+      globalMessageRate.startTime = now;
+    }
+    globalMessageRate.count += 1;
+    if (globalMessageRate.count > 50) {
+      console.warn('Global message rate limit exceeded');
+      showStatusMessage('Global message rate limit reached, please slow down.');
+      return;
+    }
+
     const rateLimit = messageRateLimits.get(targetId) || { count: 0, startTime: now };
     if (now - rateLimit.startTime >= 1000) {
       rateLimit.count = 0;
@@ -302,6 +314,16 @@ function setupDataChannel(dataChannel, targetId) {
     }
     if (!data.messageId || !data.username || (!data.content && data.type !== 'image') || (data.type === 'image' && !data.data)) {
       console.log(`Invalid message format from ${targetId}:`, data);
+      return;
+    }
+    if (data.type === 'image' && data.data.length > 1048576) { // Reject images > 1MB base64 (~750KB binary)
+      console.warn(`Image too large from ${targetId}`);
+      showStatusMessage('Received image too large, ignoring.');
+      return;
+    }
+    if (data.type !== 'image' && data.content.length > 1000) { // Reject text > 1000 chars
+      console.warn(`Message too long from ${targetId}`);
+      showStatusMessage('Received message too long, ignoring.');
       return;
     }
     if (processedMessageIds.has(data.messageId)) {
