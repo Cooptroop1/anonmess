@@ -4,7 +4,12 @@
 let turnUsername = '';
 let turnCredential = '';
 
+let sendDebounceTimer = null; // New: For client-side debounce on sends
+
 async function sendImage(file) {
+  if (sendDebounceTimer) return; // Debounce: Prevent multiple sends in short time
+  sendDebounceTimer = setTimeout(() => sendDebounceTimer = null, 1000); // 1s debounce
+
   const validImageTypes = ['image/jpeg', 'image/png'];
   if (!file || !validImageTypes.includes(file.type) || !username || dataChannels.size === 0) {
     showStatusMessage('Error: Select a JPEG or PNG image and ensure you are connected.');
@@ -477,6 +482,9 @@ function handleCandidate(candidate, targetId) {
 }
 
 async function sendMessage(content) {
+  if (sendDebounceTimer) return; // New: Debounce sends (client-side, 1s)
+  sendDebounceTimer = setTimeout(() => sendDebounceTimer = null, 1000);
+
   if (content && dataChannels.size > 0 && username) {
     const messageId = generateMessageId();
     const sanitizedContent = sanitizeMessage(content);
