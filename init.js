@@ -1,4 +1,3 @@
-// init.js
 // Keepalive timer ID
 let keepAliveTimer = null;
 // Reconnection attempt counter for exponential backoff
@@ -30,6 +29,7 @@ let usernames = new Map();
 const messageRateLimits = new Map();
 let codeSentToRandom = false;
 let useRelay = false; // Flag for fallback to server relay
+let token = ''; // New: Store JWT token from server
 
 const statusElement = document.getElementById('status');
 const codeDisplayElement = document.getElementById('codeDisplay');
