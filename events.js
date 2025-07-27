@@ -4,18 +4,18 @@
 // Help modal toggle
 helpText.addEventListener('click', () => {
   helpModal.classList.add('active');
-  helpModal.focus();
+  helpModal?.focus();
 });
 
 helpModal.addEventListener('click', () => {
   helpModal.classList.remove('active');
-  helpText.focus();
+  helpText?.focus();
 });
 
 helpModal.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     helpModal.classList.remove('active');
-    helpText.focus();
+    helpText?.focus();
   }
 });
 
@@ -202,12 +202,12 @@ socket.onmessage = (event) => {
           modal.focus();
           modal.addEventListener('click', () => {
             modal.classList.remove('active');
-            document.getElementById('messageInput').focus();
+            document.getElementById('messageInput')?.focus();
           });
           modal.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {
               modal.classList.remove('active');
-              document.getElementById('messageInput').focus();
+              document.getElementById('messageInput')?.focus();
             }
           });
         });
@@ -234,7 +234,7 @@ document.getElementById('startChatToggleButton').onclick = () => {
   copyCodeButton.classList.add('hidden');
   statusElement.textContent = 'Enter a username to start a chat';
   document.getElementById('usernameInput').value = username || '';
-  document.getElementById('usernameInput').focus();
+  document.getElementById('usernameInput')?.focus();
 };
 
 document.getElementById('connectToggleButton').onclick = () => {
@@ -247,14 +247,14 @@ document.getElementById('connectToggleButton').onclick = () => {
   copyCodeButton.classList.add('hidden');
   statusElement.textContent = 'Enter a username and code to join a chat';
   document.getElementById('usernameConnectInput').value = username || '';
-  document.getElementById('usernameConnectInput').focus();
+  document.getElementById('usernameConnectInput')?.focus();
 };
 
 document.getElementById('joinWithUsernameButton').onclick = () => {
   const usernameInput = document.getElementById('usernameInput').value.trim();
   if (!validateUsername(usernameInput)) {
     showStatusMessage('Invalid username: 1-16 alphanumeric characters.');
-    document.getElementById('usernameInput').focus();
+    document.getElementById('usernameInput')?.focus();
     return;
   }
   username = usernameInput;
@@ -279,7 +279,7 @@ document.getElementById('joinWithUsernameButton').onclick = () => {
       socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
     }, { once: true });
   }
-  document.getElementById('messageInput').focus();
+  document.getElementById('messageInput')?.focus();
 };
 
 document.getElementById('connectButton').onclick = () => {
@@ -287,12 +287,12 @@ document.getElementById('connectButton').onclick = () => {
   const inputCode = document.getElementById('codeInput').value.trim();
   if (!validateUsername(usernameInput)) {
     showStatusMessage('Invalid username: 1-16 alphanumeric characters.');
-    document.getElementById('usernameConnectInput').focus();
+    document.getElementById('usernameConnectInput')?.focus();
     return;
   }
   if (!validateCode(inputCode)) {
     showStatusMessage('Invalid code format: xxxx-xxxx-xxxx-xxxx.');
-    document.getElementById('codeInput').focus();
+    document.getElementById('codeInput')?.focus();
     return;
   }
   username = usernameInput;
@@ -317,7 +317,7 @@ document.getElementById('connectButton').onclick = () => {
       socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
     }, { once: true });
   }
-  document.getElementById('messageInput').focus();
+  document.getElementById('messageInput')?.focus();
 };
 
 document.getElementById('backButton').onclick = () => {
@@ -331,7 +331,7 @@ document.getElementById('backButton').onclick = () => {
   statusElement.textContent = 'Start a new chat or connect to an existing one';
   messages.classList.remove('waiting');
   stopKeepAlive();
-  document.getElementById('startChatToggleButton').focus();
+  document.getElementById('startChatToggleButton')?.focus();
 };
 
 document.getElementById('backButtonConnect').onclick = () => {
@@ -345,7 +345,7 @@ document.getElementById('backButtonConnect').onclick = () => {
   statusElement.textContent = 'Start a new chat or connect to an existing one';
   messages.classList.remove('waiting');
   stopKeepAlive();
-  document.getElementById('connectToggleButton').focus();
+  document.getElementById('connectToggleButton')?.focus();
 };
 
 document.getElementById('sendButton').onclick = () => {
@@ -357,7 +357,7 @@ document.getElementById('sendButton').onclick = () => {
 };
 
 document.getElementById('imageButton').onclick = () => {
-  document.getElementById('imageInput').click();
+  document.getElementById('imageInput')?.click();
 };
 
 document.getElementById('imageInput').onchange = (event) => {
@@ -426,27 +426,27 @@ document.getElementById('newSessionButton').onclick = () => {
   codeSentToRandom = false;
   button2.disabled = false;
   stopKeepAlive();
-  document.getElementById('startChatToggleButton').focus();
+  document.getElementById('startChatToggleButton')?.focus();
 };
 
 document.getElementById('usernameInput').addEventListener('keydown', (event) => {
   if (event.key === 'Enter') {
     event.preventDefault();
-    document.getElementById('joinWithUsernameButton').click();
+    document.getElementById('joinWithUsernameButton')?.click();
   }
 });
 
 document.getElementById('usernameConnectInput').addEventListener('keydown', (event) => {
   if (event.key === 'Enter') {
     event.preventDefault();
-    document.getElementById('codeInput').focus();
+    document.getElementById('codeInput')?.focus();
   }
 });
 
 document.getElementById('codeInput').addEventListener('keydown', (event) => {
   if (event.key === 'Enter') {
     event.preventDefault();
-    document.getElementById('connectButton').click();
+    document.getElementById('connectButton')?.click();
   }
 });
 
@@ -461,7 +461,7 @@ document.getElementById('copyCodeButton').onclick = () => {
     console.error('Failed to copy text: ', err);
     showStatusMessage('Failed to copy code.');
   });
-  copyCodeButton.focus();
+  copyCodeButton?.focus();
 };
 
 document.getElementById('button1').onclick = () => {
@@ -473,12 +473,12 @@ document.getElementById('button1').onclick = () => {
   } else {
     showStatusMessage('Cannot send: Not initiator, no code, or room is full.');
   }
-  document.getElementById('button1').focus();
+  document.getElementById('button1')?.focus();
 };
 
 document.getElementById('button2').onclick = () => {
   if (!button2.disabled) {
     window.location.href = 'https://anonomoose.com/random.html';
   }
-  document.getElementById('button2').focus();
+  document.getElementById('button2')?.focus();
 };
