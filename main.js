@@ -191,6 +191,8 @@ function startPeerConnection(targetId, isOfferer) {
         retryCounts.set(targetId, retryCount + 1);
         console.log(`Retrying connection with ${targetId}, attempt ${retryCount + 1}`);
         startPeerConnection(targetId, isOfferer);
+      } else {
+        console.warn(`Max retries reached for ${targetId}, potential suspicious activity`);
       }
     } else {
       console.log(`Ignoring ICE 701 error for ${targetId}, continuing connection`);
@@ -212,6 +214,8 @@ function startPeerConnection(targetId, isOfferer) {
         retryCounts.set(targetId, retryCount + 1);
         console.log(`Retrying connection attempt ${retryCount + 1} with ${targetId}`);
         startPeerConnection(targetId, isOfferer);
+      } else {
+        console.warn(`Max retries reached for ${targetId}, potential suspicious activity`);
       }
     } else if (peerConnection.connectionState === 'connected') {
       console.log(`WebRTC connection established with ${targetId} for code: ${code}`);
