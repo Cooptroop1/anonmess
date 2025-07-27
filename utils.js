@@ -1,3 +1,4 @@
+
 // Utility to show temporary status messages
 function showStatusMessage(message, duration = 3000) {
   const statusElement = document.getElementById('status');
@@ -80,7 +81,7 @@ function cleanupPeerConnection(targetId) {
   retryCounts.delete(targetId);
   messageRateLimits.delete(targetId);
   imageRateLimits.delete(targetId);
-  isConnected = dataChannels.size > 0 || useRelay; // Updated: Keep connected in relay mode
+  isConnected = dataChannels.size > 0 || totalClients > 0; // Updated: Consider connected if any clients (including self)
   updateMaxClientsUI();
   if (!isConnected) {
     inputContainer.classList.add('hidden');
@@ -125,7 +126,7 @@ function initializeMaxClientsUI() {
 
 function updateMaxClientsUI() {
   log('info', 'updateMaxClientsUI called, maxClients:', maxClients, 'isInitiator:', isInitiator);
-  statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...';
+  statusElement.textContent = (dataChannels.size > 0 || totalClients > 0) ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...'; // Updated: Show connected if any clients
   const buttons = document.querySelectorAll('#maxClientsRadios button');
   log('info', 'Found buttons:', buttons.length);
   buttons.forEach(button => {
@@ -134,12 +135,12 @@ function updateMaxClientsUI() {
     button.disabled = !isInitiator;
   });
   maxClientsContainer.classList.toggle('hidden', !isInitiator);
-  if (!isConnected) {
+  if (dataChannels.size === 0 && totalClients === 0) { // Updated: Hide only if no clients at all
     messages.classList.add('waiting');
   } else {
     messages.classList.remove('waiting');
   }
-  if (isConnected) { // Updated: Show input if connected (including relay)
+  if (totalClients > 0) { // Updated: Always show input if clients present (including self)
     inputContainer.classList.remove('hidden');
   } else {
     inputContainer.classList.add('hidden');
