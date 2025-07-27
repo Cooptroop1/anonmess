@@ -1,4 +1,3 @@
-// utils.js
 // Utility to show temporary status messages
 function showStatusMessage(message, duration = 3000) {
   const statusElement = document.getElementById('status');
@@ -150,7 +149,7 @@ function setMaxClients(n) {
   if (isInitiator && clientId && socket.readyState === WebSocket.OPEN) {
     maxClients = Math.min(n, 10);
     log('info', `setMaxClients called with n: ${n}, new maxClients: ${maxClients}`);
-    socket.send(JSON.stringify({ type: 'set-max-clients', maxClients: maxClients, code, clientId }));
+    socket.send(JSON.stringify({ type: 'set-max-clients', maxClients: maxClients, code, clientId, token })); // New: include token
     updateMaxClientsUI();
   } else {
     log('warn', 'setMaxClients failed: not initiator or socket not open');
