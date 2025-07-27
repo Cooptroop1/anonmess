@@ -68,6 +68,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Add CSP meta tag for XSS prevention
   const cspMeta = document.createElement('meta');
   cspMeta.setAttribute('http-equiv', 'Content-Security-Policy');
-  cspMeta.setAttribute('content', "default-src 'self'; script-src 'self'; img-src data: blob: https://raw.githubusercontent.com");
+  cspMeta.setAttribute('content', "default-src 'self'; script-src 'self'; img-src data: blob: https://raw.githubusercontent.com https://cdnjs.cloudflare.com");
   document.head.appendChild(cspMeta);
 });
