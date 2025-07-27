@@ -1,3 +1,4 @@
+// utils.js
 // Utility to show temporary status messages
 function showStatusMessage(message, duration = 3000) {
   const statusElement = document.getElementById('status');
