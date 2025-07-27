@@ -5,10 +5,6 @@
 let turnUsername = '';
 let turnCredential = '';
 
-// Batch messages for DOM updates
-let messageBatch = [];
-let batchTimeout = null;
-
 async function sendImage(file) {
   const validImageTypes = ['image/jpeg', 'image/png'];
   if (!file || !validImageTypes.includes(file.type) || !username || dataChannels.size === 0) {
@@ -39,7 +35,12 @@ async function sendImage(file) {
 
   const maxWidth = 640;
   const maxHeight = 360;
-  const quality = 0.4;
+  let quality = 0.4;
+  if (file.size > 3 * 1024 * 1024) {
+    quality = 0.3; // Lower quality for files > 3MB
+  } else if (file.size > 1 * 1024 * 1024) {
+    quality = 0.35; // Medium for 1-3MB
+  }
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   const img = new Image();
@@ -129,8 +130,8 @@ async function sendImage(file) {
     });
   });
   messageDiv.appendChild(imgElement);
-  messages.appendChild(messageDiv);
-  messages.scrollTop = messages.scrollHeight;
+  messages.prepend(messageDiv);
+  messages.scrollTop = 0;
   processedMessageIds.add(messageId);
   document.getElementById('imageButton')?.focus();
 }
