@@ -1,9 +1,5 @@
 // Core logic: peer connections, message sending, handling offers, etc.
 
-// Global vars for dynamic TURN creds from server
-let turnUsername = '';
-letturnCredential = '';
-
 async function sendImage(file) {
   const validImageTypes = ['image/jpeg', 'image/png'];
   if (!file || !validImageTypes.includes(file.type) || !username || dataChannels.size === 0) {
@@ -106,26 +102,15 @@ async function sendImage(file) {
       document.body.appendChild(modal);
     }
     modal.innerHTML = '';
-    const closeButton = document.createElement('button');
-    closeButton.textContent = 'X';
-    closeButton.className = 'modal-close';
-    closeButton.setAttribute('aria-label', 'Close image modal');
-    closeButton.onclick = () => {
-      modal.classList.remove('active');
-      document.getElementById('imageButton').focus();
-    };
-    modal.appendChild(closeButton);
     const modalImg = document.createElement('img');
     modalImg.src = base64;
     modalImg.setAttribute('alt', 'Enlarged image');
     modal.appendChild(modalImg);
     modal.classList.add('active');
     modal.focus();
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) {
-        modal.classList.remove('active');
-        document.getElementById('imageButton').focus();
-      }
+    modal.addEventListener('click', () => {
+      modal.classList.remove('active');
+      document.getElementById('imageButton').focus();
     });
     modal.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
@@ -141,45 +126,100 @@ async function sendImage(file) {
   document.getElementById('imageButton').focus();
 }
 
+function initializeMaxClientsUI() {
+  console.log('initializeMaxClientsUI called, isInitiator:', isInitiator);
+  const maxClientsRadios = document.getElementById('maxClientsRadios');
+  if (!maxClientsRadios) {
+    console.error('maxClientsRadios element not found');
+    showStatusMessage('Error: UI initialization failed.');
+    return;
+  }
+  maxClientsRadios.innerHTML = '';
+  if (isInitiator) {
+    console.log('Creating buttons for maxClients, current maxClients:', maxClients);
+    maxClientsContainer.classList.remove('hidden');
+    for (let n = 2; n <= 10; n++) {
+      const button = document.createElement('button');
+      button.textContent = n;
+      button.setAttribute('aria-label', `Set maximum users to ${n}`);
+      button.className = n === maxClients ? 'active' : '';
+      button.disabled = !isInitiator;
+      button.addEventListener('click', () => {
+        if (isInitiator) {
+          console.log(`Button clicked for maxClients: ${n}`);
+          setMaxClients(n);
+          document.querySelectorAll('#maxClientsRadios button').forEach(btn => btn.classList.remove('active'));
+          button.classList.add('active');
+        }
+      });
+      maxClientsRadios.appendChild(button);
+    }
+    console.log('Buttons appended to maxClientsRadios');
+  } else {
+    console.log('Hiding maxClientsContainer for non-initiator');
+    maxClientsContainer.classList.add('hidden');
+  }
+}
+
+function updateMaxClientsUI() {
+  console.log('updateMaxClientsUI called, maxClients:', maxClients, 'isInitiator:', isInitiator);
+  statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...';
+  const buttons = document.querySelectorAll('#maxClientsRadios button');
+  console.log('Found buttons:', buttons.length);
+  buttons.forEach(button => {
+    const value = parseInt(button.textContent);
+    button.classList.toggle('active', value === maxClients);
+    button.disabled = !isInitiator;
+  });
+  maxClientsContainer.classList.toggle('hidden', !isInitiator);
+  if (!isConnected) {
+    messages.classList.add('waiting');
+  } else {
+    messages.classList.remove('waiting');
+  }
+}
+
+function setMaxClients(n) {
+  if (isInitiator && clientId && socket.readyState === WebSocket.OPEN) {
+    maxClients = Math.min(n, 10);
+    console.log(`setMaxClients called with n: ${n}, new maxClients: ${maxClients}`);
+    socket.send(JSON.stringify({ type: 'set-max-clients', maxClients: maxClients, code, clientId }));
+    updateMaxClientsUI();
+  } else {
+    console.warn('setMaxClients failed: not initiator or socket not open');
+  }
+}
+
 function startPeerConnection(targetId, isOfferer) {
   console.log(`Starting peer connection with ${targetId} for code: ${code}, offerer: ${isOfferer}`);
   if (peerConnections.has(targetId)) {
     console.log(`Cleaning up existing connection with ${targetId}`);
     cleanupPeerConnection(targetId);
   }
-  let iceServers = [
-    { urls: 'stun:stun.relay.metered.ca:80' },
-    { urls: 'stun:stun.l.google.com:19302' },
-  ];
-  if (turnUsername && turnCredential) {
-    iceServers = [
-      { urls: 'stun:stun.relay.metered.ca:80' },
+  const peerConnection = new RTCPeerConnection({
+    iceServers: [
+      { urls: "stun:stun.relay.metered.ca:80" },
       {
-        urls: 'turn:global.relay.metered.ca:80',
+        urls: "turn:global.relay.metered.ca:80",
+        username: turnUsername,  // Dynamic from server
+        credential: turnCredential  // Dynamic from server
+      },
+      {
+        urls: "turn:global.relay.metered.ca:80?transport=tcp",
         username: turnUsername,
         credential: turnCredential
       },
       {
-        urls: 'turn:global.relay.metered.ca:80?transport=tcp',
+        urls: "turn:global.relay.metered.ca:443",
         username: turnUsername,
         credential: turnCredential
       },
       {
-        urls: 'turn:global.relay.metered.ca:443',
-        username: turnUsername,
-        credential: turnCredential
-      },
-      {
-        urls: 'turns:global.relay.metered.ca:443?transport=tcp',
+        urls: "turns:global.relay.metered.ca:443?transport=tcp",
         username: turnUsername,
         credential: turnCredential
       }
-    ];
-  } else {
-    console.warn('TURN credentials missing, falling back to STUN-only');
-  }
-  const peerConnection = new RTCPeerConnection({
-    iceServers,
+    ],
     iceTransportPolicy: 'all'
   });
   peerConnections.set(targetId, peerConnection);
@@ -204,15 +244,15 @@ function startPeerConnection(targetId, isOfferer) {
 
   peerConnection.onicecandidateerror = (event) => {
     console.error(`ICE candidate error for ${targetId}: ${event.errorText}, code=${event.errorCode}`);
-    if (event.errorCode === 701 || event.errorCode === 400 || event.errorCode === 401) {
-      console.log(`Ignoring ICE error ${event.errorCode} for ${targetId}, continuing connection`);
-    } else {
+    if (event.errorCode !== 701) {
       const retryCount = retryCounts.get(targetId) || 0;
       if (retryCount < maxRetries) {
         retryCounts.set(targetId, retryCount + 1);
         console.log(`Retrying connection with ${targetId}, attempt ${retryCount + 1}`);
         startPeerConnection(targetId, isOfferer);
       }
+    } else {
+      console.log(`Ignoring ICE 701 error for ${targetId}, continuing connection`);
     }
   };
 
@@ -231,8 +271,6 @@ function startPeerConnection(targetId, isOfferer) {
         retryCounts.set(targetId, retryCount + 1);
         console.log(`Retrying connection attempt ${retryCount + 1} with ${targetId}`);
         startPeerConnection(targetId, isOfferer);
-      } else {
-        showRelayRetryButton(); // New UX for relay mode
       }
     } else if (peerConnection.connectionState === 'connected') {
       console.log(`WebRTC connection established with ${targetId} for code: ${code}`);
@@ -275,34 +313,13 @@ function startPeerConnection(targetId, isOfferer) {
       useRelay = true;
       showStatusMessage('P2P connection failed, switching to server relay mode.');
       cleanupPeerConnection(targetId);
-      showRelayRetryButton(); // New UX for relay mode
+      isConnected = true; // Set connected in relay mode
+      updateMaxClientsUI();
+      inputContainer.classList.remove('hidden');
+      messages.classList.remove('waiting');
     }
   }, 10000); // 10s timeout for fallback
   connectionTimeouts.set(targetId, timeout);
-}
-
-// New function for relay mode retry UX
-function showRelayRetryButton() {
-  let retryButton = document.getElementById('retryP2P');
-  if (!retryButton) {
-    retryButton = document.createElement('button');
-    retryButton.id = 'retryP2P';
-    retryButton.textContent = 'Retry P2P';
-    retryButton.style.position = 'fixed';
-    retryButton.style.bottom = '10px';
-    retryButton.style.right = '10px';
-    retryButton.style.zIndex = '1000';
-    retryButton.onclick = () => {
-      useRelay = false;
-      // Reattempt connection to peers
-      peerConnections.forEach((_, targetId) => {
-        startPeerConnection(targetId, isInitiator);
-      });
-      retryButton.remove();
-      showStatusMessage('Retrying P2P connection...');
-    };
-    document.body.appendChild(retryButton);
-  }
 }
 
 function setupDataChannel(dataChannel, targetId) {
@@ -384,26 +401,15 @@ function setupDataChannel(dataChannel, targetId) {
           document.body.appendChild(modal);
         }
         modal.innerHTML = '';
-        const closeButton = document.createElement('button');
-        closeButton.textContent = 'X';
-        closeButton.className = 'modal-close';
-        closeButton.setAttribute('aria-label', 'Close image modal');
-        closeButton.onclick = () => {
-          modal.classList.remove('active');
-          document.getElementById('messageInput').focus();
-        };
-        modal.appendChild(closeButton);
         const modalImg = document.createElement('img');
         modalImg.src = data.data;
         modalImg.setAttribute('alt', 'Enlarged image');
         modal.appendChild(modalImg);
         modal.classList.add('active');
         modal.focus();
-        modal.addEventListener('click', (e) => {
-          if (e.target === modal) {
-            modal.classList.remove('active');
-            document.getElementById('messageInput').focus();
-          }
+        modal.addEventListener('click', () => {
+          modal.classList.remove('active');
+          document.getElementById('messageInput').focus();
         });
         modal.addEventListener('keydown', (event) => {
           if (event.key === 'Escape') {
@@ -527,6 +533,35 @@ function handleCandidate(candidate, targetId) {
   }
 }
 
+function cleanupPeerConnection(targetId) {
+  const peerConnection = peerConnections.get(targetId);
+  const dataChannel = dataChannels.get(targetId);
+  if (dataChannel && dataChannel.readyState === 'open') {
+    console.log(`Skipping cleanup for ${targetId}: data channel is open`);
+    return;
+  }
+  if (peerConnection) {
+    peerConnection.close();
+    peerConnections.delete(targetId);
+  }
+  if (dataChannel) {
+    dataChannel.close();
+    dataChannels.delete(targetId);
+  }
+  candidatesQueues.delete(targetId);
+  clearTimeout(connectionTimeouts.get(targetId));
+  connectionTimeouts.delete(targetId);
+  retryCounts.delete(targetId);
+  messageRateLimits.delete(targetId);
+  imageRateLimits.delete(targetId);
+  isConnected = dataChannels.size > 0;
+  updateMaxClientsUI();
+  if (!isConnected) {
+    inputContainer.classList.add('hidden');
+    messages.classList.add('waiting');
+  }
+}
+
 function sendMessage(content) {
   if (content && dataChannels.size > 0 && username) {
     const messageId = generateMessageId();
@@ -570,15 +605,6 @@ function sendMessage(content) {
 
 function autoConnect(codeParam) {
   console.log('autoConnect running with code:', codeParam);
-  if (!validateCode(codeParam)) {
-    console.log('Invalid code in URL, showing initial container');
-    initialContainer.classList.remove('hidden');
-    usernameContainer.classList.add('hidden');
-    chatContainer.classList.add('hidden');
-    showStatusMessage('Invalid code format. Please enter a valid code.');
-    document.getElementById('connectToggleButton').focus();
-    return;
-  }
   code = codeParam;
   initialContainer.classList.add('hidden');
   connectContainer.classList.add('hidden');
@@ -587,59 +613,68 @@ function autoConnect(codeParam) {
   codeDisplayElement.classList.add('hidden');
   copyCodeButton.classList.add('hidden');
   console.log('Loaded username from localStorage:', username);
-  if (validateUsername(username)) {
-    console.log('Valid username and code, joining chat');
-    codeDisplayElement.textContent = `Using code: ${code}`;
-    codeDisplayElement.classList.remove('hidden');
-    copyCodeButton.classList.remove('hidden');
-    messages.classList.add('waiting');
-    statusElement.textContent = 'Waiting for connection...';
-    if (socket.readyState === WebSocket.OPEN) {
-      console.log('WebSocket open, sending join');
-      socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
-    } else {
-      console.log('WebSocket not open, waiting for open event');
-      socket.addEventListener('open', () => {
-        console.log('WebSocket opened in autoConnect, sending join');
-        socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
-      }, { once: true });
-    }
-    document.getElementById('messageInput').focus();
-  } else {
-    console.log('No valid username, prompting for username');
-    usernameContainer.classList.remove('hidden');
-    chatContainer.classList.add('hidden');
-    statusElement.textContent = 'Please enter a username to join the chat';
-    document.getElementById('usernameInput').value = username || '';
-    document.getElementById('usernameInput').focus();
-    document.getElementById('joinWithUsernameButton').onclick = () => {
-      const usernameInput = document.getElementById('usernameInput').value.trim();
-      if (!validateUsername(usernameInput)) {
-        showStatusMessage('Invalid username: 1-16 alphanumeric characters.');
-        document.getElementById('usernameInput').focus();
-        return;
-      }
-      username = usernameInput;
-      localStorage.setItem('username', username);
-      console.log('Username set in localStorage during autoConnect:', username);
-      usernameContainer.classList.add('hidden');
-      chatContainer.classList.remove('hidden');
+  if (validateCode(codeParam)) {
+    if (validateUsername(username)) {
+      console.log('Valid username and code, joining chat');
       codeDisplayElement.textContent = `Using code: ${code}`;
       codeDisplayElement.classList.remove('hidden');
       copyCodeButton.classList.remove('hidden');
       messages.classList.add('waiting');
       statusElement.textContent = 'Waiting for connection...';
       if (socket.readyState === WebSocket.OPEN) {
-        console.log('WebSocket open, sending join after username input');
+        console.log('WebSocket open, sending join');
         socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
       } else {
-        console.log('WebSocket not open, waiting for open event after username');
+        console.log('WebSocket not open, waiting for open event');
         socket.addEventListener('open', () => {
-          console.log('WebSocket opened in autoConnect join, sending join');
+          console.log('WebSocket opened in autoConnect, sending join');
           socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
         }, { once: true });
       }
       document.getElementById('messageInput').focus();
-    };
+    } else {
+      console.log('No valid username, prompting for username');
+      usernameContainer.classList.remove('hidden');
+      chatContainer.classList.add('hidden');
+      statusElement.textContent = 'Please enter a username to join the chat';
+      document.getElementById('usernameInput').value = username || '';
+      document.getElementById('usernameInput').focus();
+      document.getElementById('joinWithUsernameButton').onclick = () => {
+        const usernameInput = document.getElementById('usernameInput').value.trim();
+        if (!validateUsername(usernameInput)) {
+          showStatusMessage('Invalid username: 1-16 alphanumeric characters.');
+          document.getElementById('usernameInput').focus();
+          return;
+        }
+        username = usernameInput;
+        localStorage.setItem('username', username);
+        console.log('Username set in localStorage during autoConnect:', username);
+        usernameContainer.classList.add('hidden');
+        chatContainer.classList.remove('hidden');
+        codeDisplayElement.textContent = `Using code: ${code}`;
+        codeDisplayElement.classList.remove('hidden');
+        copyCodeButton.classList.remove('hidden');
+        messages.classList.add('waiting');
+        statusElement.textContent = 'Waiting for connection...';
+        if (socket.readyState === WebSocket.OPEN) {
+          console.log('WebSocket open, sending join after username input');
+          socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+        } else {
+          console.log('WebSocket not open, waiting for open event after username');
+          socket.addEventListener('open', () => {
+            console.log('WebSocket opened in autoConnect join, sending join');
+            socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
+          }, { once: true });
+        }
+        document.getElementById('messageInput').focus();
+      };
+    }
+  } else {
+    console.log('Invalid code, showing initial container');
+    initialContainer.classList.remove('hidden');
+    usernameContainer.classList.add('hidden');
+    chatContainer.classList.add('hidden');
+    showStatusMessage('Invalid code format. Please enter a valid code.');
+    document.getElementById('connectToggleButton').focus();
   }
 }
