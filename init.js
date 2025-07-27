@@ -23,7 +23,6 @@ let retryCounts = new Map();
 const maxRetries = 2;
 let candidatesQueues = new Map();
 let processedMessageIds = new Set();
-let processedAnswers = new Set();
 let username = localStorage.getItem('username')?.trim() || '';
 let usernames = new Map();
 const messageRateLimits = new Map();
