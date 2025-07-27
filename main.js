@@ -9,12 +9,12 @@ async function sendImage(file) {
   const validImageTypes = ['image/jpeg', 'image/png'];
   if (!file || !validImageTypes.includes(file.type) || !username || dataChannels.size === 0) {
     showStatusMessage('Error: Select a JPEG or PNG image and ensure you are connected.');
-    document.getElementById('imageButton').focus();
+    document.getElementById('imageButton')?.focus();
     return;
   }
   if (file.size > 5 * 1024 * 1024) {
     showStatusMessage('Error: Image size exceeds 5MB limit.');
-    document.getElementById('imageButton').focus();
+    document.getElementById('imageButton')?.focus();
     return;
   }
 
@@ -29,7 +29,7 @@ async function sendImage(file) {
   imageRateLimits.set(clientId, rateLimit);
   if (rateLimit.count > 5) {
     showStatusMessage('Image rate limit reached (5 images/min). Please wait.');
-    document.getElementById('imageButton').focus();
+    document.getElementById('imageButton')?.focus();
     return;
   }
 
@@ -115,12 +115,12 @@ async function sendImage(file) {
     modal.focus();
     modal.addEventListener('click', () => {
       modal.classList.remove('active');
-      document.getElementById('imageButton').focus();
+      document.getElementById('imageButton')?.focus();
     });
     modal.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
         modal.classList.remove('active');
-        document.getElementById('imageButton').focus();
+        document.getElementById('imageButton')?.focus();
       }
     });
   });
@@ -128,7 +128,7 @@ async function sendImage(file) {
   messages.appendChild(messageDiv);
   messages.scrollTop = messages.scrollHeight;
   processedMessageIds.add(messageId);
-  document.getElementById('imageButton').focus();
+  document.getElementById('imageButton')?.focus();
 }
 
 function startPeerConnection(targetId, isOfferer) {
@@ -274,7 +274,7 @@ function setupDataChannel(dataChannel, targetId) {
     clearTimeout(connectionTimeouts.get(targetId));
     retryCounts.delete(targetId);
     updateMaxClientsUI();
-    document.getElementById('messageInput').focus();
+    document.getElementById('messageInput')?.focus();
   };
 
   dataChannel.onmessage = (event) => {
@@ -346,12 +346,12 @@ function setupDataChannel(dataChannel, targetId) {
         modal.focus();
         modal.addEventListener('click', () => {
           modal.classList.remove('active');
-          document.getElementById('messageInput').focus();
+          document.getElementById('messageInput')?.focus();
         });
         modal.addEventListener('keydown', (event) => {
           if (event.key === 'Escape') {
             modal.classList.remove('active');
-            document.getElementById('messageInput').focus();
+            document.getElementById('messageInput')?.focus();
           }
         });
       });
@@ -504,10 +504,10 @@ function sendMessage(content) {
     messageInput.value = '';
     messageInput.style.height = '2.5rem';
     processedMessageIds.add(messageId);
-    messageInput.focus();
+    messageInput?.focus();
   } else {
     showStatusMessage('Error: No connections or username not set.');
-    document.getElementById('messageInput').focus();
+    document.getElementById('messageInput')?.focus();
   }
 }
 
@@ -539,19 +539,19 @@ function autoConnect(codeParam) {
           socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
         }, { once: true });
       }
-      document.getElementById('messageInput').focus();
+      document.getElementById('messageInput')?.focus();
     } else {
       console.log('No valid username, prompting for username');
       usernameContainer.classList.remove('hidden');
       chatContainer.classList.add('hidden');
       statusElement.textContent = 'Please enter a username to join the chat';
       document.getElementById('usernameInput').value = username || '';
-      document.getElementById('usernameInput').focus();
+      document.getElementById('usernameInput')?.focus();
       document.getElementById('joinWithUsernameButton').onclick = () => {
         const usernameInput = document.getElementById('usernameInput').value.trim();
         if (!validateUsername(usernameInput)) {
           showStatusMessage('Invalid username: 1-16 alphanumeric characters.');
-          document.getElementById('usernameInput').focus();
+          document.getElementById('usernameInput')?.focus();
           return;
         }
         username = usernameInput;
@@ -574,7 +574,7 @@ function autoConnect(codeParam) {
             socket.send(JSON.stringify({ type: 'join', code, clientId, username }));
           }, { once: true });
         }
-        document.getElementById('messageInput').focus();
+        document.getElementById('messageInput')?.focus();
       };
     }
   } else {
@@ -583,6 +583,6 @@ function autoConnect(codeParam) {
     usernameContainer.classList.add('hidden');
     chatContainer.classList.add('hidden');
     showStatusMessage('Invalid code format. Please enter a valid code.');
-    document.getElementById('connectToggleButton').focus();
+    document.getElementById('connectToggleButton')?.focus();
   }
 }
