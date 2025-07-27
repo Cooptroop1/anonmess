@@ -103,6 +103,11 @@ socket.onmessage = (event) => {
       return;
     }
     if (message.type === 'init') {
+      // Validate init fields
+      if (typeof message.clientId !== 'string' || typeof message.maxClients !== 'number' || typeof message.isInitiator !== 'boolean' || typeof message.turnUsername !== 'string' || typeof message.turnCredential !== 'string') {
+        console.error('Invalid init message format');
+        return;
+      }
       clientId = message.clientId;
       maxClients = Math.min(message.maxClients, 10);
       isInitiator = message.isInitiator;
@@ -115,12 +120,22 @@ socket.onmessage = (event) => {
       turnCredential = message.turnCredential;
     }
     if (message.type === 'initiator-changed') {
+      // Validate initiator-changed fields
+      if (typeof message.newInitiator !== 'string') {
+        console.error('Invalid initiator-changed message format');
+        return;
+      }
       console.log(`Initiator changed to ${message.newInitiator} for code: ${code}`);
       isInitiator = message.newInitiator === clientId;
       initializeMaxClientsUI();
       updateMaxClientsUI();
     }
     if (message.type === 'join-notify' && message.code === code) {
+      // Validate join-notify fields
+      if (typeof message.totalClients !== 'number' || typeof message.clientId !== 'string' || typeof message.username !== 'string') {
+        console.error('Invalid join-notify message format');
+        return;
+      }
       totalClients = message.totalClients;
       console.log(`Join-notify received for code: ${code}, client: ${message.clientId}, total: ${totalClients}, username: ${message.username}`);
       if (message.username) {
@@ -133,6 +148,11 @@ socket.onmessage = (event) => {
       }
     }
     if (message.type === 'client-disconnected') {
+      // Validate client-disconnected fields
+      if (typeof message.totalClients !== 'number' || typeof message.clientId !== 'string') {
+        console.error('Invalid client-disconnected message format');
+        return;
+      }
       totalClients = message.totalClients;
       console.log(`Client ${message.clientId} disconnected from code: ${code}, total: ${totalClients}`);
       usernames.delete(message.clientId);
@@ -144,24 +164,51 @@ socket.onmessage = (event) => {
       }
     }
     if (message.type === 'max-clients') {
+      // Validate max-clients fields
+      if (typeof message.maxClients !== 'number') {
+        console.error('Invalid max-clients message format');
+        return;
+      }
       maxClients = Math.min(message.maxClients, 10);
       console.log(`Max clients updated to ${maxClients} for code: ${code}`);
       updateMaxClientsUI();
     }
     if (message.type === 'offer' && message.clientId !== clientId) {
+      // Validate offer fields
+      if (typeof message.offer !== 'object' || message.offer.type !== 'offer' || typeof message.clientId !== 'string') {
+        console.error('Invalid offer message format');
+        return;
+      }
       console.log(`Received offer from ${message.clientId} for code: ${code}`);
       handleOffer(message.offer, message.clientId);
     }
     if (message.type === 'answer' && message.clientId !== clientId) {
+      // Validate answer fields
+      if (typeof message.answer !== 'object' || message.answer.type !== 'answer' || typeof message.clientId !== 'string') {
+        console.error('Invalid answer message format');
+        return;
+      }
       console.log(`Received answer from ${message.clientId} for code: ${code}`);
       handleAnswer(message.answer, message.clientId);
     }
     if (message.type === 'candidate' && message.clientId !== clientId) {
+      // Validate candidate fields
+      if (typeof message.candidate !== 'object' || typeof message.clientId !== 'string') {
+        console.error('Invalid candidate message format');
+        return;
+      }
       console.log(`Received ICE candidate from ${message.clientId} for code: ${code}`);
       handleCandidate(message.candidate, message.clientId);
     }
     // Add for relay fallback
     if ((message.type === 'message' || message.type === 'image') && useRelay) {
+      // Validate relayed message/image fields
+      if (!message.messageId || typeof message.username !== 'string' || typeof message.timestamp !== 'number' || 
+          (message.type === 'message' && typeof message.content !== 'string') || 
+          (message.type === 'image' && typeof message.data !== 'string')) {
+        console.error('Invalid relayed message format');
+        return;
+      }
       // Process relayed message from server
       if (processedMessageIds.has(message.messageId)) return;
       processedMessageIds.add(message.messageId);
