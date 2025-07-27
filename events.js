@@ -1,3 +1,4 @@
+
 // Event handlers and listeners
 
 // Help modal toggle
@@ -110,6 +111,8 @@ socket.onmessage = (event) => {
       usernames.set(clientId, username);
       initializeMaxClientsUI();
       updateMaxClientsUI();
+      turnUsername = message.turnUsername;
+      turnCredential = message.turnCredential;
     }
     if (message.type === 'initiator-changed') {
       console.log(`Initiator changed to ${message.newInitiator} for code: ${code}`);
