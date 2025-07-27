@@ -232,8 +232,7 @@ socket.onmessage = (event) => {
       messages.scrollTop = 0;
     }
   } catch (error) {
-    console.error('Error parsing message:', error);
-    showStatusMessage('Error receiving message, please try again.');
+    console.error('Error parsing message:', error, 'Raw data:', event.data); // Updated: Log raw data, no user message to avoid flash
   }
 };
 
