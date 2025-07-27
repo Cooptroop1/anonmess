@@ -5,6 +5,10 @@
 let turnUsername = '';
 let turnCredential = '';
 
+// Pending messages for batching DOM updates
+const pendingMessages = [];
+let batchingMessages = false;
+
 async function sendImage(file) {
   const validImageTypes = ['image/jpeg', 'image/png'];
   if (!file || !validImageTypes.includes(file.type) || !username || dataChannels.size === 0) {
@@ -35,7 +39,13 @@ async function sendImage(file) {
 
   const maxWidth = 640;
   const maxHeight = 360;
-  const quality = 0.4;
+  // Adaptive quality based on file size
+  let quality = 0.4;
+  if (file.size > 2 * 1024 * 1024) {
+    quality = 0.3; // Lower for larger files
+  } else if (file.size < 1 * 1024 * 1024) {
+    quality = 0.5; // Higher for smaller
+  }
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   const img = new Image();
@@ -161,7 +171,7 @@ function startPeerConnection(targetId, isOfferer) {
         credential: turnCredential
       }
     ],
-    iceTransportPolicy: 'relay'
+    iceTransportPolicy: 'all'
   });
   peerConnections.set(targetId, peerConnection);
   candidatesQueues.set(targetId, []);
@@ -191,8 +201,6 @@ function startPeerConnection(targetId, isOfferer) {
         retryCounts.set(targetId, retryCount + 1);
         console.log(`Retrying connection with ${targetId}, attempt ${retryCount + 1}`);
         startPeerConnection(targetId, isOfferer);
-      } else {
-        console.warn(`Max retries reached for ${targetId}, potential suspicious activity`);
       }
     } else {
       console.log(`Ignoring ICE 701 error for ${targetId}, continuing connection`);
@@ -214,8 +222,6 @@ function startPeerConnection(targetId, isOfferer) {
         retryCounts.set(targetId, retryCount + 1);
         console.log(`Retrying connection attempt ${retryCount + 1} with ${targetId}`);
         startPeerConnection(targetId, isOfferer);
-      } else {
-        console.warn(`Max retries reached for ${targetId}, potential suspicious activity`);
       }
     } else if (peerConnection.connectionState === 'connected') {
       console.log(`WebRTC connection established with ${targetId} for code: ${code}`);
@@ -363,8 +369,11 @@ function setupDataChannel(dataChannel, targetId) {
     } else {
       messageDiv.appendChild(document.createTextNode(sanitizeMessage(data.content)));
     }
-    messages.appendChild(messageDiv);
-    messages.scrollTop = messages.scrollHeight;
+    pendingMessages.push(messageDiv);
+    if (!batchingMessages) {
+      batchingMessages = true;
+      requestAnimationFrame(flushPendingMessages);
+    }
     if (isInitiator) {
       dataChannels.forEach((dc, id) => {
         if (id !== targetId && dc.readyState === 'open') {
@@ -390,6 +399,16 @@ function setupDataChannel(dataChannel, targetId) {
       messages.classList.add('waiting');
     }
   };
+}
+
+function flushPendingMessages() {
+  const messages = document.getElementById('messages');
+  const fragment = document.createDocumentFragment();
+  pendingMessages.forEach(div => fragment.appendChild(div));
+  messages.appendChild(fragment);
+  messages.scrollTop = messages.scrollHeight;
+  pendingMessages.length = 0;
+  batchingMessages = false;
 }
 
 async function handleOffer(offer, targetId) {
