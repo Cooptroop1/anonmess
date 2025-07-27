@@ -14,7 +14,7 @@ function showStatusMessage(message, duration = 3000) {
 function sanitizeMessage(content) {
   const div = document.createElement('div');
   div.textContent = content;
-  return div.innerHTML.replace(/</g, '<').replace(/>/g, '>');
+  return div.innerHTML.replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 function generateCode() {
