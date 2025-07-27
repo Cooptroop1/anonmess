@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,105 +7,8 @@
   <title>Anonomoose Chat</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
   <link rel="icon" type="image/png" href="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f60e.png"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
   <style>
-    :root {
-      --bg-color: #fff;
-      --text-color: #000;
-      --bg-messages: #fce7f3;
-      --bg-self: #3b82f6;
-      --bg-other: #10b981;
-      --text-msg: white;
-      --bg-input: #3b82f6;
-      --bg-button1: #9b59b6;
-      --bg-button2: #f1c40f;
-      --bg-copy: #10b981;
-      --bg-status: #f5f5f5;
-      --text-status: #666;
-      --bg-help: white;
-      --text-help: #000;
-      --bg-max: #000;
-      --text-max: white;
-      --timestamp-opacity: 0.8;
-    }
-    .dark {
-      --bg-color: #111;
-      --text-color: #fff;
-      --bg-messages: #333;
-      --bg-self: #1e40af;
-      --bg-other: #065f46;
-      --text-msg: #ddd;
-      --bg-input: #1e40af;
-      --bg-button1: #6d28d9;
-      --bg-button2: #a16207;
-      --bg-copy: #065f46;
-      --bg-status: #222;
-      --text-status: #aaa;
-      --bg-help: #222;
-      --text-help: #fff;
-      --bg-max: #222;
-      --text-max: #ddd;
-      --timestamp-opacity: 0.7;
-    }
-    body {
-      background-color: var(--bg-color);
-      color: var(--text-color);
-      min-height: 100vh;
-      padding-top: 140px;
-      padding-bottom: 140px;
-    }
-    .bg-white {
-      background-color: var(--bg-color);
-    }
-    #status {
-      color: var(--text-status);
-    }
-    #messages {
-      background-color: var(--bg-messages);
-    }
-    .message-bubble.self {
-      background-color: var(--bg-self);
-      color: var(--text-msg);
-    }
-    .message-bubble.other {
-      background-color: var(--bg-other);
-      color: var(--text-msg);
-    }
-    #messageInput {
-      background-color: var(--bg-input);
-      color: var(--text-msg);
-    }
-    #button1 {
-      background-color: var(--bg-button1);
-      color: var(--text-msg);
-    }
-    #button2 {
-      background-color: var(--bg-button2);
-      color: var(--text-msg);
-    }
-    #copyCodeButton {
-      background-color: var(--bg-copy);
-      color: var(--text-msg);
-    }
-    .help-modal-content {
-      background-color: var(--bg-help);
-      color: var(--text-help);
-    }
-    #maxClientsContainer {
-      background-color: var(--bg-max);
-    }
-    #maxClientsContainer span {
-      color: var(--text-max);
-    }
-    .timestamp {
-      opacity: var(--timestamp-opacity);
-    }
-    #darkModeToggle {
-      background-color: var(--bg-copy);
-      color: var(--text-msg);
-    }
-    #darkModeToggle:hover {
-      background-color: #059669;
-    }
     * {
       cursor: default;
       user-select: none;
@@ -119,6 +23,11 @@
     #codeDisplay {
       user-select: text;
     }
+    body {
+      min-height: 100vh;
+      padding-top: 140px;
+      padding-bottom: 140px;
+    }
     #messages {
       display: flex;
       flex-direction: column-reverse;
@@ -130,6 +39,7 @@
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       position: relative;
       height: 296px;
+      background-color: #fce7f3;
       background-image: none;
       background-size: 100% 100%;
       background-position: center;
@@ -154,6 +64,9 @@
     }
     .corner-logo.wink {
       background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/corner%20logoWink.png?sanitize=true');
+    }
+    .bg-white {
+      z-index: 10;
     }
     @media (min-width: 641px) and (max-width: 1024px) {
       .corner-logo {
@@ -186,6 +99,7 @@
         max-width: 360px;
         margin: 0;
         padding: 0.75rem;
+        background-color: #000000;
         border-radius: 0.5rem;
         z-index: 1000;
       }
@@ -196,6 +110,8 @@
         justify-items: center;
       }
       #maxClientsRadios button {
+        background-color: #3b82f6; /* Blue like messageInput */
+        color: white;
         border-radius: 0.5rem;
         padding: 0.4rem;
         font-size: 0.9rem;
@@ -233,12 +149,20 @@
       margin-bottom: 0.5rem;
     }
     .message-bubble.self {
+      background-color: #3b82f6;
+      color: white;
       margin-left: auto;
       border-bottom-right-radius: 0.25rem;
     }
     .message-bubble.other {
+      background-color: #10b981;
+      color: white;
       margin-right: auto;
       border-bottom-left-radius: 0.25rem;
+    }
+    .timestamp {
+      font-size: 0.5rem;
+      opacity: 0.8;
     }
     .modal {
       display: none;
@@ -273,6 +197,7 @@
       justify-content: center;
     }
     .help-modal-content {
+      background-color: white;
       padding: 1.5rem;
       border-radius: 0.5rem;
       max-width: 90%;
@@ -315,6 +240,8 @@
       line-height: 1.5rem;
       width: 110%;
       max-width: 110%;
+      background-color: #3b82f6;
+      color: white;
       border-radius: 1rem;
       padding: 0.5rem 1rem;
       border: none;
@@ -326,6 +253,8 @@
     #imageButton {
       width: 2.5rem;
       height: 2.5rem;
+      background-color: #10b981;
+      color: white;
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -355,6 +284,8 @@
     #sendButton {
       width: 2.5rem;
       height: 2.5rem;
+      background-color: #2563eb;
+      color: white;
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -382,20 +313,36 @@
       flex: 1;
       margin: 0 0.25rem;
     }
+    #button1 {
+      background-color: #9b59b6;
+      color: white;
+      margin-left: -3.25mm;
+    }
     #button1:hover {
       background-color: #8e44ad;
+    }
+    #button2 {
+      background-color: #f1c40f;
+      color: white;
     }
     #button2:hover {
       background-color: #d4a017;
     }
     #button2:disabled {
+      background-color: #d4a017;
       opacity: 0.6;
       cursor: not-allowed;
+    }
+    #copyCodeButton {
+      background-color: #10b981;
+      color: white;
+      margin-right: -3.25mm;
     }
     #copyCodeButton:hover {
       background-color: #059669;
     }
     #helpText {
+      color: #3b82f6;
       cursor: pointer;
       transition: color 0.2s ease;
     }
@@ -469,32 +416,32 @@
     }
   </style>
 </head>
-<body class="min-h-screen flex items-center justify-center">
+<body class="bg-black min-h-screen flex items-center justify-center">
   <div class="corner-logo" id="cornerLogo" role="img" aria-label="Anonomoose Chat logo"></div>
   <div class="flex w-full max-w-xl">
     <div class="bg-white p-8 rounded-lg shadow-lg flex-grow">
-      <h1 class="text-3xl font-bold mb-8 text-center">Anonomoose Chat</h1>
-      <div id="status" class="text-center mb-4" role="status" aria-live="polite">Start a new chat or connect to an existing one</div>
+      <h1 class="text-3xl font-bold mb-8 text-center text-gray-800">Anonomoose Chat</h1>
+      <div id="status" class="text-center mb-4 text-gray-600" role="status" aria-live="polite">Start a new chat or connect to an existing one</div>
       <div id="initialContainer">
-        <button id="startChatToggleButton" class="px-4 py-2 rounded w-full mb-2 hover:transition-colors" aria-label="Start a new chat">Start Chat</button>
-        <button id="connectToggleButton" class="px-4 py-2 rounded w-full hover:transition-colors" aria-label="Connect to an existing chat">Connect to Chat</button>
+        <button id="startChatToggleButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full mb-2 hover:bg-blue-600 transition-colors" aria-label="Start a new chat">Start Chat</button>
+        <button id="connectToggleButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600 transition-colors" aria-label="Connect to an existing chat">Connect to Chat</button>
       </div>
       <div id="usernameContainer" class="hidden">
         <label for="usernameInput" class="sr-only">Enter your username</label>
-        <input id="usernameInput" type="text" class="border p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)" aria-describedby="usernameHelp" maxlength="16">
-        <div id="usernameHelp" class="text-sm mb-2">Username must be 1-16 alphanumeric characters</div>
-        <button id="joinWithUsernameButton" class="px-4 py-2 rounded w-full hover:transition-colors" aria-label="Join chat with username">Join Chat</button>
-        <button id="backButton" class="px-4 py-2 rounded w-full mt-2 hover:transition-colors" aria-label="Back to main menu">Back</button>
+        <input id="usernameInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)" aria-describedby="usernameHelp" maxlength="16">
+        <div id="usernameHelp" class="text-sm text-gray-600 mb-2">Username must be 1-16 alphanumeric characters</div>
+        <button id="joinWithUsernameButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600 transition-colors" aria-label="Join chat with username">Join Chat</button>
+        <button id="backButton" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600 transition-colors" aria-label="Back to main menu">Back</button>
       </div>
-      <div id="codeDisplay" class="text-center mb-4 font-mono text-lg hidden" role="region" aria-live="polite"></div>
+      <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800 hidden" role="region" aria-live="polite"></div>
       <div id="chatContainer" class="hidden">
-        <button id="newSessionButton" class="px-2 py-1 rounded w-full mb-1 hidden" aria-label="Start a new session">New Session</button>
+        <button id="newSessionButton" class="bg-red-500 text-white px-2 py-1 rounded w-full mb-1 rounded hover:bg-red-600 transition-colors hidden" aria-label="Start a new session">New Session</button>
         <div class="button-group">
           <button id="button1" aria-label="Send code to random chat board">Send Code</button>
           <button id="button2" aria-label="Join a random chat">Random Chat</button>
           <button id="copyCodeButton" aria-label="Copy chat code">Copy Code</button>
         </div>
-        <div id="messages" class="border p-4 h-64 overflow-y-auto mb-4 rounded" role="log" aria-live="polite"></div>
+        <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded" role="log" aria-live="polite"></div>
         <div class="input-container hidden">
           <label for="messageInput" class="sr-only">Type a message</label>
           <textarea id="messageInput" placeholder="Type a message..." cols="30" maxlength="1000" aria-describedby="messageHelp"></textarea>
@@ -506,20 +453,20 @@
       </div>
       <div id="connectContainer" class="hidden">
         <label for="usernameConnectInput" class="sr-only">Enter your username</label>
-        <input id="usernameConnectInput" type="text" class="border p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)" aria-describedby="usernameConnectHelp" maxlength="16">
-        <div id="usernameConnectHelp" class="text-sm mb-2">Username must be 1-16 alphanumeric characters</div>
+        <input id="usernameConnectInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)" aria-describedby="usernameConnectHelp" maxlength="16">
+        <div id="usernameConnectHelp" class="text-sm text-gray-600 mb-2">Username must be 1-16 alphanumeric characters</div>
         <label for="codeInput" class="sr-only">Enter chat code</label>
-        <input id="codeInput" type="text" class="border p-2 w-full mb-2 rounded" placeholder="Enter code (xxxx-xxxx-xxxx-xxxx)" aria-describedby="codeHelp" maxlength="19">
-        <div id="codeHelp" class="text-sm mb-2">Code format: xxxx-xxxx-xxxx-xxxx</div>
-        <button id="connectButton" class="px-4 py-2 rounded w-full hover:transition-colors" aria-label="Connect to chat">Connect</button>
-        <button id="backButtonConnect" class="px-4 py-2 rounded w-full mt-2 hover:transition-colors" aria-label="Back to main menu">Back</button>
+        <input id="codeInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter code (xxxx-xxxx-xxxx-xxxx)" aria-describedby="codeHelp" maxlength="19">
+        <div id="codeHelp" class="text-sm text-gray-600 mb-2">Code format: xxxx-xxxx-xxxx-xxxx</div>
+        <button id="connectButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600 transition-colors" aria-label="Connect to chat">Connect</button>
+        <button id="backButtonConnect" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600 transition-colors" aria-label="Back to main menu">Back</button>
       </div>
       <div class="text-center mt-4">
-        <button id="helpText" class="hover:underline" aria-label="View help information">Help</button>
+        <button id="helpText" class="text-blue-500 hover:underline" aria-label="View help information">Help</button>
       </div>
     </div>
-    <div id="maxClientsContainer" class="hidden flex flex-col justify-center p-4 rounded-lg shadow-lg">
-      <span class="mb-2 font-bold">Max Users</span>
+    <div id="maxClientsContainer" class="hidden flex flex-col justify-center bg-black p-4 rounded-lg shadow-lg">
+      <span class="text-white mb-2 font-bold">Max Users</span>
       <div id="maxClientsRadios" class="grid grid-cols-5 gap-2" role="radiogroup" aria-label="Select maximum number of users"></div>
     </div>
   </div>
@@ -533,6 +480,7 @@
       <p><strong>Copy Code:</strong> Copies the code so you can send to people in text or social chats</p>
     </div>
   </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
