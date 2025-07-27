@@ -80,7 +80,7 @@ function cleanupPeerConnection(targetId) {
   retryCounts.delete(targetId);
   messageRateLimits.delete(targetId);
   imageRateLimits.delete(targetId);
-  isConnected = dataChannels.size > 0;
+  isConnected = dataChannels.size > 0 || totalClients > 0; // Updated: Consider connected if any clients (including self)
   updateMaxClientsUI();
   if (!isConnected) {
     inputContainer.classList.add('hidden');
@@ -125,7 +125,7 @@ function initializeMaxClientsUI() {
 
 function updateMaxClientsUI() {
   log('info', 'updateMaxClientsUI called, maxClients:', maxClients, 'isInitiator:', isInitiator);
-  statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...';
+  statusElement.textContent = (dataChannels.size > 0 || totalClients > 0) ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...'; // Updated: Show connected if any clients
   const buttons = document.querySelectorAll('#maxClientsRadios button');
   log('info', 'Found buttons:', buttons.length);
   buttons.forEach(button => {
@@ -134,10 +134,15 @@ function updateMaxClientsUI() {
     button.disabled = !isInitiator;
   });
   maxClientsContainer.classList.toggle('hidden', !isInitiator);
-  if (!isConnected) {
+  if (dataChannels.size === 0 && totalClients === 0) { // Updated: Hide only if no clients at all
     messages.classList.add('waiting');
   } else {
     messages.classList.remove('waiting');
+  }
+  if (totalClients > 0) { // Updated: Always show input if clients present (including self)
+    inputContainer.classList.remove('hidden');
+  } else {
+    inputContainer.classList.add('hidden');
   }
 }
 
@@ -149,7 +154,7 @@ function setMaxClients(n) {
   if (isInitiator && clientId && socket.readyState === WebSocket.OPEN) {
     maxClients = Math.min(n, 10);
     log('info', `setMaxClients called with n: ${n}, new maxClients: ${maxClients}`);
-    socket.send(JSON.stringify({ type: 'set-max-clients', maxClients: maxClients, code, clientId, token })); // New: include token
+    socket.send(JSON.stringify({ type: 'set-max-clients', maxClients: maxClients, code, clientId, token }));
     updateMaxClientsUI();
   } else {
     log('warn', 'setMaxClients failed: not initiator or socket not open');
