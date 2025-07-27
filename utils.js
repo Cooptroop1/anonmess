@@ -1,3 +1,5 @@
+// utils.js (updated with basic clientId validation and other helpers)
+
 // Utility to show temporary status messages
 function showStatusMessage(message, duration = 3000) {
   const statusElement = document.getElementById('status');
@@ -13,7 +15,7 @@ function showStatusMessage(message, duration = 3000) {
 function sanitizeMessage(content) {
   const div = document.createElement('div');
   div.textContent = content;
-  return div.innerHTML.replace(/</g, '<').replace(/>/g, '>');
+  return div.innerHTML.replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 function generateCode() {
@@ -38,6 +40,11 @@ function validateUsername(username) {
 function validateCode(code) {
   const regex = /^[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}$/;
   return code && regex.test(code);
+}
+
+function validateClientId(id) {
+  const regex = /^[a-z0-9]{9}$/i; // Basic check: 9 alphanumeric characters
+  return id && regex.test(id);
 }
 
 // Keepalive function to prevent WebSocket timeout
