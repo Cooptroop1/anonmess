@@ -1,4 +1,4 @@
-
+// main.js
 // Core logic: peer connections, message sending, handling offers, etc.
 
 // Global vars for dynamic TURN creds from server
@@ -377,7 +377,7 @@ function setupDataChannel(dataChannel, targetId) {
     }
   };
 
-  dataChannel.onerror = (error) => {
+ dataChannel.onerror = (error) => {
     console.error(`Data channel error with ${targetId}:`, error);
     showStatusMessage('Error in peer connection.');
   };
@@ -594,38 +594,4 @@ function autoConnect(codeParam) {
     showStatusMessage('Invalid code format. Please enter a valid code.');
     document.getElementById('connectToggleButton')?.focus();
   }
-}
-
-// New: Encryption functions using Web Crypto
-async function encrypt(text) {
-  const iv = window.crypto.getRandomValues(new Uint8Array(12));
-  const encoded = new TextEncoder().encode(text);
-  const encrypted = await window.crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    roomKey,
-    encoded
-  );
-  return { encrypted: arrayBufferToBase64(encrypted), iv: arrayBufferToBase64(iv) };
-}
-
-async function decrypt(encrypted, iv) {
-  const decoded = await window.crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: base64ToArrayBuffer(iv) },
-    roomKey,
-    base64ToArrayBuffer(encrypted)
-  );
-  return new TextDecoder().decode(decoded);
-}
-
-function arrayBufferToBase64(buffer) {
-  return btoa(String.fromCharCode(...new Uint8Array(buffer)));
-}
-
-function base64ToArrayBuffer(base64) {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes.buffer;
 }
