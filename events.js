@@ -17,7 +17,7 @@ helpModal.addEventListener('keydown', (event) => {
 });
 
 let pendingCode = null;
-let pendingJoin = null; // New: Store join data for retry after token refresh
+let pendingJoin = null;
 
 socket.onopen = () => {
   console.log('WebSocket opened');
@@ -33,7 +33,7 @@ socket.onopen = () => {
     console.log('No valid code in URL, showing initial container');
     initialContainer.classList.remove('hidden');
     usernameContainer.classList.add('hidden');
-    connectContainer.classList.remove('hidden');
+    connectContainer.classList.add('hidden'); // Fixed: Hide connectContainer on start
     chatContainer.classList.add('hidden');
     codeDisplayElement.classList.add('hidden');
     copyCodeButton.classList.add('hidden');
