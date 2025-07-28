@@ -6,7 +6,7 @@ let turnCredential = '';
 
 async function sendImage(file) {
   const validImageTypes = ['image/jpeg', 'image/png'];
-  if (!file || !validImageTypes.includes(file.type) || !username || (dataChannels.size === 0 && totalClients === 0)) { // Updated: Check totalClients
+  if (!file || !validImageTypes.includes(file.type) || !username || dataChannels.size === 0) {
     showStatusMessage('Error: Select a JPEG or PNG image and ensure you are connected.');
     document.getElementById('imageButton')?.focus();
     return;
@@ -67,29 +67,26 @@ async function sendImage(file) {
 
   const messageId = generateMessageId();
   const timestamp = Date.now();
-  const message = { messageId, type: 'image', data: base64, username, timestamp };
-  let sent = false;
+  let payload = { messageId, type: 'image', data: base64, username, timestamp };
   if (useRelay) {
-    // Fallback: Send to server for relay
+    // New: Encrypt for relay
+    const { encrypted, iv } = await encrypt(JSON.stringify(payload));
     if (socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({ type: 'relay-image', code, clientId, token, ...message }));
-      sent = true;
+      socket.send(JSON.stringify({ type: 'relay-image', code, clientId, token, encryptedData: encrypted, iv }));
     }
   } else if (dataChannels.size > 0) {
-    // P2P mode
-    const jsonString = JSON.stringify(message);
+    // P2P mode (already E2E via DTLS, no additional encryption needed)
+    const jsonString = JSON.stringify(payload);
     dataChannels.forEach((dataChannel) => {
       if (dataChannel.readyState === 'open') {
         dataChannel.send(jsonString);
       }
     });
-    sent = true;
-  } 
-  if (!sent) {
-    showStatusMessage('No connections to send image.');
+  } else {
+    showStatusMessage('Error: No connections.');
     return;
   }
-  // Updated: Always add locally, even if solo
+  // Display locally (unencrypted)
   const messages = document.getElementById('messages');
   const messageDiv = document.createElement('div');
   messageDiv.className = 'message-bubble self';
@@ -105,7 +102,33 @@ async function sendImage(file) {
   imgElement.style.cursor = 'pointer';
   imgElement.setAttribute('alt', 'Sent image');
   imgElement.addEventListener('click', () => {
-    createImageModal(base64, 'imageButton');
+    let modal = document.getElementById('imageModal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'imageModal';
+      modal.className = 'modal';
+      modal.setAttribute('role', 'dialog');
+      modal.setAttribute('aria-label', 'Image viewer');
+      modal.setAttribute('tabindex', '-1');
+      document.body.appendChild(modal);
+    }
+    modal.innerHTML = '';
+    const modalImg = document.createElement('img');
+    modalImg.src = base64;
+    modalImg.setAttribute('alt', 'Enlarged image');
+    modal.appendChild(modalImg);
+    modal.classList.add('active');
+    modal.focus();
+    modal.addEventListener('click', () => {
+      modal.classList.remove('active');
+      document.getElementById('imageButton')?.focus();
+    });
+    modal.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        modal.classList.remove('active');
+        document.getElementById('imageButton')?.focus();
+      }
+    });
   });
   messageDiv.appendChild(imgElement);
   messages.prepend(messageDiv);
@@ -125,8 +148,8 @@ function startPeerConnection(targetId, isOfferer) {
       { urls: "stun:stun.relay.metered.ca:80" },
       {
         urls: "turn:global.relay.metered.ca:80",
-        username: turnUsername,
-        credential: turnCredential
+        username: turnUsername, // Dynamic from server
+        credential: turnCredential // Dynamic from server
       },
       {
         urls: "turn:global.relay.metered.ca:80?transport=tcp",
@@ -260,7 +283,7 @@ function setupDataChannel(dataChannel, targetId) {
     document.getElementById('messageInput')?.focus();
   };
 
-  dataChannel.onmessage = (event) => {
+  dataChannel.onmessage = async (event) => {
     const now = performance.now();
     const rateLimit = messageRateLimits.get(targetId) || { count: 0, startTime: now };
     if (now - rateLimit.startTime >= 1000) {
@@ -310,7 +333,33 @@ function setupDataChannel(dataChannel, targetId) {
       img.style.cursor = 'pointer';
       img.setAttribute('alt', 'Received image');
       img.addEventListener('click', () => {
-        createImageModal(data.data, 'messageInput');
+        let modal = document.getElementById('imageModal');
+        if (!modal) {
+          modal = document.createElement('div');
+          modal.id = 'imageModal';
+          modal.className = 'modal';
+          modal.setAttribute('role', 'dialog');
+          modal.setAttribute('aria-label', 'Image viewer');
+          modal.setAttribute('tabindex', '-1');
+          document.body.appendChild(modal);
+        }
+        modal.innerHTML = '';
+        const modalImg = document.createElement('img');
+        modalImg.src = data.data;
+        modalImg.setAttribute('alt', 'Enlarged image');
+        modal.appendChild(modalImg);
+        modal.classList.add('active');
+        modal.focus();
+        modal.addEventListener('click', () => {
+          modal.classList.remove('active');
+          document.getElementById('messageInput')?.focus();
+        });
+        modal.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape') {
+            modal.classList.remove('active');
+            document.getElementById('messageInput')?.focus();
+          }
+        });
       });
       messageDiv.appendChild(img);
     } else {
@@ -321,7 +370,7 @@ function setupDataChannel(dataChannel, targetId) {
     if (isInitiator) {
       dataChannels.forEach((dc, id) => {
         if (id !== targetId && dc.readyState === 'open') {
-          dc.send(JSON.stringify(data));
+          dc.send(event.data); // Forward the original data (unencrypted in P2P)
         }
       });
     }
@@ -427,30 +476,28 @@ function handleCandidate(candidate, targetId) {
   }
 }
 
-function sendMessage(content) {
-  if (content && username) { // Updated: Allow sending even if no dataChannels (local display for solo)
+async function sendMessage(content) {
+  if (content && dataChannels.size > 0 && username) {
     const messageId = generateMessageId();
     const sanitizedContent = sanitizeMessage(content);
     const timestamp = Date.now();
-    const message = { messageId, content: sanitizedContent, username, timestamp };
-    let sent = false;
+    let payload = { messageId, content: sanitizedContent, username, timestamp };
     if (useRelay) {
-      // Fallback: Send to server for relay
+      // New: Encrypt for relay
+      const { encrypted, iv } = await encrypt(JSON.stringify(payload));
       if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: 'relay-message', code, clientId, token, ...message }));
-        sent = true;
+        socket.send(JSON.stringify({ type: 'relay-message', code, clientId, token, encryptedContent: encrypted, iv }));
       }
-    } else if (dataChannels.size > 0) {
-      // P2P mode
-      const jsonString = JSON.stringify(message);
+    } else {
+      // P2P mode (already E2E via DTLS, no additional encryption needed)
+      const jsonString = JSON.stringify(payload);
       dataChannels.forEach((dataChannel, targetId) => {
         if (dataChannel.readyState === 'open') {
           dataChannel.send(jsonString);
         }
       });
-      sent = true;
-    } 
-    // Updated: Always add locally, even if not sent (for solo view)
+    }
+    // Display locally (unencrypted)
     const messages = document.getElementById('messages');
     const messageDiv = document.createElement('div');
     messageDiv.className = 'message-bubble self';
@@ -466,11 +513,8 @@ function sendMessage(content) {
     messageInput.style.height = '2.5rem';
     processedMessageIds.add(messageId);
     messageInput?.focus();
-    if (!sent) {
-      showStatusMessage('No connections; message shown locally.');
-    }
   } else {
-    showStatusMessage('Error: No username set.');
+    showStatusMessage('Error: No connections or username not set.');
     document.getElementById('messageInput')?.focus();
   }
 }
@@ -549,4 +593,38 @@ function autoConnect(codeParam) {
     showStatusMessage('Invalid code format. Please enter a valid code.');
     document.getElementById('connectToggleButton')?.focus();
   }
+}
+
+// New: Encryption functions using Web Crypto
+async function encrypt(text) {
+  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  const encoded = new TextEncoder().encode(text);
+  const encrypted = await window.crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    roomKey,
+    encoded
+  );
+  return { encrypted: arrayBufferToBase64(encrypted), iv: arrayBufferToBase64(iv) };
+}
+
+async function decrypt(encrypted, iv) {
+  const decoded = await window.crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: base64ToArrayBuffer(iv) },
+    roomKey,
+    base64ToArrayBuffer(encrypted)
+  );
+  return new TextDecoder().decode(decoded);
+}
+
+function arrayBufferToBase64(buffer) {
+  return btoa(String.fromCharCode(...new Uint8Array(buffer)));
+}
+
+function base64ToArrayBuffer(base64) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes.buffer;
 }
