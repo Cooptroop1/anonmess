@@ -1,6 +1,4 @@
 // Event handlers and listeners
-
-// Help modal toggle
 helpText.addEventListener('click', () => {
   helpModal.classList.add('active');
   helpModal.focus();
@@ -18,7 +16,8 @@ helpModal.addEventListener('keydown', (event) => {
   }
 });
 
-let pendingCode = null; // To handle random redirect token race
+let pendingCode = null;
+let pendingJoin = null; // New: Store join data for retry after token refresh
 
 socket.onopen = () => {
   console.log('WebSocket opened');
@@ -34,7 +33,7 @@ socket.onopen = () => {
     console.log('No valid code in URL, showing initial container');
     initialContainer.classList.remove('hidden');
     usernameContainer.classList.add('hidden');
-    connectContainer.classList.add('hidden');
+    connectContainer.classList.remove('hidden');
     chatContainer.classList.add('hidden');
     codeDisplayElement.classList.add('hidden');
     copyCodeButton.classList.add('hidden');
@@ -56,20 +55,19 @@ socket.onclose = () => {
   const delay = Math.min(30000, 5000 * Math.pow(2, reconnectAttempts));
   reconnectAttempts++;
   setTimeout(() => {
-    const newSocket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
-    newSocket.onopen = () => {
+    socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
+    socket.onopen = () => {
       console.log('Reconnected, sending connect');
-      newSocket.send(JSON.stringify({ type: 'connect', clientId }));
+      socket.send(JSON.stringify({ type: 'connect', clientId }));
       startKeepAlive();
       if (code && username && validateCode(code) && validateUsername(username)) {
         console.log('Rejoining with code:', code);
-        newSocket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
+        socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
       }
     };
-    newSocket.onerror = socket.onerror;
-    newSocket.onclose = socket.onclose;
-    newSocket.onmessage = socket.onmessage;
-    Object.defineProperty(window, 'socket', { value: newSocket, writable: true });
+    socket.onerror = socket.onerror;
+    socket.onclose = socket.onclose;
+    socket.onmessage = socket.onmessage;
   }, delay);
 };
 
@@ -78,7 +76,7 @@ socket.onmessage = async (event) => {
   try {
     const message = JSON.parse(event.data);
     console.log('Parsed message:', message);
-    
+
     if (!message.type) {
       console.error('Invalid message: missing type');
       showStatusMessage('Invalid server message received.');
@@ -91,20 +89,28 @@ socket.onmessage = async (event) => {
     }
 
     if (message.type === 'connected') {
-      token = message.accessToken; // Updated: Store accessToken
-      refreshToken = message.refreshToken; // New: Store refreshToken
+      token = message.accessToken;
+      refreshToken = message.refreshToken;
       console.log('Received authentication tokens:', { accessToken: token, refreshToken });
       if (pendingCode) {
         autoConnect(pendingCode);
         pendingCode = null;
       }
+      if (pendingJoin) {
+        socket.send(JSON.stringify({ type: 'join', ...pendingJoin, token }));
+        pendingJoin = null;
+      }
       return;
     }
 
     if (message.type === 'token-refreshed') {
-      token = message.accessToken; // New: Update access token
+      token = message.accessToken;
       console.log('Received new access token:', token);
       showStatusMessage('Authentication token refreshed.');
+      if (pendingJoin) {
+        socket.send(JSON.stringify({ type: 'join', ...pendingJoin, token }));
+        pendingJoin = null;
+      }
       return;
     }
 
@@ -112,16 +118,14 @@ socket.onmessage = async (event) => {
       showStatusMessage(message.message);
       console.error('Server error:', message.message);
       if (message.message.includes('Invalid or expired token')) {
-        // New: Attempt to refresh token
         if (refreshToken) {
           console.log('Attempting to refresh token');
           socket.send(JSON.stringify({ type: 'refresh-token', clientId, refreshToken }));
         } else {
           console.error('No refresh token available, forcing reconnect');
-          socket.close(); // Trigger reconnect
+          socket.close();
         }
-      }
-      if (message.message.includes('Chat is full') || message.message.includes('Username already taken') || message.message.includes('Initiator offline') || message.message.includes('Token revoked')) {
+      } else if (message.message.includes('Chat is full') || message.message.includes('Username already taken') || message.message.includes('Initiator offline') || message.message.includes('Token revoked')) {
         socket.send(JSON.stringify({ type: 'leave', code, clientId, token }));
         initialContainer.classList.remove('hidden');
         usernameContainer.classList.add('hidden');
@@ -366,14 +370,20 @@ document.getElementById('joinWithUsernameButton').onclick = () => {
   chatContainer.classList.remove('hidden');
   messages.classList.add('waiting');
   statusElement.textContent = 'Waiting for connection...';
-  if (socket.readyState === WebSocket.OPEN) {
+  if (socket.readyState === WebSocket.OPEN && token) {
     console.log('Sending join message for new chat');
     socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
   } else {
-    socket.addEventListener('open', () => {
-      console.log('WebSocket opened, sending join for new chat');
-      socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
-    }, { once: true });
+    pendingJoin = { code, clientId, username };
+    if (socket.readyState !== WebSocket.OPEN) {
+      socket.addEventListener('open', () => {
+        console.log('WebSocket opened, sending join for new chat');
+        if (token) {
+          socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
+          pendingJoin = null;
+        }
+      }, { once: true });
+    }
   }
   document.getElementById('messageInput')?.focus();
 };
@@ -404,14 +414,20 @@ document.getElementById('connectButton').onclick = () => {
   chatContainer.classList.remove('hidden');
   messages.classList.add('waiting');
   statusElement.textContent = 'Waiting for connection...';
-  if (socket.readyState === WebSocket.OPEN) {
+  if (socket.readyState === WebSocket.OPEN && token) {
     console.log('Sending join message for existing chat');
     socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
   } else {
-    socket.addEventListener('open', () => {
-      console.log('WebSocket opened, sending join for existing chat');
-      socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
-    }, { once: true });
+    pendingJoin = { code, clientId, username };
+    if (socket.readyState !== WebSocket.OPEN) {
+      socket.addEventListener('open', () => {
+        console.log('WebSocket opened, sending join for existing chat');
+        if (token) {
+          socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
+          pendingJoin = null;
+        }
+      }, { once: true });
+    }
   }
   document.getElementById('messageInput')?.focus();
 };
@@ -560,13 +576,13 @@ document.getElementById('copyCodeButton').onclick = () => {
 };
 
 document.getElementById('button1').onclick = () => {
-  if (isInitiator && socket.readyState === WebSocket.OPEN && code && totalClients < maxClients) {
+  if (isInitiator && socket.readyState === WebSocket.OPEN && code && totalClients < maxClients && token) {
     socket.send(JSON.stringify({ type: 'submit-random', code, clientId, token }));
     showStatusMessage(`Sent code ${code} to random board.`);
     codeSentToRandom = true;
     button2.disabled = true;
   } else {
-    showStatusMessage('Cannot send: Not initiator, no code, or room is full.');
+    showStatusMessage('Cannot send: Not initiator, no code, no token, or room is full.');
   }
   document.getElementById('button1')?.focus();
 };
