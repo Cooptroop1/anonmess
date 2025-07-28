@@ -73,11 +73,19 @@ socket.onclose = () => {
   }, delay);
 };
 
-socket.onmessage = (event) => {
+socket.onmessage = async (event) => {
   console.log('Received WebSocket message:', event.data);
   try {
     const message = JSON.parse(event.data);
     console.log('Parsed message:', message);
+    
+    // New: Validate message has a type
+    if (!message.type) {
+      console.error('Invalid message: missing type');
+      showStatusMessage('Invalid server message received.');
+      return;
+    }
+
     if (message.type === 'pong') {
       console.log('Received keepalive pong');
       return;
@@ -85,7 +93,7 @@ socket.onmessage = (event) => {
     if (message.type === 'connected') {
       token = message.token;
       console.log('Received authentication token:', token);
-      if (pendingCode) { // New: Trigger autoConnect after token if pending from random
+      if (pendingCode) {
         autoConnect(pendingCode);
         pendingCode = null;
       }
@@ -121,7 +129,17 @@ socket.onmessage = (event) => {
       usernames.set(clientId, username);
       initializeMaxClientsUI();
       if (isInitiator) {
-        isConnected = true; // New: Set connected for initiator even if solo
+        isConnected = true;
+        // New: Generate room key as initiator
+        roomKey = await window.crypto.subtle.generateKey(
+          { name: 'AES-GCM', length: 256 },
+          true,
+          ['encrypt', 'decrypt']
+        );
+      } else {
+        // New: Non-initiator sends public key to initiator for key exchange
+        const publicKey = await exportPublicKey(keyPair.publicKey);
+        socket.send(JSON.stringify({ type: 'public-key', publicKey, clientId, code, token }));
       }
       updateMaxClientsUI();
       turnUsername = message.turnUsername;
@@ -172,6 +190,48 @@ socket.onmessage = (event) => {
     if (message.type === 'candidate' && message.clientId !== clientId) {
       console.log(`Received ICE candidate from ${message.clientId} for code: ${code}`);
       handleCandidate(message.candidate, message.clientId);
+    }
+    // New: Handle incoming public key from joiner (initiator only)
+    if (message.type === 'public-key' && isInitiator) {
+      try {
+        const joinerPublic = await importPublicKey(message.publicKey);
+        const sharedKey = await deriveSharedKey(keyPair.privateKey, joinerPublic);
+        const roomKeyRaw = await window.crypto.subtle.exportKey('raw', roomKey);
+        const { encrypted, iv } = await encryptRaw(sharedKey, roomKeyRaw);
+        const myPublic = await exportPublicKey(keyPair.publicKey);
+        socket.send(JSON.stringify({
+          type: 'encrypted-room-key',
+          encryptedKey: encrypted,
+          iv,
+          publicKey: myPublic,
+          targetId: message.clientId,
+          code,
+          clientId,
+          token
+        }));
+      } catch (error) {
+        console.error('Error handling public-key:', error);
+        showStatusMessage('Key exchange failed.');
+      }
+    }
+    // New: Handle received encrypted room key (joiner only)
+    if (message.type === 'encrypted-room-key') {
+      try {
+        const initiatorPublic = await importPublicKey(message.publicKey);
+        const sharedKey = await deriveSharedKey(keyPair.privateKey, initiatorPublic);
+        const roomKeyRaw = await decryptRaw(sharedKey, message.encryptedKey, message.iv);
+        roomKey = await window.crypto.subtle.importKey(
+          'raw',
+          roomKeyRaw,
+          { name: 'AES-GCM' },
+          true,
+          ['encrypt', 'decrypt']
+        );
+        console.log('Room key successfully imported.');
+      } catch (error) {
+        console.error('Error handling encrypted-room-key:', error);
+        showStatusMessage('Failed to receive encryption key.');
+      }
     }
     // Add for relay fallback
     if ((message.type === 'message' || message.type === 'image') && useRelay) {
@@ -232,7 +292,7 @@ socket.onmessage = (event) => {
       messages.scrollTop = 0;
     }
   } catch (error) {
-    console.error('Error parsing message:', error, 'Raw data:', event.data); // Updated: Log raw data, no user message to avoid flash
+    console.error('Error parsing message:', error, 'Raw data:', event.data);
   }
 };
 
