@@ -44,6 +44,7 @@
     <div class="container">
         <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">Anonomoose Admin Dashboard</h1>
         <div id="status" class="text-center mb-4 text-gray-600">Loading stats...</div>
+        <input id="secretInput" type="password" placeholder="Enter admin secret" class="border border-gray-300 p-2 w-full mb-2 rounded">
         <ul id="statsList"></ul>
         <button id="refreshButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full mb-4 hover:bg-blue-600 transition-colors" aria-label="Refresh stats">Refresh</button>
         <div class="text-center mt-4">
@@ -55,9 +56,14 @@
         const statsList = document.getElementById('statsList');
         const statusElement = document.getElementById('status');
         const refreshButton = document.getElementById('refreshButton');
-        const adminSecret = prompt('Enter admin secret:'); // Prompts for the secret each time
+        const secretInput = document.getElementById('secretInput'); // New: Input field for secret
 
         function fetchStats() {
+            const adminSecret = secretInput.value.trim();
+            if (!adminSecret) {
+                statusElement.textContent = 'Enter admin secret to load stats.';
+                return;
+            }
             if (socket.readyState === WebSocket.OPEN) {
                 statusElement.textContent = 'Loading stats...';
                 socket.send(JSON.stringify({ type: 'get-stats', secret: adminSecret }));
@@ -68,7 +74,7 @@
 
         socket.onopen = () => {
             console.log('Admin dashboard WebSocket opened');
-            fetchStats();
+            // Fetch only on button click, no auto-fetch
         };
 
         socket.onmessage = (event) => {
