@@ -4,7 +4,12 @@
 let turnUsername = '';
 let turnCredential = '';
 
+let sendDebounceTimer = null; // New: For client-side debounce on sends
+
 async function sendImage(file) {
+  if (sendDebounceTimer) return; // Debounce: Prevent multiple sends in short time
+  sendDebounceTimer = setTimeout(() => sendDebounceTimer = null, 1000); // 1s debounce
+
   const validImageTypes = ['image/jpeg', 'image/png'];
   if (!file || !validImageTypes.includes(file.type) || !username || dataChannels.size === 0) {
     showStatusMessage('Error: Select a JPEG or PNG image and ensure you are connected.');
@@ -477,6 +482,9 @@ function handleCandidate(candidate, targetId) {
 }
 
 async function sendMessage(content) {
+  if (sendDebounceTimer) return; // New: Debounce sends (client-side, 1s)
+  sendDebounceTimer = setTimeout(() => sendDebounceTimer = null, 1000);
+
   if (content && dataChannels.size > 0 && username) {
     const messageId = generateMessageId();
     const sanitizedContent = sanitizeMessage(content);
@@ -593,38 +601,4 @@ function autoConnect(codeParam) {
     showStatusMessage('Invalid code format. Please enter a valid code.');
     document.getElementById('connectToggleButton')?.focus();
   }
-}
-
-// New: Encryption functions using Web Crypto
-async function encrypt(text) {
-  const iv = window.crypto.getRandomValues(new Uint8Array(12));
-  const encoded = new TextEncoder().encode(text);
-  const encrypted = await window.crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    roomKey,
-    encoded
-  );
-  return { encrypted: arrayBufferToBase64(encrypted), iv: arrayBufferToBase64(iv) };
-}
-
-async function decrypt(encrypted, iv) {
-  const decoded = await window.crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: base64ToArrayBuffer(iv) },
-    roomKey,
-    base64ToArrayBuffer(encrypted)
-  );
-  return new TextDecoder().decode(decoded);
-}
-
-function arrayBufferToBase64(buffer) {
-  return btoa(String.fromCharCode(...new Uint8Array(buffer)));
-}
-
-function base64ToArrayBuffer(base64) {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes.buffer;
 }
