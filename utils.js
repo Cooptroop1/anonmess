@@ -1,12 +1,13 @@
 // Utility to show temporary status messages
 function showStatusMessage(message, duration = 3000) {
-  const statusElement = document.getElementById('status');
-  statusElement.textContent = message;
-  statusElement.setAttribute('aria-live', 'assertive');
-  setTimeout(() => {
-    statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...';
-    statusElement.setAttribute('aria-live', 'polite');
-  }, duration);
+  if (typeof statusElement !== 'undefined' && statusElement) {
+    statusElement.textContent = message;
+    statusElement.setAttribute('aria-live', 'assertive');
+    setTimeout(() => {
+      statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...';
+      statusElement.setAttribute('aria-live', 'polite');
+    }, duration);
+  }
 }
 
 // Sanitize message content to prevent XSS
@@ -14,16 +15,6 @@ function sanitizeMessage(content) {
   const div = document.createElement('div');
   div.textContent = content;
   return div.innerHTML.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-function generateCode() {
-  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let result = '';
-  for (let i = 0; i < 16; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-    if (i % 4 === 3 && i < 15) result += '-';
-  }
-  return result;
 }
 
 function generateMessageId() {
@@ -44,8 +35,8 @@ function validateCode(code) {
 function startKeepAlive() {
   if (keepAliveTimer) clearInterval(keepAliveTimer);
   keepAliveTimer = setInterval(() => {
-    if (socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({ type: 'ping', clientId }));
+    if (typeof socket !== 'undefined' && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: 'ping', clientId, token }));
       log('info', 'Sent keepalive ping');
     }
   }, 20000);
@@ -83,16 +74,15 @@ function cleanupPeerConnection(targetId) {
   isConnected = dataChannels.size > 0;
   updateMaxClientsUI();
   if (!isConnected) {
-    inputContainer.classList.add('hidden');
-    messages.classList.add('waiting');
+    if (inputContainer) inputContainer.classList.add('hidden');
+    if (messages) messages.classList.add('waiting');
   }
 }
 
 function initializeMaxClientsUI() {
   log('info', 'initializeMaxClientsUI called, isInitiator:', isInitiator);
-  const maxClientsRadios = document.getElementById('maxClientsRadios');
-  if (!maxClientsRadios) {
-    log('error', 'maxClientsRadios element not found');
+  if (!maxClientsContainer) {
+    log('error', 'maxClientsContainer element not found');
     showStatusMessage('Error: UI initialization failed.');
     return;
   }
@@ -125,7 +115,9 @@ function initializeMaxClientsUI() {
 
 function updateMaxClientsUI() {
   log('info', 'updateMaxClientsUI called, maxClients:', maxClients, 'isInitiator:', isInitiator);
-  statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...';
+  if (statusElement) {
+    statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...';
+  }
   const buttons = document.querySelectorAll('#maxClientsRadios button');
   log('info', 'Found buttons:', buttons.length);
   buttons.forEach(button => {
@@ -133,34 +125,29 @@ function updateMaxClientsUI() {
     button.classList.toggle('active', value === maxClients);
     button.disabled = !isInitiator;
   });
-  maxClientsContainer.classList.toggle('hidden', !isInitiator);
-  if (!isConnected) {
-    messages.classList.add('waiting');
-  } else {
-    messages.classList.remove('waiting');
+  if (maxClientsContainer) {
+    maxClientsContainer.classList.toggle('hidden', !isInitiator);
+  }
+  if (messages) {
+    if (!isConnected) {
+      messages.classList.add('waiting');
+    } else {
+      messages.classList.remove('waiting');
+    }
   }
 }
 
-/**
- * Sets the maximum number of clients allowed in the chat.
- * @param {number} n - The new maximum number of clients (2-10).
- */
 function setMaxClients(n) {
-  if (isInitiator && clientId && socket.readyState === WebSocket.OPEN) {
+  if (isInitiator && clientId && socket.readyState === WebSocket.OPEN && token) {
     maxClients = Math.min(n, 10);
     log('info', `setMaxClients called with n: ${n}, new maxClients: ${maxClients}`);
-    socket.send(JSON.stringify({ type: 'set-max-clients', maxClients: maxClients, code, clientId, token })); // New: include token
+    socket.send(JSON.stringify({ type: 'set-max-clients', maxClients: maxClients, code, clientId, token }));
     updateMaxClientsUI();
   } else {
-    log('warn', 'setMaxClients failed: not initiator or socket not open');
+    log('warn', 'setMaxClients failed: not initiator, no token, or socket not open');
   }
 }
 
-/**
- * Centralized logger for consistent logging.
- * @param {string} level - The log level ('info', 'warn', 'error').
- * @param {...any} msg - The message parts to log.
- */
 function log(level, ...msg) {
   const timestamp = new Date().toISOString();
   const fullMsg = `[${timestamp}] ${msg.join(' ')}`;
@@ -173,11 +160,6 @@ function log(level, ...msg) {
   }
 }
 
-/**
- * Creates and shows an image modal.
- * @param {string} base64 - The base64 image data.
- * @param {string} focusId - The ID of the element to focus after closing the modal.
- */
 function createImageModal(base64, focusId) {
   let modal = document.getElementById('imageModal');
   if (!modal) {
@@ -208,7 +190,34 @@ function createImageModal(base64, focusId) {
   });
 }
 
-// New: Encryption functions using Web Crypto
+function arrayBufferToBase64(buffer) {
+  return btoa(String.fromCharCode(...new Uint8Array(buffer)));
+}
+
+function base64ToArrayBuffer(base64) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
+async function exportPublicKey(key) {
+  const exported = await window.crypto.subtle.exportKey('raw', key);
+  return arrayBufferToBase64(exported);
+}
+
+async function importPublicKey(base64) {
+  return window.crypto.subtle.importKey(
+    'raw',
+    base64ToArrayBuffer(base64),
+    { name: 'ECDH', namedCurve: 'P-256' },
+    true,
+    []
+  );
+}
+
 async function encrypt(text) {
   const iv = window.crypto.getRandomValues(new Uint8Array(12));
   const encoded = new TextEncoder().encode(text);
@@ -229,50 +238,7 @@ async function decrypt(encrypted, iv) {
   return new TextDecoder().decode(decoded);
 }
 
-function arrayBufferToBase64(buffer) {
-  return btoa(String.fromCharCode(...new Uint8Array(buffer)));
-}
-
-function base64ToArrayBuffer(base64) {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes.buffer;
-}
-
-// New: Export public key as base64 (SPKI format)
-async function exportPublicKey(key) {
-  const exported = await window.crypto.subtle.exportKey('spki', key);
-  return arrayBufferToBase64(exported);
-}
-
-// New: Import public key from base64 (SPKI)
-async function importPublicKey(base64) {
-  const binary = base64ToArrayBuffer(base64);
-  return await window.crypto.subtle.importKey(
-    'spki',
-    binary,
-    { name: 'ECDH', namedCurve: 'P-256' },
-    true,
-    []
-  );
-}
-
-// New: Derive shared AES key from ECDH
-async function deriveSharedKey(privateKey, publicKey) {
-  return await window.crypto.subtle.deriveKey(
-    { name: 'ECDH', public: publicKey },
-    privateKey,
-    { name: 'AES-GCM', length: 256 },
-    true,
-    ['encrypt', 'decrypt']
-  );
-}
-
-// New: Encrypt raw ArrayBuffer (for room key sharing)
-async function encryptRaw(key, data) {
+async function encryptBytes(key, data) {
   const iv = window.crypto.getRandomValues(new Uint8Array(12));
   const encrypted = await window.crypto.subtle.encrypt(
     { name: 'AES-GCM', iv },
@@ -282,9 +248,8 @@ async function encryptRaw(key, data) {
   return { encrypted: arrayBufferToBase64(encrypted), iv: arrayBufferToBase64(iv) };
 }
 
-// New: Decrypt raw to ArrayBuffer
-async function decryptRaw(key, encrypted, iv) {
-  return await window.crypto.subtle.decrypt(
+async function decryptBytes(key, encrypted, iv) {
+  return window.crypto.subtle.decrypt(
     { name: 'AES-GCM', iv: base64ToArrayBuffer(iv) },
     key,
     base64ToArrayBuffer(encrypted)
