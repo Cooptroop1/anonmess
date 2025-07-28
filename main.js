@@ -1,4 +1,3 @@
-
 // Core logic: peer connections, message sending, handling offers, etc.
 
 // Global vars for dynamic TURN creds from server
@@ -7,7 +6,7 @@ let turnCredential = '';
 
 async function sendImage(file) {
   const validImageTypes = ['image/jpeg', 'image/png'];
-  if (!file || !validImageTypes.includes(file.type) || !username || dataChannels.size === 0) {
+  if (!file || !validImageTypes.includes(file.type) || !username || (dataChannels.size === 0 && totalClients === 0)) { // Updated: Check totalClients
     showStatusMessage('Error: Select a JPEG or PNG image and ensure you are connected.');
     document.getElementById('imageButton')?.focus();
     return;
@@ -69,10 +68,12 @@ async function sendImage(file) {
   const messageId = generateMessageId();
   const timestamp = Date.now();
   const message = { messageId, type: 'image', data: base64, username, timestamp };
+  let sent = false;
   if (useRelay) {
     // Fallback: Send to server for relay
     if (socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({ type: 'relay-image', code, clientId, token, ...message })); // New: include token
+      socket.send(JSON.stringify({ type: 'relay-image', code, clientId, token, ...message }));
+      sent = true;
     }
   } else if (dataChannels.size > 0) {
     // P2P mode
@@ -82,10 +83,13 @@ async function sendImage(file) {
         dataChannel.send(jsonString);
       }
     });
-  } else {
-    showStatusMessage('Error: No connections.');
+    sent = true;
+  } 
+  if (!sent) {
+    showStatusMessage('No connections to send image.');
     return;
   }
+  // Updated: Always add locally, even if solo
   const messages = document.getElementById('messages');
   const messageDiv = document.createElement('div');
   messageDiv.className = 'message-bubble self';
@@ -101,33 +105,7 @@ async function sendImage(file) {
   imgElement.style.cursor = 'pointer';
   imgElement.setAttribute('alt', 'Sent image');
   imgElement.addEventListener('click', () => {
-    let modal = document.getElementById('imageModal');
-    if (!modal) {
-      modal = document.createElement('div');
-      modal.id = 'imageModal';
-      modal.className = 'modal';
-      modal.setAttribute('role', 'dialog');
-      modal.setAttribute('aria-label', 'Image viewer');
-      modal.setAttribute('tabindex', '-1');
-      document.body.appendChild(modal);
-    }
-    modal.innerHTML = '';
-    const modalImg = document.createElement('img');
-    modalImg.src = base64;
-    modalImg.setAttribute('alt', 'Enlarged image');
-    modal.appendChild(modalImg);
-    modal.classList.add('active');
-    modal.focus();
-    modal.addEventListener('click', () => {
-      modal.classList.remove('active');
-      document.getElementById('imageButton')?.focus();
-    });
-    modal.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') {
-        modal.classList.remove('active');
-        document.getElementById('imageButton')?.focus();
-      }
-    });
+    createImageModal(base64, 'imageButton');
   });
   messageDiv.appendChild(imgElement);
   messages.prepend(messageDiv);
@@ -147,8 +125,8 @@ function startPeerConnection(targetId, isOfferer) {
       { urls: "stun:stun.relay.metered.ca:80" },
       {
         urls: "turn:global.relay.metered.ca:80",
-        username: turnUsername, // Dynamic from server
-        credential: turnCredential // Dynamic from server
+        username: turnUsername,
+        credential: turnCredential
       },
       {
         urls: "turn:global.relay.metered.ca:80?transport=tcp",
@@ -183,7 +161,7 @@ function startPeerConnection(targetId, isOfferer) {
     if (event.candidate) {
       console.log(`Sending ICE candidate to ${targetId} for code: ${code}`);
       if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate, code, targetId, clientId, token })); // New: include token
+        socket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate, code, targetId, clientId, token }));
       }
     }
   };
@@ -245,7 +223,7 @@ function startPeerConnection(targetId, isOfferer) {
     }).then(() => {
       console.log(`Sending offer to ${targetId} for code: ${code}`);
       if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code, targetId, clientId, token })); // New: include token
+        socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code, targetId, clientId, token }));
       }
     }).catch(error => {
       console.error(`Error creating offer for ${targetId}:`, error);
@@ -332,33 +310,7 @@ function setupDataChannel(dataChannel, targetId) {
       img.style.cursor = 'pointer';
       img.setAttribute('alt', 'Received image');
       img.addEventListener('click', () => {
-        let modal = document.getElementById('imageModal');
-        if (!modal) {
-          modal = document.createElement('div');
-          modal.id = 'imageModal';
-          modal.className = 'modal';
-          modal.setAttribute('role', 'dialog');
-          modal.setAttribute('aria-label', 'Image viewer');
-          modal.setAttribute('tabindex', '-1');
-          document.body.appendChild(modal);
-        }
-        modal.innerHTML = '';
-        const modalImg = document.createElement('img');
-        modalImg.src = data.data;
-        modalImg.setAttribute('alt', 'Enlarged image');
-        modal.appendChild(modalImg);
-        modal.classList.add('active');
-        modal.focus();
-        modal.addEventListener('click', () => {
-          modal.classList.remove('active');
-          document.getElementById('messageInput')?.focus();
-        });
-        modal.addEventListener('keydown', (event) => {
-          if (event.key === 'Escape') {
-            modal.classList.remove('active');
-            document.getElementById('messageInput')?.focus();
-          }
-        });
+        createImageModal(data.data, 'messageInput');
       });
       messageDiv.appendChild(img);
     } else {
@@ -409,7 +361,7 @@ async function handleOffer(offer, targetId) {
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
     if (socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({ type: 'answer', answer: peerConnection.localDescription, code, targetId, clientId, token })); // New: include token
+      socket.send(JSON.stringify({ type: 'answer', answer: peerConnection.localDescription, code, targetId, clientId, token }));
     }
     const queue = candidatesQueues.get(targetId) || [];
     queue.forEach(candidate => {
@@ -476,17 +428,19 @@ function handleCandidate(candidate, targetId) {
 }
 
 function sendMessage(content) {
-  if (content && dataChannels.size > 0 && username) {
+  if (content && username) { // Updated: Allow sending even if no dataChannels (local display for solo)
     const messageId = generateMessageId();
     const sanitizedContent = sanitizeMessage(content);
     const timestamp = Date.now();
     const message = { messageId, content: sanitizedContent, username, timestamp };
+    let sent = false;
     if (useRelay) {
       // Fallback: Send to server for relay
       if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: 'relay-message', code, clientId, token, ...message })); // New: include token
+        socket.send(JSON.stringify({ type: 'relay-message', code, clientId, token, ...message }));
+        sent = true;
       }
-    } else {
+    } else if (dataChannels.size > 0) {
       // P2P mode
       const jsonString = JSON.stringify(message);
       dataChannels.forEach((dataChannel, targetId) => {
@@ -494,7 +448,9 @@ function sendMessage(content) {
           dataChannel.send(jsonString);
         }
       });
-    }
+      sent = true;
+    } 
+    // Updated: Always add locally, even if not sent (for solo view)
     const messages = document.getElementById('messages');
     const messageDiv = document.createElement('div');
     messageDiv.className = 'message-bubble self';
@@ -510,8 +466,11 @@ function sendMessage(content) {
     messageInput.style.height = '2.5rem';
     processedMessageIds.add(messageId);
     messageInput?.focus();
+    if (!sent) {
+      showStatusMessage('No connections; message shown locally.');
+    }
   } else {
-    showStatusMessage('Error: No connections or username not set.');
+    showStatusMessage('Error: No username set.');
     document.getElementById('messageInput')?.focus();
   }
 }
@@ -536,12 +495,12 @@ function autoConnect(codeParam) {
       statusElement.textContent = 'Waiting for connection...';
       if (socket.readyState === WebSocket.OPEN) {
         console.log('WebSocket open, sending join');
-        socket.send(JSON.stringify({ type: 'join', code, clientId, username, token })); // New: include token
+        socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
       } else {
         console.log('WebSocket not open, waiting for open event');
         socket.addEventListener('open', () => {
           console.log('WebSocket opened in autoConnect, sending join');
-          socket.send(JSON.stringify({ type: 'join', code, clientId, username, token })); // New: include token
+          socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
         }, { once: true });
       }
       document.getElementById('messageInput')?.focus();
@@ -571,12 +530,12 @@ function autoConnect(codeParam) {
         statusElement.textContent = 'Waiting for connection...';
         if (socket.readyState === WebSocket.OPEN) {
           console.log('WebSocket open, sending join after username input');
-          socket.send(JSON.stringify({ type: 'join', code, clientId, username, token })); // New: include token
+          socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
         } else {
           console.log('WebSocket not open, waiting for open event after username');
           socket.addEventListener('open', () => {
             console.log('WebSocket opened in autoConnect join, sending join');
-            socket.send(JSON.stringify({ type: 'join', code, clientId, username, token })); // New: include token
+            socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
           }, { once: true });
         }
         document.getElementById('messageInput')?.focus();
