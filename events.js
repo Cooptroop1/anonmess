@@ -120,6 +120,9 @@ socket.onmessage = (event) => {
       console.log(`Initialized client ${clientId}, username: ${username}, maxClients: ${maxClients}, isInitiator: ${isInitiator}`);
       usernames.set(clientId, username);
       initializeMaxClientsUI();
+      if (isInitiator) {
+        isConnected = true; // New: Set connected for initiator even if solo
+      }
       updateMaxClientsUI();
       turnUsername = message.turnUsername;
       turnCredential = message.turnCredential;
@@ -229,8 +232,7 @@ socket.onmessage = (event) => {
       messages.scrollTop = 0;
     }
   } catch (error) {
-    console.error('Error parsing message:', error);
-    showStatusMessage('Error receiving message, please try again.');
+    console.error('Error parsing message:', error, 'Raw data:', event.data); // Updated: Log raw data, no user message to avoid flash
   }
 };
 
