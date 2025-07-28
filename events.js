@@ -18,7 +18,7 @@ helpModal.addEventListener('keydown', (event) => {
   }
 });
 
-let pendingCode = null; // New: To handle random redirect token race
+let pendingCode = null; // To handle random redirect token race
 
 socket.onopen = () => {
   console.log('WebSocket opened');
@@ -79,7 +79,6 @@ socket.onmessage = async (event) => {
     const message = JSON.parse(event.data);
     console.log('Parsed message:', message);
     
-    // New: Validate message has a type
     if (!message.type) {
       console.error('Invalid message: missing type');
       showStatusMessage('Invalid server message received.');
@@ -90,19 +89,39 @@ socket.onmessage = async (event) => {
       console.log('Received keepalive pong');
       return;
     }
+
     if (message.type === 'connected') {
-      token = message.token;
-      console.log('Received authentication token:', token);
+      token = message.accessToken; // Updated: Store accessToken
+      refreshToken = message.refreshToken; // New: Store refreshToken
+      console.log('Received authentication tokens:', { accessToken: token, refreshToken });
       if (pendingCode) {
         autoConnect(pendingCode);
         pendingCode = null;
       }
       return;
     }
+
+    if (message.type === 'token-refreshed') {
+      token = message.accessToken; // New: Update access token
+      console.log('Received new access token:', token);
+      showStatusMessage('Authentication token refreshed.');
+      return;
+    }
+
     if (message.type === 'error') {
       showStatusMessage(message.message);
       console.error('Server error:', message.message);
-      if (message.message.includes('Chat is full') || message.message.includes('Username already taken') || message.message.includes('Initiator offline')) {
+      if (message.message.includes('Invalid or expired token')) {
+        // New: Attempt to refresh token
+        if (refreshToken) {
+          console.log('Attempting to refresh token');
+          socket.send(JSON.stringify({ type: 'refresh-token', clientId, refreshToken }));
+        } else {
+          console.error('No refresh token available, forcing reconnect');
+          socket.close(); // Trigger reconnect
+        }
+      }
+      if (message.message.includes('Chat is full') || message.message.includes('Username already taken') || message.message.includes('Initiator offline') || message.message.includes('Token revoked')) {
         socket.send(JSON.stringify({ type: 'leave', code, clientId, token }));
         initialContainer.classList.remove('hidden');
         usernameContainer.classList.add('hidden');
@@ -120,6 +139,7 @@ socket.onmessage = async (event) => {
       }
       return;
     }
+
     if (message.type === 'init') {
       clientId = message.clientId;
       maxClients = Math.min(message.maxClients, 10);
@@ -130,14 +150,12 @@ socket.onmessage = async (event) => {
       initializeMaxClientsUI();
       if (isInitiator) {
         isConnected = true;
-        // New: Generate room key as initiator
         roomKey = await window.crypto.subtle.generateKey(
           { name: 'AES-GCM', length: 256 },
           true,
           ['encrypt', 'decrypt']
         );
       } else {
-        // New: Non-initiator sends public key to initiator for key exchange
         const publicKey = await exportPublicKey(keyPair.publicKey);
         socket.send(JSON.stringify({ type: 'public-key', publicKey, clientId, code, token }));
       }
@@ -145,12 +163,14 @@ socket.onmessage = async (event) => {
       turnUsername = message.turnUsername;
       turnCredential = message.turnCredential;
     }
+
     if (message.type === 'initiator-changed') {
       console.log(`Initiator changed to ${message.newInitiator} for code: ${code}`);
       isInitiator = message.newInitiator === clientId;
       initializeMaxClientsUI();
       updateMaxClientsUI();
     }
+
     if (message.type === 'join-notify' && message.code === code) {
       totalClients = message.totalClients;
       console.log(`Join-notify received for code: ${code}, client: ${message.clientId}, total: ${totalClients}, username: ${message.username}`);
@@ -163,6 +183,7 @@ socket.onmessage = async (event) => {
         startPeerConnection(message.clientId, true);
       }
     }
+
     if (message.type === 'client-disconnected') {
       totalClients = message.totalClients;
       console.log(`Client ${message.clientId} disconnected from code: ${code}, total: ${totalClients}`);
@@ -174,24 +195,28 @@ socket.onmessage = async (event) => {
         messages.classList.add('waiting');
       }
     }
+
     if (message.type === 'max-clients') {
       maxClients = Math.min(message.maxClients, 10);
       console.log(`Max clients updated to ${maxClients} for code: ${code}`);
       updateMaxClientsUI();
     }
+
     if (message.type === 'offer' && message.clientId !== clientId) {
       console.log(`Received offer from ${message.clientId} for code: ${code}`);
       handleOffer(message.offer, message.clientId);
     }
+
     if (message.type === 'answer' && message.clientId !== clientId) {
       console.log(`Received answer from ${message.clientId} for code: ${code}`);
       handleAnswer(message.answer, message.clientId);
     }
+
     if (message.type === 'candidate' && message.clientId !== clientId) {
       console.log(`Received ICE candidate from ${message.clientId} for code: ${code}`);
       handleCandidate(message.candidate, message.clientId);
     }
-    // New: Handle incoming public key from joiner (initiator only)
+
     if (message.type === 'public-key' && isInitiator) {
       try {
         const joinerPublic = await importPublicKey(message.publicKey);
@@ -214,7 +239,7 @@ socket.onmessage = async (event) => {
         showStatusMessage('Key exchange failed.');
       }
     }
-    // New: Handle received encrypted room key (joiner only)
+
     if (message.type === 'encrypted-room-key') {
       try {
         const initiatorPublic = await importPublicKey(message.publicKey);
@@ -233,9 +258,8 @@ socket.onmessage = async (event) => {
         showStatusMessage('Failed to receive encryption key.');
       }
     }
-    // Add for relay fallback
+
     if ((message.type === 'message' || message.type === 'image') && useRelay) {
-      // Process relayed message from server
       if (processedMessageIds.has(message.messageId)) return;
       processedMessageIds.add(message.messageId);
       const senderUsername = message.username;
