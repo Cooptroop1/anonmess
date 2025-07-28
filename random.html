@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Anonomoose Random Chat</title>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; img-src 'self' data: https://raw.githubusercontent.com; connect-src 'self' wss://signaling-server-zc6m.onrender.com;">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" integrity="sha512-wl80ucx/IUn1AxZwoLdrg/7YHfp2nOkzJ2Hl9fb7ZcJ2bQhURCTV8QydSaLIbOHI4uYPR1UP2xKAKg01lgn65A==" crossorigin="anonymous">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net 'sha256-2m8IejeObW/Xt8V+BYlKFrOitpJyN1Vq8aUoNo2Ajpc='; style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; img-src 'self' data: https://raw.githubusercontent.com https://cdnjs.cloudflare.com; connect-src 'self' wss://signaling-server-zc6m.onrender.com;">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" integrity="sha512-wnea99uKIC3TJF7v4eKk4Y+lMz2Mklv18+r4na2Gn1abDRPPOeef95xTzdwGD9e6zXJBteMIhZ1+68QC5byJZw==" crossorigin="anonymous">
     <link rel="icon" type="image/png" href="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f60e.png"/>
     <style>
         html, body {
@@ -46,11 +46,12 @@
         .code-item {
             background-color: #10b981;
             color: #ffffff;
-            padding: 10px;
-            margin: 5px 0;
+            padding: 15px;
+            margin: 10px 0;
             border-radius: 5px;
             cursor: pointer;
             transition: background-color 0.2s ease;
+            font-size: 1.2rem;
         }
         .code-item:hover {
             background-color: #059669;
@@ -59,6 +60,7 @@
             font-weight: bold;
             color: #e53e3e;
             margin: 1rem 0;
+            font-size: 1.2rem;
         }
         #refreshButton {
             background-color: #3b82f6;
@@ -71,6 +73,7 @@
             margin-bottom: 1rem;
             cursor: pointer;
             transition: background-color 0.2s ease;
+            font-size: 1.1rem;
         }
         #refreshButton:hover {
             background-color: #1d4ed8;
@@ -78,6 +81,7 @@
         .back-link {
             color: #3b82f6;
             text-decoration: none;
+            font-size: 1.1rem;
         }
         .back-link:hover {
             text-decoration: underline;
@@ -99,8 +103,8 @@
                 font-size: 0.875rem;
             }
             .code-item {
-                font-size: 0.875rem;
-                padding: 8px;
+                font-size: 1rem;
+                padding: 10px;
             }
             #noChatsMessage {
                 font-size: 1rem;
@@ -129,15 +133,15 @@
                 font-size: 1rem;
             }
             .code-item {
-                font-size: 1rem;
-                padding: 10px;
+                font-size: 1.2rem;
+                padding: 15px;
             }
             #noChatsMessage {
                 font-size: 1.2rem;
             }
             #refreshButton {
                 padding: 0.5rem 1rem;
-                font-size: 1rem;
+                font-size: 1.1rem;
                 max-width: 200px;
             }
             .back-link {
@@ -146,14 +150,14 @@
         }
     </style>
 </head>
-<body class="flex justify-center items-center min-h-screen bg-black">
+<body>
     <div class="container">
-        <h1 class="text-2xl font-bold mb-6 text-gray-800 sm:text-3xl">Pick a Random Chat</h1>
-        <div id="status" class="text-gray-600 mb-4 sm:text-base" role="status" aria-live="polite">Loading available chats...</div>
-        <ul id="codeList" class="mb-4" role="listbox"></ul>
-        <button id="refreshButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full max-w-xs mb-4 hover:bg-blue-600 transition-colors sm:px-6 sm:py-3" aria-label="Refresh available chats">Refresh</button>
+        <h1>Pick a Random Chat</h1>
+        <div id="status" role="status" aria-live="polite">Loading available chats...</div>
+        <ul id="codeList" role="listbox"></ul>
+        <button id="refreshButton" aria-label="Refresh available chats">Refresh</button>
         <div>
-            <a href="https://anonomoose.com/index.html" class="back-link sm:text-base" aria-label="Back to main chat page">Back to Chat</a>
+            <a href="https://anonomoose.com/index.html" class="back-link" aria-label="Back to main chat page">Back to Chat</a>
         </div>
     </div>
     <script>
