@@ -8,156 +8,58 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" integrity="sha512-wnea99uKIC3TJF7v4eKk4Y+lMz2Mklv18+r4na2Gn1abDRPPOeef95xTzdwGD9e6zXJBteMIhZ1+68QC5byJZw==" crossorigin="anonymous">
     <link rel="icon" type="image/png" href="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f60e.png"/>
     <style>
-        html, body {
-            margin: 0;
-            padding: 0;
-            background-color: #000000;
-            color: #ffffff;
+        body {
+            background-color: #000;
+            color: #fff;
             min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            font-family: Arial, sans-serif;
+            margin: 0;
+            padding-top: 140px;
         }
         .container {
-            background-color: #ffffff;
-            color: #000000;
+            text-align: center;
             padding: 20px;
+            background-color: #fff;
+            color: #000;
             border-radius: 10px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
             max-width: 500px;
-            width: 90%;
-            text-align: center;
-        }
-        h1 {
-            font-weight: bold;
-            margin-bottom: 1.5rem;
-            color: #1f2937;
-        }
-        #status {
-            color: #4b5563;
-            margin-bottom: 1rem;
+            width: 100%;
         }
         #codeList {
             list-style: none;
             padding: 0;
-            margin: 1rem 0;
         }
         .code-item {
+            padding: 10px;
+            margin: 5px 0;
             background-color: #10b981;
-            color: #ffffff;
-            padding: 15px;
-            margin: 10px 0;
+            color: white;
             border-radius: 5px;
             cursor: pointer;
             transition: background-color 0.2s ease;
-            font-size: 1.2rem;
         }
         .code-item:hover {
             background-color: #059669;
         }
         #noChatsMessage {
+            font-size: 1.2rem;
             font-weight: bold;
             color: #e53e3e;
             margin: 1rem 0;
-            font-size: 1.2rem;
-        }
-        #refreshButton {
-            background-color: #3b82f6;
-            color: #ffffff;
-            padding: 0.5rem 1rem;
-            border-radius: 0.25rem;
-            border: none;
-            width: 100%;
-            max-width: 200px;
-            margin-bottom: 1rem;
-            cursor: pointer;
-            transition: background-color 0.2s ease;
-            font-size: 1.1rem;
-        }
-        #refreshButton:hover {
-            background-color: #1d4ed8;
-        }
-        .back-link {
-            color: #3b82f6;
-            text-decoration: none;
-            font-size: 1.1rem;
-        }
-        .back-link:hover {
-            text-decoration: underline;
-            color: #1d4ed8;
-        }
-        /* Mobile styles */
-        @media (max-width: 640px) {
-            body {
-                padding: 10px;
-            }
-            .container {
-                padding: 15px;
-                max-width: 360px;
-            }
-            h1 {
-                font-size: 1.25rem;
-            }
-            #status {
-                font-size: 0.875rem;
-            }
-            .code-item {
-                font-size: 1rem;
-                padding: 10px;
-            }
-            #noChatsMessage {
-                font-size: 1rem;
-            }
-            #refreshButton {
-                padding: 0.4rem 0.8rem;
-                font-size: 0.875rem;
-                max-width: 150px;
-            }
-            .back-link {
-                font-size: 0.875rem;
-            }
-        }
-        /* Desktop styles */
-        @media (min-width: 641px) {
-            body {
-                padding: 20px;
-            }
-            .container {
-                max-width: 600px;
-            }
-            h1 {
-                font-size: 1.5rem;
-            }
-            #status {
-                font-size: 1rem;
-            }
-            .code-item {
-                font-size: 1.2rem;
-                padding: 15px;
-            }
-            #noChatsMessage {
-                font-size: 1.2rem;
-            }
-            #refreshButton {
-                padding: 0.5rem 1rem;
-                font-size: 1.1rem;
-                max-width: 200px;
-            }
-            .back-link {
-                font-size: 1rem;
-            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Pick a Random Chat</h1>
-        <div id="status" role="status" aria-live="polite">Loading available chats...</div>
-        <ul id="codeList" role="listbox"></ul>
-        <button id="refreshButton" aria-label="Refresh available chats">Refresh</button>
-        <div>
-            <a href="https://anonomoose.com/index.html" class="back-link" aria-label="Back to main chat page">Back to Chat</a>
+        <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">Pick a Random Chat</h1>
+        <div id="status" class="text-center mb-4 text-gray-600">Loading available chats...</div>
+        <ul id="codeList"></ul>
+        <button id="refreshButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full mb-4 hover:bg-blue-600 transition-colors" aria-label="Refresh available chats">Refresh</button>
+        <div class="text-center mt-4">
+            <a href="https://anonomoose.com/index.html" class="text-blue-500 hover:underline">Back to Chat</a>
         </div>
     </div>
     <script>
@@ -198,7 +100,6 @@
                             const li = document.createElement('li');
                             li.className = 'code-item';
                             li.textContent = code;
-                            li.setAttribute('role', 'option');
                             li.onclick = () => {
                                 console.log('Selected code:', code);
                                 socket.send(JSON.stringify({ type: 'remove-random-code', code }));
