@@ -1,7 +1,3 @@
-// main.js
-// Core logic: peer connections, message sending, handling offers, etc.
-
-// Global vars for dynamic TURN creds from server
 let turnUsername = '';
 let turnCredential = '';
 
@@ -18,7 +14,6 @@ async function sendImage(file) {
     return;
   }
 
-  // Image rate limiting
   const now = performance.now();
   const rateLimit = imageRateLimits.get(clientId) || { count: 0, startTime: now };
   if (now - rateLimit.startTime >= 60000) {
@@ -37,9 +32,9 @@ async function sendImage(file) {
   const maxHeight = 360;
   let quality = 0.4;
   if (file.size > 3 * 1024 * 1024) {
-    quality = 0.3; // Lower quality for files > 3MB
+    quality = 0.3;
   } else if (file.size > 1 * 1024 * 1024) {
-    quality = 0.35; // Medium for 1-3MB
+    quality = 0.35;
   }
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
@@ -70,13 +65,14 @@ async function sendImage(file) {
   const timestamp = Date.now();
   let payload = { messageId, type: 'image', data: base64, username, timestamp };
   if (useRelay) {
-    // New: Encrypt for relay
     const { encrypted, iv } = await encrypt(JSON.stringify(payload));
-    if (socket.readyState === WebSocket.OPEN) {
+    if (socket.readyState === WebSocket.OPEN && token) {
       socket.send(JSON.stringify({ type: 'relay-image', code, clientId, token, encryptedData: encrypted, iv }));
+    } else {
+      showStatusMessage('Error: No connection or token.');
+      return;
     }
   } else if (dataChannels.size > 0) {
-    // P2P mode (already E2E via DTLS, no additional encryption needed)
     const jsonString = JSON.stringify(payload);
     dataChannels.forEach((dataChannel) => {
       if (dataChannel.readyState === 'open') {
@@ -87,7 +83,6 @@ async function sendImage(file) {
     showStatusMessage('Error: No connections.');
     return;
   }
-  // Display locally (unencrypted)
   const messages = document.getElementById('messages');
   const messageDiv = document.createElement('div');
   messageDiv.className = 'message-bubble self';
@@ -103,33 +98,7 @@ async function sendImage(file) {
   imgElement.style.cursor = 'pointer';
   imgElement.setAttribute('alt', 'Sent image');
   imgElement.addEventListener('click', () => {
-    let modal = document.getElementById('imageModal');
-    if (!modal) {
-      modal = document.createElement('div');
-      modal.id = 'imageModal';
-      modal.className = 'modal';
-      modal.setAttribute('role', 'dialog');
-      modal.setAttribute('aria-label', 'Image viewer');
-      modal.setAttribute('tabindex', '-1');
-      document.body.appendChild(modal);
-    }
-    modal.innerHTML = '';
-    const modalImg = document.createElement('img');
-    modalImg.src = base64;
-    modalImg.setAttribute('alt', 'Enlarged image');
-    modal.appendChild(modalImg);
-    modal.classList.add('active');
-    modal.focus();
-    modal.addEventListener('click', () => {
-      modal.classList.remove('active');
-      document.getElementById('imageButton')?.focus();
-    });
-    modal.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') {
-        modal.classList.remove('active');
-        document.getElementById('imageButton')?.focus();
-      }
-    });
+    createImageModal(base64, 'imageButton');
   });
   messageDiv.appendChild(imgElement);
   messages.prepend(messageDiv);
@@ -149,8 +118,8 @@ function startPeerConnection(targetId, isOfferer) {
       { urls: "stun:stun.relay.metered.ca:80" },
       {
         urls: "turn:global.relay.metered.ca:80",
-        username: turnUsername, // Dynamic from server
-        credential: turnCredential // Dynamic from server
+        username: turnUsername,
+        credential: turnCredential
       },
       {
         urls: "turn:global.relay.metered.ca:80?transport=tcp",
@@ -184,7 +153,7 @@ function startPeerConnection(targetId, isOfferer) {
   peerConnection.onicecandidate = (event) => {
     if (event.candidate) {
       console.log(`Sending ICE candidate to ${targetId} for code: ${code}`);
-      if (socket.readyState === WebSocket.OPEN) {
+      if (socket.readyState === WebSocket.OPEN && token) {
         socket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate, code, targetId, clientId, token }));
       }
     }
@@ -246,7 +215,7 @@ function startPeerConnection(targetId, isOfferer) {
       return peerConnection.setLocalDescription(offer);
     }).then(() => {
       console.log(`Sending offer to ${targetId} for code: ${code}`);
-      if (socket.readyState === WebSocket.OPEN) {
+      if (socket.readyState === WebSocket.OPEN && token) {
         socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code, targetId, clientId, token }));
       }
     }).catch(error => {
@@ -262,7 +231,7 @@ function startPeerConnection(targetId, isOfferer) {
       showStatusMessage('P2P connection failed, switching to server relay mode.');
       cleanupPeerConnection(targetId);
     }
-  }, 10000); // 10s timeout for fallback
+  }, 10000);
   connectionTimeouts.set(targetId, timeout);
 }
 
@@ -334,33 +303,7 @@ function setupDataChannel(dataChannel, targetId) {
       img.style.cursor = 'pointer';
       img.setAttribute('alt', 'Received image');
       img.addEventListener('click', () => {
-        let modal = document.getElementById('imageModal');
-        if (!modal) {
-          modal = document.createElement('div');
-          modal.id = 'imageModal';
-          modal.className = 'modal';
-          modal.setAttribute('role', 'dialog');
-          modal.setAttribute('aria-label', 'Image viewer');
-          modal.setAttribute('tabindex', '-1');
-          document.body.appendChild(modal);
-        }
-        modal.innerHTML = '';
-        const modalImg = document.createElement('img');
-        modalImg.src = data.data;
-        modalImg.setAttribute('alt', 'Enlarged image');
-        modal.appendChild(modalImg);
-        modal.classList.add('active');
-        modal.focus();
-        modal.addEventListener('click', () => {
-          modal.classList.remove('active');
-          document.getElementById('messageInput')?.focus();
-        });
-        modal.addEventListener('keydown', (event) => {
-          if (event.key === 'Escape') {
-            modal.classList.remove('active');
-            document.getElementById('messageInput')?.focus();
-          }
-        });
+        createImageModal(data.data, 'messageInput');
       });
       messageDiv.appendChild(img);
     } else {
@@ -371,13 +314,13 @@ function setupDataChannel(dataChannel, targetId) {
     if (isInitiator) {
       dataChannels.forEach((dc, id) => {
         if (id !== targetId && dc.readyState === 'open') {
-          dc.send(event.data); // Forward the original data (unencrypted in P2P)
+          dc.send(event.data);
         }
       });
     }
   };
 
- dataChannel.onerror = (error) => {
+  dataChannel.onerror = (error) => {
     console.error(`Data channel error with ${targetId}:`, error);
     showStatusMessage('Error in peer connection.');
   };
@@ -410,7 +353,7 @@ async function handleOffer(offer, targetId) {
     await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
-    if (socket.readyState === WebSocket.OPEN) {
+    if (socket.readyState === WebSocket.OPEN && token) {
       socket.send(JSON.stringify({ type: 'answer', answer: peerConnection.localDescription, code, targetId, clientId, token }));
     }
     const queue = candidatesQueues.get(targetId) || [];
@@ -484,13 +427,14 @@ async function sendMessage(content) {
     const timestamp = Date.now();
     let payload = { messageId, content: sanitizedContent, username, timestamp };
     if (useRelay) {
-      // New: Encrypt for relay
       const { encrypted, iv } = await encrypt(JSON.stringify(payload));
-      if (socket.readyState === WebSocket.OPEN) {
+      if (socket.readyState === WebSocket.OPEN && token) {
         socket.send(JSON.stringify({ type: 'relay-message', code, clientId, token, encryptedContent: encrypted, iv }));
+      } else {
+        showStatusMessage('Error: No connection or token.');
+        return;
       }
     } else {
-      // P2P mode (already E2E via DTLS, no additional encryption needed)
       const jsonString = JSON.stringify(payload);
       dataChannels.forEach((dataChannel, targetId) => {
         if (dataChannel.readyState === 'open') {
@@ -498,7 +442,6 @@ async function sendMessage(content) {
         }
       });
     }
-    // Display locally (unencrypted)
     const messages = document.getElementById('messages');
     const messageDiv = document.createElement('div');
     messageDiv.className = 'message-bubble self';
@@ -515,7 +458,7 @@ async function sendMessage(content) {
     processedMessageIds.add(messageId);
     messageInput?.focus();
   } else {
-    showStatusMessage('Error: No connections or username not set.');
+    showStatusMessage('Error: No connections, no token, or username not set.');
     document.getElementById('messageInput')?.focus();
   }
 }
@@ -538,15 +481,20 @@ function autoConnect(codeParam) {
       copyCodeButton.classList.remove('hidden');
       messages.classList.add('waiting');
       statusElement.textContent = 'Waiting for connection...';
-      if (socket.readyState === WebSocket.OPEN) {
+      if (socket.readyState === WebSocket.OPEN && token) {
         console.log('WebSocket open, sending join');
         socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
       } else {
-        console.log('WebSocket not open, waiting for open event');
-        socket.addEventListener('open', () => {
-          console.log('WebSocket opened in autoConnect, sending join');
-          socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
-        }, { once: true });
+        pendingJoin = { code, clientId, username };
+        if (socket.readyState !== WebSocket.OPEN) {
+          socket.addEventListener('open', () => {
+            console.log('WebSocket opened in autoConnect, sending join');
+            if (token) {
+              socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
+              pendingJoin = null;
+            }
+          }, { once: true });
+        }
       }
       document.getElementById('messageInput')?.focus();
     } else {
@@ -573,15 +521,20 @@ function autoConnect(codeParam) {
         copyCodeButton.classList.remove('hidden');
         messages.classList.add('waiting');
         statusElement.textContent = 'Waiting for connection...';
-        if (socket.readyState === WebSocket.OPEN) {
+        if (socket.readyState === WebSocket.OPEN && token) {
           console.log('WebSocket open, sending join after username input');
           socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
         } else {
-          console.log('WebSocket not open, waiting for open event after username');
-          socket.addEventListener('open', () => {
-            console.log('WebSocket opened in autoConnect join, sending join');
-            socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
-          }, { once: true });
+          pendingJoin = { code, clientId, username };
+          if (socket.readyState !== WebSocket.OPEN) {
+            socket.addEventListener('open', () => {
+              console.log('WebSocket opened in autoConnect join, sending join');
+              if (token) {
+                socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
+                pendingJoin = null;
+              }
+            }, { once: true });
+          }
         }
         document.getElementById('messageInput')?.focus();
       };
