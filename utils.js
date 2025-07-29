@@ -34,7 +34,8 @@ function validateCode(code) {
 // Keepalive function to prevent WebSocket timeout
 function startKeepAlive() {
   if (keepAliveTimer) clearInterval(keepAliveTimer);
-  keepAliveTimer = setInterval(() => {
+  // Ensure keepAliveTimer is globally accessible
+  window.keepAliveTimer = setInterval(() => {
     if (typeof socket !== 'undefined' && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({ type: 'ping', clientId, token }));
       log('info', 'Sent keepalive ping');
@@ -256,7 +257,6 @@ async function decryptBytes(key, encrypted, iv) {
   );
 }
 
-// New: Derive shared AES key from ECDH
 async function deriveSharedKey(privateKey, publicKey) {
   return await window.crypto.subtle.deriveKey(
     { name: 'ECDH', public: publicKey },
@@ -265,4 +265,15 @@ async function deriveSharedKey(privateKey, publicKey) {
     true,
     ['encrypt', 'decrypt']
   );
+}
+
+async function encryptRaw(key, data) {
+  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  const encoded = new TextEncoder().encode(data); // Encode string to bytes
+  const encrypted = await window.crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    encoded
+  );
+  return { encrypted: arrayBufferToBase64(encrypted), iv: arrayBufferToBase64(iv) };
 }
