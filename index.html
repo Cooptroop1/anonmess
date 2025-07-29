@@ -25,7 +25,7 @@
         }
         body {
             min-height: 100vh;
-            padding-top: 240px; /* Increased to show full logo on desktop */
+            padding-top: 240px;
             padding-bottom: 140px;
             display: flex;
             justify-content: center;
@@ -54,7 +54,7 @@
         }
         .corner-logo {
             position: absolute;
-            top: -50px;
+            top: -35px; /* Moved down ~1cm to show full logo */
             right: 10px;
             width: 256px;
             height: 256px;
@@ -73,7 +73,7 @@
             max-width: 500px;
             width: 100%;
             margin: 0 auto;
-            margin-top: 100px; /* Moved white box down to avoid logo overlap */
+            margin-top: 100px;
         }
         @media (min-width: 641px) and (max-width: 1024px) {
             .corner-logo {
@@ -89,7 +89,7 @@
                 padding: 1rem;
                 max-width: none;
                 width: 100%;
-                margin-top: 50px; /* Adjusted for mobile */
+                margin-top: 50px;
             }
             .corner-logo {
                 position: absolute;
@@ -502,7 +502,7 @@
             <h1 class="text-3xl font-bold mb-8 text-center text-gray-800">Anonomoose Chat</h1>
             <div id="status" class="text-center mb-4 text-gray-600" role="status" aria-live="polite">Start a new chat or connect to an existing one</div>
             <div id="privacyStatus" class="text-center mb-4 text-green-500 text-sm hidden" role="status" aria-live="polite">E2E Encrypted (P2P)</div>
-            <div id="initialContainer">
+    <div id="initialContainer">
                 <button id="startChatToggleButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full mb-2 hover:bg-blue-600 transition-colors" aria-label="Start a new chat">Start Chat</button>
                 <button id="connectToggleButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600 transition-colors" aria-label="Connect to an existing chat">Connect to Chat</button>
             </div>
