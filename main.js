@@ -69,13 +69,11 @@ async function sendImage(file) {
   const timestamp = Date.now();
   let payload = { messageId, type: 'image', data: base64, username, timestamp };
   if (useRelay) {
-    // New: Encrypt for relay
     const { encrypted, iv } = await encrypt(JSON.stringify(payload));
     if (socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({ type: 'relay-image', code, clientId, token, encryptedData: encrypted, iv }));
     }
   } else if (dataChannels.size > 0) {
-    // P2P mode (already E2E via DTLS, no additional encryption needed)
     const jsonString = JSON.stringify(payload);
     dataChannels.forEach((dataChannel) => {
       if (dataChannel.readyState === 'open') {
@@ -209,6 +207,7 @@ function startPeerConnection(targetId, isOfferer) {
 
   peerConnection.onconnectionstatechange = () => {
     console.log(`Connection state for ${targetId}: ${peerConnection.connectionState}`);
+    const privacyStatus = document.getElementById('privacyStatus');
     if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
       console.log(`Connection failed with ${targetId}`);
       showStatusMessage('Peer connection failed, attempting to reconnect...');
@@ -219,16 +218,19 @@ function startPeerConnection(targetId, isOfferer) {
         console.log(`Retrying connection attempt ${retryCount + 1} with ${targetId}`);
         startPeerConnection(targetId, isOfferer);
       }
+      if (privacyStatus && dataChannels.size === 0) {
+        console.log('Hiding privacy badge due to no active connections');
+        privacyStatus.classList.add('hidden');
+      }
     } else if (peerConnection.connectionState === 'connected') {
       console.log(`WebRTC connection established with ${targetId} for code: ${code}`);
       isConnected = true;
       retryCounts.delete(targetId);
       clearTimeout(connectionTimeouts.get(targetId));
       updateMaxClientsUI();
-      // New: Show privacy status badge
-      const privacyStatus = document.getElementById('privacyStatus');
       if (privacyStatus) {
-        privacyStatus.textContent = 'E2E Encrypted (P2P)';
+        console.log(`Showing privacy badge: E2E Encrypted (P2P) for ${targetId}`);
+        privacyStatus.textContent = useRelay ? 'Relay Mode: Server-Encrypted' : 'E2E Encrypted (P2P)';
         privacyStatus.classList.remove('hidden');
       }
     }
@@ -266,9 +268,9 @@ function startPeerConnection(targetId, isOfferer) {
       useRelay = true;
       showStatusMessage('P2P connection failed, switching to server relay mode.');
       cleanupPeerConnection(targetId);
-      // New: Update privacy status badge to relay mode
       const privacyStatus = document.getElementById('privacyStatus');
       if (privacyStatus) {
+        console.log(`Showing privacy badge: Relay Mode: Server-Encrypted for ${targetId}`);
         privacyStatus.textContent = 'Relay Mode: Server-Encrypted';
         privacyStatus.classList.remove('hidden');
       }
@@ -292,6 +294,12 @@ function setupDataChannel(dataChannel, targetId) {
     clearTimeout(connectionTimeouts.get(targetId));
     retryCounts.delete(targetId);
     updateMaxClientsUI();
+    const privacyStatus = document.getElementById('privacyStatus');
+    if (privacyStatus) {
+      console.log(`Showing privacy badge in setupDataChannel: ${useRelay ? 'Relay Mode: Server-Encrypted' : 'E2E Encrypted (P2P)'} for ${targetId}`);
+      privacyStatus.textContent = useRelay ? 'Relay Mode: Server-Encrypted' : 'E2E Encrypted (P2P)';
+      privacyStatus.classList.remove('hidden');
+    }
     document.getElementById('messageInput')?.focus();
   };
 
@@ -402,6 +410,11 @@ function setupDataChannel(dataChannel, targetId) {
     if (dataChannels.size === 0) {
       inputContainer.classList.add('hidden');
       messages.classList.add('waiting');
+      const privacyStatus = document.getElementById('privacyStatus');
+      if (privacyStatus) {
+        console.log('Hiding privacy badge due to no active connections');
+        privacyStatus.classList.add('hidden');
+      }
     }
   };
 }
@@ -445,7 +458,7 @@ async function handleAnswer(answer, targetId) {
   }
   const peerConnection = peerConnections.get(targetId);
   if (answer.type !== 'answer') {
-    console.error(`Invalid answer type from ${targetId}:`, answer.type);
+    console.error(`Invalid answer type from ${targetId}:`, offer.type);
     return;
   }
   if (peerConnection.signalingState !== 'have-local-offer') {
@@ -546,6 +559,11 @@ function autoConnect(codeParam) {
       copyCodeButton.classList.remove('hidden');
       messages.classList.add('waiting');
       statusElement.textContent = 'Waiting for connection...';
+      const privacyStatus = document.getElementById('privacyStatus');
+      if (privacyStatus) {
+        console.log(`Resetting privacy badge in autoConnect`);
+        privacyStatus.classList.add('hidden');
+      }
       if (socket.readyState === WebSocket.OPEN) {
         console.log('WebSocket open, sending join');
         socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
@@ -562,6 +580,11 @@ function autoConnect(codeParam) {
       usernameContainer.classList.remove('hidden');
       chatContainer.classList.add('hidden');
       statusElement.textContent = 'Please enter a username to join the chat';
+      const privacyStatus = document.getElementById('privacyStatus');
+      if (privacyStatus) {
+        console.log(`Hiding privacy badge in username prompt`);
+        privacyStatus.classList.add('hidden');
+      }
       document.getElementById('usernameInput').value = username || '';
       document.getElementById('usernameInput')?.focus();
       document.getElementById('joinWithUsernameButton').onclick = () => {
@@ -581,6 +604,11 @@ function autoConnect(codeParam) {
         copyCodeButton.classList.remove('hidden');
         messages.classList.add('waiting');
         statusElement.textContent = 'Waiting for connection...';
+        const privacyStatus = document.getElementById('privacyStatus');
+        if (privacyStatus) {
+          console.log(`Resetting privacy badge in joinWithUsernameButton`);
+          privacyStatus.classList.add('hidden');
+        }
         if (socket.readyState === WebSocket.OPEN) {
           console.log('WebSocket open, sending join after username input');
           socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
@@ -600,6 +628,11 @@ function autoConnect(codeParam) {
     usernameContainer.classList.add('hidden');
     chatContainer.classList.add('hidden');
     showStatusMessage('Invalid code format. Please enter a valid code.');
+    const privacyStatus = document.getElementById('privacyStatus');
+    if (privacyStatus) {
+      console.log(`Hiding privacy badge in invalid code case`);
+      privacyStatus.classList.add('hidden');
+    }
     document.getElementById('connectToggleButton')?.focus();
   }
 }
