@@ -255,3 +255,14 @@ async function decryptBytes(key, encrypted, iv) {
     base64ToArrayBuffer(encrypted)
   );
 }
+
+// New: Derive shared AES key from ECDH
+async function deriveSharedKey(privateKey, publicKey) {
+  return await window.crypto.subtle.deriveKey(
+    { name: 'ECDH', public: publicKey },
+    privateKey,
+    { name: 'AES-GCM', length: 256 },
+    true,
+    ['encrypt', 'decrypt']
+  );
+}
