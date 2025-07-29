@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Anonomoose Chat</title>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; img-src 'self' data: https://raw.githubusercontent.com https://cdnjs.cloudflare.com; connect-src 'self' wss://signaling-server-zc6m.onrender.com;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; img-src 'self' data: blob: https://raw.githubusercontent.com https://cdnjs.cloudflare.com; connect-src 'self' wss://signaling-server-zc6m.onrender.com;">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" integrity="sha512-wnea99uKIC3TJF7v4eKk4Y+lMz2Mklv18+r4na2Gn1abDRPPOeef95xTzdwGD9e6zXJBteMIhZ1+68QC5byJZw==" crossorigin="anonymous">
     <link rel="icon" type="image/png" href="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f60e.png"/>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js" integrity="sha512-jB0TkTBeQC9ZSkBqDhdmfTv1qdfbWpGE72yJ/01Srq6hEzZIz2xkz1e57p9ai7IeHMwEG7HpzG6NdptChif5Pg==" crossorigin="anonymous"></script>
@@ -129,30 +129,6 @@
             #maxClientsRadios button:disabled {
                 opacity: 0.6;
                 cursor: not-allowed;
-            }
-            /* Fix mobile button alignment and chat box crushing */
-            .button-group {
-                flex-direction: column !important;
-                align-items: center;
-                justify-content: center;
-                gap: 0.5rem;
-                margin: 0.5rem 0;
-                width: 100%;
-            }
-            .button-group button {
-                width: 100%;
-                max-width: none;
-                margin: 0 !important;
-                padding: 0.8rem 0.9rem;
-                font-size: 0.9rem;
-            }
-            #messages {
-                width: 100%;
-                max-width: none;
-            }
-            .bg-white {
-                width: 100%;
-                max-width: none;
             }
         }
         .message-bubble {
