@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -51,7 +50,7 @@
         }
         #messages.waiting {
             background-color: transparent;
-            background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/logo.JPG');
+            background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/logo.JPG?sanitize=true');
         }
         .corner-logo {
             position: absolute;
@@ -59,7 +58,7 @@
             right: 10px;
             width: 256px;
             height: 256px;
-            background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/corner%20logo.png');
+            background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/corner%20logo.png?sanitize=true');
             background-size: contain;
             background-repeat: no-repeat;
             background-position: center;
@@ -67,7 +66,7 @@
             transition: background-image 0.5s ease;
         }
         .corner-logo.wink {
-            background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/corner%20logoWink.png');
+            background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/corner%20logoWink.png?sanitize=true');
         }
         .bg-white {
             z-index: 10;
@@ -107,13 +106,13 @@
                 z-index: 1000;
             }
             #maxClientsContainer {
-                position: relative;
-                bottom: auto;
-                left: auto;
-                transform: none;
+                position: absolute;
+                bottom: -335px;
+                left: 50%;
+                transform: translateX(-50%);
                 width: 100%;
                 max-width: 360px;
-                margin: 0 auto;
+                margin: 0;
                 padding: 0.75rem;
                 background-color: #000000;
                 border-radius: 0.5rem;
@@ -147,22 +146,39 @@
                 cursor: not-allowed;
             }
             .button-group {
-                flex-direction: column;
-                align-items: center;
-                gap: 0.5rem;
-                margin: 0.5rem 0;
-                width: 100%;
+                display: flex;
+                flex-direction: row;
+                gap: 0.3rem;
+                margin: 0.5rem 0.3rem;
+                width: calc(100% - 0.6rem);
+                justify-content: space-between;
+                flex-wrap: nowrap;
             }
             .button-group button {
-                width: 100%;
-                max-width: none;
+                flex: 1;
+                max-width: 33%;
                 margin: 0;
-                padding: 0.8rem 0.9rem;
-                font-size: 0.9rem;
+                padding: 0.6rem 0.4rem;
+                font-size: 0.8rem;
             }
             #messages {
                 width: 100%;
                 max-width: none;
+            }
+            h1.text-3xl {
+                font-size: 1.5rem;
+                margin-bottom: 0.75rem;
+                padding: 0.25rem 0;
+            }
+            #status {
+                font-size: 0.875rem;
+                margin-bottom: 0.5rem;
+                padding: 0.25rem 0;
+            }
+            #privacyStatus {
+                font-size: 0.875rem;
+                margin-bottom: 0.5rem;
+                padding: 0.25rem 0;
             }
         }
         .message-bubble {
@@ -399,18 +415,20 @@
         }
         @media (max-width: 640px) {
             .button-group {
-                flex-direction: column;
-                align-items: center;
-                gap: 0.5rem;
-                margin: 0.5rem 0;
-                width: 100%;
+                display: flex;
+                flex-direction: row;
+                gap: 0.3rem;
+                margin: 0.5rem 0.3rem;
+                width: calc(100% - 0.6rem);
+                justify-content: space-between;
+                flex-wrap: nowrap;
             }
             .button-group button {
-                width: 100%;
-                max-width: none;
+                flex: 1;
+                max-width: 33%;
                 margin: 0;
-                padding: 0.8rem 0.9rem;
-                font-size: 0.9rem;
+                padding: 0.6rem 0.4rem;
+                font-size: 0.8rem;
             }
             h1.text-3xl {
                 font-size: 1.5rem;
@@ -437,8 +455,38 @@
             font-size: 0.875rem;
             color: #10b981;
             margin-bottom: 0.5rem;
-            display: block !important; /* Ensure visibility */
+            display: block !important;
             visibility: visible !important;
+        }
+        /* Desktop-specific styles for maxClientsRadios */
+        @media (min-width: 641px) {
+            #maxClientsRadios {
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+                align-items: center;
+            }
+            #maxClientsRadios button {
+                background-color: #3b82f6;
+                color: white;
+                border-radius: 0.5rem;
+                padding: 0.5rem;
+                font-size: 1rem;
+                width: 60px;
+                text-align: center;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                transition: all 0.2s ease;
+            }
+            #maxClientsRadios button.active {
+                background-color: #10b981;
+            }
+            #maxClientsRadios button:hover:not(:disabled) {
+                background-color: #1d4ed8;
+            }
+            #maxClientsRadios button:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
         }
     </style>
 </head>
@@ -451,7 +499,7 @@
             <div id="privacyStatus" class="text-center mb-4 text-green-500 text-sm hidden" role="status" aria-live="polite">E2E Encrypted (P2P)</div>
             <div id="initialContainer">
                 <button id="startChatToggleButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full mb-2 hover:bg-blue-600 transition-colors" aria-label="Start a new chat">Start Chat</button>
-                <button id="connectToggleButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600 transition-colors" aria-label="Connect to an existing chat">Connect to Chat</button>
+                <button id="connectToggleButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600 transition-colors" aria-label="Connect to an existing chat">Connect to Chat</button>
             </div>
             <div id="usernameContainer" class="hidden">
                 <label for="usernameInput" class="sr-only">Enter your username</label>
