@@ -50,7 +50,7 @@
         }
         #messages.waiting {
             background-color: transparent;
-            background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/logo.JPG?sanitize=true');
+            background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/logo.JPG');
         }
         .corner-logo {
             position: absolute;
@@ -58,7 +58,7 @@
             right: 10px;
             width: 256px;
             height: 256px;
-            background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/corner%20logo.png?sanitize=true');
+            background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/corner%20logo.png');
             background-size: contain;
             background-repeat: no-repeat;
             background-position: center;
@@ -66,13 +66,14 @@
             transition: background-image 0.5s ease;
         }
         .corner-logo.wink {
-            background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/corner%20logoWink.png?sanitize=true');
+            background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/corner%20logoWink.png');
         }
         .bg-white {
             z-index: 10;
             max-width: 500px;
             width: 100%;
             margin: 0 auto;
+            margin-top: 100px; /* Moved white box down to avoid logo overlap */
         }
         @media (min-width: 641px) and (max-width: 1024px) {
             .corner-logo {
@@ -88,10 +89,11 @@
                 padding: 1rem;
                 max-width: none;
                 width: 100%;
+                margin-top: 50px; /* Adjusted for mobile to avoid logo overlap */
             }
             .corner-logo {
                 position: absolute;
-                top: 0px; /* Adjusted for mobile to sit above white box */
+                top: 0px; /* Adjusted for mobile */
                 right: 10px;
                 width: 128px;
                 height: 128px;
@@ -164,21 +166,6 @@
             #messages {
                 width: 100%;
                 max-width: none;
-            }
-            h1.text-3xl {
-                font-size: 1.5rem;
-                margin-bottom: 0.75rem;
-                padding: 0.25rem 0;
-            }
-            #status {
-                font-size: 0.875rem;
-                margin-bottom: 0.5rem;
-                padding: 0.25rem 0;
-            }
-            #privacyStatus {
-                font-size: 0.875rem;
-                margin-bottom: 0.5rem;
-                padding: 0.25rem 0;
             }
         }
         .message-bubble {
