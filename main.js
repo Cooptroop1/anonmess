@@ -1,599 +1,513 @@
-// Core logic: peer connections, message sending, handling offers, etc.
-
-// Global vars for dynamic TURN creds from server
-let turnUsername = '';
-let turnCredential = '';
-
-async function sendImage(file) {
-  const validImageTypes = ['image/jpeg', 'image/png'];
-  if (!file || !validImageTypes.includes(file.type) || !username || dataChannels.size === 0) {
-    showStatusMessage('Error: Select a JPEG or PNG image and ensure you are connected.');
-    document.getElementById('imageButton')?.focus();
-    return;
-  }
-  if (file.size > 5 * 1024 * 1024) {
-    showStatusMessage('Error: Image size exceeds 5MB limit.');
-    document.getElementById('imageButton')?.focus();
-    return;
-  }
-
-  // Image rate limiting
-  const now = performance.now();
-  const rateLimit = imageRateLimits.get(clientId) || { count: 0, startTime: now };
-  if (now - rateLimit.startTime >= 60000) {
-    rateLimit.count = 0;
-    rateLimit.startTime = now;
-  }
-  rateLimit.count += 1;
-  imageRateLimits.set(clientId, rateLimit);
-  if (rateLimit.count > 5) {
-    showStatusMessage('Image rate limit reached (5 images/min). Please wait.');
-    document.getElementById('imageButton')?.focus();
-    return;
-  }
-
-  const maxWidth = 640;
-  const maxHeight = 360;
-  let quality = 0.4;
-  if (file.size > 3 * 1024 * 1024) {
-    quality = 0.3; // Lower quality for files > 3MB
-  } else if (file.size > 1 * 1024 * 1024) {
-    quality = 0.35; // Medium for 1-3MB
-  }
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-  const img = new Image();
-  img.src = URL.createObjectURL(file);
-  await new Promise(resolve => img.onload = resolve);
-
-  let width = img.width;
-  let height = img.height;
-  if (width > height) {
-    if (width > maxWidth) {
-      height = Math.round((height * maxWidth) / width);
-      width = maxWidth;
-    }
-  } else {
-    if (height > maxHeight) {
-      width = Math.round((width * maxHeight) / height);
-      height = maxHeight;
-    }
-  }
-  canvas.width = width;
-  canvas.height = height;
-  ctx.drawImage(img, 0, 0, width, height);
-  const base64 = canvas.toDataURL('image/jpeg', quality);
-  URL.revokeObjectURL(img.src);
-
-  const messageId = generateMessageId();
-  const timestamp = Date.now();
-  let payload = { messageId, type: 'image', data: base64, username, timestamp };
-  if (useRelay) {
-    // New: Encrypt for relay
-    const { encrypted, iv } = await encrypt(JSON.stringify(payload));
-    if (socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({ type: 'relay-image', code, clientId, token, encryptedData: encrypted, iv }));
-    }
-  } else if (dataChannels.size > 0) {
-    // P2P mode (already E2E via DTLS, no additional encryption needed)
-    const jsonString = JSON.stringify(payload);
-    dataChannels.forEach((dataChannel) => {
-      if (dataChannel.readyState === 'open') {
-        dataChannel.send(jsonString);
-      }
-    });
-  } else {
-    showStatusMessage('Error: No connections.');
-    return;
-  }
-  // Display locally (unencrypted)
-  const messages = document.getElementById('messages');
-  const messageDiv = document.createElement('div');
-  messageDiv.className = 'message-bubble self';
-  const timeSpan = document.createElement('span');
-  timeSpan.className = 'timestamp';
-  timeSpan.textContent = new Date(timestamp).toLocaleTimeString();
-  messageDiv.appendChild(timeSpan);
-  messageDiv.appendChild(document.createTextNode(`${username}: `));
-  const imgElement = document.createElement('img');
-  imgElement.src = base64;
-  imgElement.style.maxWidth = '100%';
-  imgElement.style.borderRadius = '0.5rem';
-  imgElement.style.cursor = 'pointer';
-  imgElement.setAttribute('alt', 'Sent image');
-  imgElement.addEventListener('click', () => {
-    let modal = document.getElementById('imageModal');
-    if (!modal) {
-      modal = document.createElement('div');
-      modal.id = 'imageModal';
-      modal.className = 'modal';
-      modal.setAttribute('role', 'dialog');
-      modal.setAttribute('aria-label', 'Image viewer');
-      modal.setAttribute('tabindex', '-1');
-      document.body.appendChild(modal);
-    }
-    modal.innerHTML = '';
-    const modalImg = document.createElement('img');
-    modalImg.src = base64;
-    modalImg.setAttribute('alt', 'Enlarged image');
-    modal.appendChild(modalImg);
-    modal.classList.add('active');
-    modal.focus();
-    modal.addEventListener('click', () => {
-      modal.classList.remove('active');
-      document.getElementById('imageButton')?.focus();
-    });
-    modal.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') {
-        modal.classList.remove('active');
-        document.getElementById('imageButton')?.focus();
-      }
-    });
-  });
-  messageDiv.appendChild(imgElement);
-  messages.prepend(messageDiv);
-  messages.scrollTop = 0;
-  processedMessageIds.add(messageId);
-  document.getElementById('imageButton')?.focus();
-}
-
-function startPeerConnection(targetId, isOfferer) {
-  console.log(`Starting peer connection with ${targetId} for code: ${code}, offerer: ${isOfferer}`);
-  if (peerConnections.has(targetId)) {
-    console.log(`Cleaning up existing connection with ${targetId}`);
-    cleanupPeerConnection(targetId);
-  }
-  const peerConnection = new RTCPeerConnection({
-    iceServers: [
-      { urls: "stun:stun.relay.metered.ca:80" },
-      {
-        urls: "turn:global.relay.metered.ca:80",
-        username: turnUsername, // Dynamic from server
-        credential: turnCredential // Dynamic from server
-      },
-      {
-        urls: "turn:global.relay.metered.ca:80?transport=tcp",
-        username: turnUsername,
-        credential: turnCredential
-      },
-      {
-        urls: "turn:global.relay.metered.ca:443",
-        username: turnUsername,
-        credential: turnCredential
-      },
-      {
-        urls: "turns:global.relay.metered.ca:443?transport=tcp",
-        username: turnUsername,
-        credential: turnCredential
-      }
-    ],
-    iceTransportPolicy: 'all'
-  });
-  peerConnections.set(targetId, peerConnection);
-  candidatesQueues.set(targetId, []);
-
-  let dataChannel;
-  if (isOfferer) {
-    dataChannel = peerConnection.createDataChannel('chat');
-    console.log(`Created data channel for ${targetId}`);
-    setupDataChannel(dataChannel, targetId);
-    dataChannels.set(targetId, dataChannel);
-  }
-
-  peerConnection.onicecandidate = (event) => {
-    if (event.candidate) {
-      console.log(`Sending ICE candidate to ${targetId} for code: ${code}`);
-      if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate, code, targetId, clientId, token }));
-      }
-    }
-  };
-
-  peerConnection.onicecandidateerror = (event) => {
-    console.error(`ICE candidate error for ${targetId}: ${event.errorText}, code=${event.errorCode}`);
-    if (event.errorCode !== 701) {
-      const retryCount = retryCounts.get(targetId) || 0;
-      if (retryCount < maxRetries) {
-        retryCounts.set(targetId, retryCount + 1);
-        console.log(`Retrying connection with ${targetId}, attempt ${retryCount + 1}`);
-        startPeerConnection(targetId, isOfferer);
-      }
-    } else {
-      console.log(`Ignoring ICE 701 error for ${targetId}, continuing connection`);
-    }
-  };
-
-  peerConnection.onicegatheringstatechange = () => {
-    console.log(`ICE gathering state for ${targetId}: ${peerConnection.iceGatheringState}`);
-  };
-
-  peerConnection.onconnectionstatechange = () => {
-    console.log(`Connection state for ${targetId}: ${peerConnection.connectionState}`);
-    if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
-      console.log(`Connection failed with ${targetId}`);
-      showStatusMessage('Peer connection failed, attempting to reconnect...');
-      cleanupPeerConnection(targetId);
-      const retryCount = retryCounts.get(targetId) || 0;
-      if (retryCount < maxRetries) {
-        retryCounts.set(targetId, retryCount + 1);
-        console.log(`Retrying connection attempt ${retryCount + 1} with ${targetId}`);
-        startPeerConnection(targetId, isOfferer);
-      }
-    } else if (peerConnection.connectionState === 'connected') {
-      console.log(`WebRTC connection established with ${targetId} for code: ${code}`);
-      isConnected = true;
-      retryCounts.delete(targetId);
-      clearTimeout(connectionTimeouts.get(targetId));
-      updateMaxClientsUI();
-      // New: Show privacy status badge
-      document.getElementById('privacyStatus').textContent = 'E2E Encrypted (P2P)';
-      document.getElementById('privacyStatus').classList.remove('hidden');
-    }
-  };
-
-  peerConnection.ondatachannel = (event) => {
-    console.log(`Received data channel from ${targetId}`);
-    if (dataChannels.has(targetId)) {
-      console.log(`Closing existing data channel for ${targetId}`);
-      const existingChannel = dataChannels.get(targetId);
-      existingChannel.close();
-    }
-    dataChannel = event.channel;
-    setupDataChannel(dataChannel, targetId);
-    dataChannels.set(targetId, dataChannel);
-  };
-
-  if (isOfferer) {
-    peerConnection.createOffer().then(offer => {
-      return peerConnection.setLocalDescription(offer);
-    }).then(() => {
-      console.log(`Sending offer to ${targetId} for code: ${code}`);
-      if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code, targetId, clientId, token }));
-      }
-    }).catch(error => {
-      console.error(`Error creating offer for ${targetId}:`, error);
-      showStatusMessage('Failed to establish peer connection.');
-    });
-  }
-
-  const timeout = setTimeout(() => {
-    if (!dataChannels.get(targetId) || dataChannels.get(targetId).readyState !== 'open') {
-      console.log(`P2P failed with ${targetId}, falling back to relay`);
-      useRelay = true;
-      showStatusMessage('P2P connection failed, switching to server relay mode.');
-      cleanupPeerConnection(targetId);
-      // New: Update privacy status badge to relay mode
-      document.getElementById('privacyStatus').textContent = 'Relay Mode: Server-Encrypted';
-      document.getElementById('privacyStatus').classList.remove('hidden');
-    }
-  }, 10000);
-  connectionTimeouts.set(targetId, timeout);
-}
-
-function setupDataChannel(dataChannel, targetId) {
-  console.log('setupDataChannel initialized for targetId:', targetId);
-  dataChannel.onopen = () => {
-    console.log(`Data channel opened with ${targetId} for code: ${code}, state: ${dataChannel.readyState}`);
-    isConnected = true;
-    initialContainer.classList.add('hidden');
-    usernameContainer.classList.add('hidden');
-    connectContainer.classList.add('hidden');
-    chatContainer.classList.remove('hidden');
-    newSessionButton.classList.remove('hidden');
-    inputContainer.classList.remove('hidden');
-    messages.classList.remove('waiting');
-    clearTimeout(connectionTimeouts.get(targetId));
-    retryCounts.delete(targetId);
-    updateMaxClientsUI();
-    document.getElementById('messageInput')?.focus();
-  };
-
-  dataChannel.onmessage = async (event) => {
-    const now = performance.now();
-    const rateLimit = messageRateLimits.get(targetId) || { count: 0, startTime: now };
-    if (now - rateLimit.startTime >= 1000) {
-      rateLimit.count = 0;
-      rateLimit.startTime = now;
-    }
-    rateLimit.count += 1;
-    messageRateLimits.set(targetId, rateLimit);
-    if (rateLimit.count > 10) {
-      console.warn(`Rate limit exceeded for ${targetId}: ${rateLimit.count} messages in 1s`);
-      showStatusMessage('Message rate limit reached, please slow down.');
-      return;
-    }
-
-    let data;
-    try {
-      data = JSON.parse(event.data);
-    } catch (e) {
-      console.error(`Invalid message from ${targetId}:`, e);
-      showStatusMessage('Invalid message received.');
-      return;
-    }
-    if (!data.messageId || !data.username || (!data.content && data.type !== 'image') || (data.type === 'image' && !data.data)) {
-      console.log(`Invalid message format from ${targetId}:`, data);
-      return;
-    }
-    if (processedMessageIds.has(data.messageId)) {
-      console.log(`Duplicate message ${data.messageId} from ${targetId}`);
-      return;
-    }
-    processedMessageIds.add(data.messageId);
-    const senderUsername = usernames.get(targetId) || data.username;
-    const messages = document.getElementById('messages');
-    const isSelf = senderUsername === username;
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `message-bubble ${isSelf ? 'self' : 'other'}`;
-    const timeSpan = document.createElement('span');
-    timeSpan.className = 'timestamp';
-    timeSpan.textContent = new Date(data.timestamp).toLocaleTimeString();
-    messageDiv.appendChild(timeSpan);
-    messageDiv.appendChild(document.createTextNode(`${senderUsername}: `));
-    if (data.type === 'image') {
-      const img = document.createElement('img');
-      img.src = data.data;
-      img.style.maxWidth = '100%';
-      img.style.borderRadius = '0.5rem';
-      img.style.cursor = 'pointer';
-      img.setAttribute('alt', 'Received image');
-      img.addEventListener('click', () => {
-        let modal = document.getElementById('imageModal');
-        if (!modal) {
-          modal = document.createElement('div');
-          modal.id = 'imageModal';
-          modal.className = 'modal';
-          modal.setAttribute('role', 'dialog');
-          modal.setAttribute('aria-label', 'Image viewer');
-          modal.setAttribute('tabindex', '-1');
-          document.body.appendChild(modal);
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anonomoose Chat</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; img-src 'self' data: blob: https://raw.githubusercontent.com https://cdnjs.cloudflare.com; connect-src 'self' wss://signaling-server-zc6m.onrender.com;">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" integrity="sha512-wnea99uKIC3TJF7v4eKk4Y+lMz2Mklv18+r4na2Gn1abDRPPOeef95xTzdwGD9e6zXJBteMIhZ1+68QC5byJZw==" crossorigin="anonymous">
+    <link rel="icon" type="image/png" href="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f60e.png"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js" integrity="sha512-jB0TkTBeQC9ZSkBqDhdmfTv1qdfbWpGE72yJ/01Srq6hEzZIz2xkz1e57p9ai7IeHMwEG7HpzG6NdptChif5Pg==" crossorigin="anonymous"></script>
+    <style>
+        * {
+            cursor: default;
+            user-select: none;
         }
-        modal.innerHTML = '';
-        const modalImg = document.createElement('img');
-        modalImg.src = data.data;
-        modalImg.setAttribute('alt', 'Enlarged image');
-        modal.appendChild(modalImg);
-        modal.classList.add('active');
-        modal.focus();
-        modal.addEventListener('click', () => {
-          modal.classList.remove('active');
-          document.getElementById('messageInput')?.focus();
-        });
-        modal.addEventListener('keydown', (event) => {
-          if (event.key === 'Escape') {
-            modal.classList.remove('active');
-            document.getElementById('messageInput')?.focus();
-          }
-        });
-      });
-      messageDiv.appendChild(img);
-    } else {
-      messageDiv.appendChild(document.createTextNode(sanitizeMessage(data.content)));
-    }
-    messages.prepend(messageDiv);
-    messages.scrollTop = 0;
-    if (isInitiator) {
-      dataChannels.forEach((dc, id) => {
-        if (id !== targetId && dc.readyState === 'open') {
-          dc.send(event.data); // Forward the original data (unencrypted in P2P)
+        input[type="text"],
+        input[type="number"],
+        input[type="file"],
+        textarea {
+            cursor: text;
+            user-select: text;
         }
-      });
-    }
-  };
-
-  dataChannel.onerror = (error) => {
-    console.error(`Data channel error with ${targetId}:`, error);
-    showStatusMessage('Error in peer connection.');
-  };
-
-  dataChannel.onclose = () => {
-    console.log(`Data channel closed with ${targetId}`);
-    showStatusMessage('Peer disconnected.');
-    cleanupPeerConnection(targetId);
-    messageRateLimits.delete(targetId);
-    imageRateLimits.delete(targetId);
-    if (dataChannels.size === 0) {
-      inputContainer.classList.add('hidden');
-      messages.classList.add('waiting');
-    }
-  };
-}
-
-async function handleOffer(offer, targetId) {
-  console.log(`Handling offer from ${targetId} for code: ${code}`);
-  if (offer.type !== 'offer') {
-    console.error(`Invalid offer type from ${targetId}:`, offer.type);
-    return;
-  }
-  if (!peerConnections.has(targetId)) {
-    console.log(`No existing peer connection for ${targetId}, starting new one`);
-    startPeerConnection(targetId, false);
-  }
-  const peerConnection = peerConnections.get(targetId);
-  try {
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-    const answer = await peerConnection.createAnswer();
-    await peerConnection.setLocalDescription(answer);
-    if (socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({ type: 'answer', answer: peerConnection.localDescription, code, targetId, clientId, token }));
-    }
-    const queue = candidatesQueues.get(targetId) || [];
-    queue.forEach(candidate => {
-      handleCandidate(candidate, targetId);
-    });
-    candidatesQueues.set(targetId, []);
-  } catch (error) {
-    console.error(`Error handling offer from ${targetId}:`, error);
-    showStatusMessage('Failed to connect to peer.');
-  }
-}
-
-async function handleAnswer(answer, targetId) {
-  console.log(`Handling answer from ${targetId} for code: ${code}`);
-  if (!peerConnections.has(targetId)) {
-    console.log(`No peer connection for ${targetId}, starting new one and queuing answer`);
-    startPeerConnection(targetId, false);
-    candidatesQueues.get(targetId).push({ type: 'answer', answer });
-    return;
-  }
-  const peerConnection = peerConnections.get(targetId);
-  if (answer.type !== 'answer') {
-    console.error(`Invalid answer type from ${targetId}:`, answer.type);
-    return;
-  }
-  if (peerConnection.signalingState !== 'have-local-offer') {
-    console.log(`Queuing answer from ${targetId}`);
-    candidatesQueues.get(targetId).push({ type: 'answer', answer });
-    return;
-  }
-  try {
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-    const queue = candidatesQueues.get(targetId) || [];
-    queue.forEach(item => {
-      if (item.type === 'answer') {
-        peerConnection.setRemoteDescription(new RTCSessionDescription(item.answer)).catch(error => {
-          console.error(`Error applying queued answer from ${targetId}:`, error);
-          showStatusMessage('Error processing peer response.');
-        });
-      } else if (item.type === 'candidate') {
-        handleCandidate(item.candidate, targetId);
-      }
-    });
-    candidatesQueues.set(targetId, []);
-  } catch (error) {
-    console.error(`Error handling answer from ${targetId}:`, error);
-    showStatusMessage('Error connecting to peer.');
-  }
-}
-
-function handleCandidate(candidate, targetId) {
-  console.log(`Handling ICE candidate from ${targetId} for code: ${code}`);
-  const peerConnection = peerConnections.get(targetId);
-  if (peerConnection && peerConnection.remoteDescription) {
-    peerConnection.addIceCandidate(new RTCIceCandidate(candidate)).catch(error => {
-      console.error(`Error adding ICE candidate from ${targetId}:`, error);
-      showStatusMessage('Error establishing peer connection.');
-    });
-  } else {
-    const queue = candidatesQueues.get(targetId) || [];
-    queue.push({ type: 'candidate', candidate });
-    candidatesQueues.set(targetId, queue);
-  }
-}
-
-async function sendMessage(content) {
-  if (content && dataChannels.size > 0 && username) {
-    const messageId = generateMessageId();
-    const sanitizedContent = sanitizeMessage(content);
-    const timestamp = Date.now();
-    let payload = { messageId, content: sanitizedContent, username, timestamp };
-    if (useRelay) {
-      const { encrypted, iv } = await encrypt(JSON.stringify(payload));
-      if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: 'relay-message', code, clientId, token, encryptedContent: encrypted, iv }));
-      }
-    } else {
-      const jsonString = JSON.stringify(payload);
-      dataChannels.forEach((dataChannel, targetId) => {
-        if (dataChannel.readyState === 'open') {
-          dataChannel.send(jsonString);
+        #codeDisplay {
+            user-select: text;
         }
-      });
-    }
-    const messages = document.getElementById('messages');
-    const messageDiv = document.createElement('div');
-    messageDiv.className = 'message-bubble self';
-    const timeSpan = document.createElement('span');
-    timeSpan.className = 'timestamp';
-    timeSpan.textContent = new Date(timestamp).toLocaleTimeString();
-    messageDiv.appendChild(timeSpan);
-    messageDiv.appendChild(document.createTextNode(`${username}: ${sanitizedContent}`));
-    messages.prepend(messageDiv);
-    messages.scrollTop = 0;
-    const messageInput = document.getElementById('messageInput');
-    messageInput.value = '';
-    messageInput.style.height = '2.5rem';
-    processedMessageIds.add(messageId);
-    messageInput?.focus();
-  } else {
-    showStatusMessage('Error: No connections or username not set.');
-    document.getElementById('messageInput')?.focus();
-  }
-}
-
-function autoConnect(codeParam) {
-  console.log('autoConnect running with code:', codeParam);
-  code = codeParam;
-  initialContainer.classList.add('hidden');
-  connectContainer.classList.add('hidden');
-  usernameContainer.classList.add('hidden');
-  chatContainer.classList.remove('hidden');
-  codeDisplayElement.classList.add('hidden');
-  copyCodeButton.classList.add('hidden');
-  console.log('Loaded username from localStorage:', username);
-  if (validateCode(codeParam)) {
-    if (validateUsername(username)) {
-      console.log('Valid username and code, joining chat');
-      codeDisplayElement.textContent = `Using code: ${code}`;
-      codeDisplayElement.classList.remove('hidden');
-      copyCodeButton.classList.remove('hidden');
-      messages.classList.add('waiting');
-      statusElement.textContent = 'Waiting for connection...';
-      if (socket.readyState === WebSocket.OPEN) {
-        console.log('WebSocket open, sending join');
-        socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
-      } else {
-        console.log('WebSocket not open, waiting for open event');
-        socket.addEventListener('open', () => {
-          console.log('WebSocket opened in autoConnect, sending join');
-          socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
-        }, { once: true });
-      }
-      document.getElementById('messageInput')?.focus();
-    } else {
-      console.log('No valid username, prompting for username');
-      usernameContainer.classList.remove('hidden');
-      chatContainer.classList.add('hidden');
-      statusElement.textContent = 'Please enter a username to join the chat';
-      document.getElementById('usernameInput').value = username || '';
-      document.getElementById('usernameInput')?.focus();
-      document.getElementById('joinWithUsernameButton').onclick = () => {
-        const usernameInput = document.getElementById('usernameInput').value.trim();
-        if (!validateUsername(usernameInput)) {
-          showStatusMessage('Invalid username: 1-16 alphanumeric characters.');
-          document.getElementById('usernameInput')?.focus();
-          return;
+        body {
+            min-height: 100vh;
+            padding-top: 140px;
+            padding-bottom: 140px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
-        username = usernameInput;
-        localStorage.setItem('username', username);
-        console.log('Username set in localStorage during autoConnect:', username);
-        usernameContainer.classList.add('hidden');
-        chatContainer.classList.remove('hidden');
-        codeDisplayElement.textContent = `Using code: ${code}`;
-        codeDisplayElement.classList.remove('hidden');
-        copyCodeButton.classList.remove('hidden');
-        messages.classList.add('waiting');
-        statusElement.textContent = 'Waiting for connection...';
-        if (socket.readyState === WebSocket.OPEN) {
-          console.log('WebSocket open, sending join after username input');
-          socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
-        } else {
-          console.log('WebSocket not open, waiting for open event after username');
-          socket.addEventListener('open', () => {
-            console.log('WebSocket opened in autoConnect join, sending join');
-            socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
-          }, { once: true });
+        #messages {
+            display: flex;
+            flex-direction: column-reverse;
+            overflow-y: auto;
+            scroll-behavior: auto;
+            z-index: 0;
+            margin-bottom: 0.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            position: relative;
+            height: 296px;
+            background-color: #fce7f3;
+            background-image: none;
+            background-size: 100% 100%;
+            background-position: center;
+            background-repeat: no-repeat;
         }
-        document.getElementById('messageInput')?.focus();
-      };
-    }
-  } else {
-    console.log('Invalid code, showing initial container');
-    initialContainer.classList.remove('hidden');
-    usernameContainer.classList.add('hidden');
-    chatContainer.classList.add('hidden');
-    showStatusMessage('Invalid code format. Please enter a valid code.');
-    document.getElementById('connectToggleButton')?.focus();
-  }
-}
+        #messages.waiting {
+            background-color: transparent;
+            background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/logo.JPG');
+        }
+        .corner-logo {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 256px;
+            height: 256px;
+            background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/corner%20logo.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            z-index: 100;
+            transition: background-image 0.5s ease;
+        }
+        .corner-logo.wink {
+            background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/corner%20logoWink.png');
+        }
+        .bg-white {
+            z-index: 10;
+            max-width: 500px;
+            width: 100%;
+            margin: 0 auto;
+        }
+        @media (min-width: 641px) and (max-width: 1024px) {
+            .corner-logo {
+                z-index: -1;
+            }
+        }
+        @media (max-width: 640px) {
+            body {
+                padding-top: 80px;
+                padding-bottom: 80px;
+            }
+            .bg-white {
+                padding: 1rem;
+                max-width: none;
+                width: 100%;
+            }
+            .corner-logo {
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                width: 128px;
+                height: 128px;
+                z-index: 1000;
+            }
+            #chatContainer:not(.hidden) #messages.waiting ~ .corner-logo {
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                width: 128px;
+                height: 128px;
+                z-index: 1000;
+            }
+            #maxClientsContainer {
+                position: relative;
+                bottom: auto;
+                left: auto;
+                transform: none;
+                width: 100%;
+                max-width: 360px;
+                margin: 0 auto;
+                padding: 0.75rem;
+                background-color: #000000;
+                border-radius: 0.5rem;
+                z-index: 1000;
+            }
+            #maxClientsRadios {
+                display: grid;
+                grid-template-columns: repeat(5, minmax(0, 1fr));
+                gap: 0.3rem;
+                justify-items: center;
+            }
+            #maxClientsRadios button {
+                background-color: #3b82f6;
+                color: white;
+                border-radius: 0.5rem;
+                padding: 0.4rem;
+                font-size: 0.9rem;
+                width: 100%;
+                text-align: center;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                transition: all 0.2s ease;
+            }
+            #maxClientsRadios button.active {
+                background-color: #10b981;
+            }
+            #maxClientsRadios button:hover:not(:disabled) {
+                background-color: #1d4ed8;
+            }
+            #maxClientsRadios button:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
+            .button-group {
+                flex-direction: column;
+                align-items: center;
+                gap: 0.5rem;
+                margin: 0.5rem 0;
+                width: 100%;
+            }
+            .button-group button {
+                width: 100%;
+                max-width: none;
+                margin: 0;
+                padding: 0.8rem 0.9rem;
+                font-size: 0.9rem;
+            }
+            #messages {
+                width: 100%;
+                max-width: none;
+            }
+        }
+        .message-bubble {
+            max-width: 70%;
+            margin: 0.1rem 1rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 1rem;
+            word-wrap: break-word;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            display: inline-flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .message-bubble img {
+            max-width: 100%;
+            border-radius: 0.5rem;
+            margin-top: 0.15rem;
+            margin-bottom: 0.5rem;
+        }
+        .message-bubble.self {
+            background-color: #3b82f6;
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 0.25rem;
+        }
+        .message-bubble.other {
+            background-color: #10b981;
+            color: white;
+            margin-right: auto;
+            border-bottom-left-radius: 0.25rem;
+        }
+        .timestamp {
+            font-size: 0.5rem;
+            opacity: 0.8;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal img {
+            max-width: 90%;
+            max-height: 90%;
+            border-radius: 0.5rem;
+        }
+        .modal.active {
+            display: flex;
+        }
+        .help-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+        .help-modal-content {
+            background-color: white;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            max-width: 90%;
+            max-height: 90%;
+            overflow-y: auto;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        .help-modal.active {
+            display: flex;
+        }
+        #chatContainer.hidden {
+            display: none;
+            visibility: hidden;
+        }
+        #chatContainer {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            position: relative;
+        }
+        .input-container {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            padding: 0 0.8rem;
+            position: relative;
+            margin-top: 0.15rem;
+            width: 100%;
+            box-sizing: border-box;
+            z-index: 10;
+        }
+        .input-container.hidden {
+            display: none;
+        }
+        #messageInput {
+            resize: none;
+            overflow-y: auto;
+            height: 2.5rem;
+            max-height: 12.5rem;
+            line-height: 1.5rem;
+            width: 110%;
+            max-width: 110%;
+            background-color: #3b82f6;
+            color: white;
+            border-radius: 1rem;
+            padding: 0.5rem 1rem;
+            border: none;
+            box-sizing: border-box;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s ease;
+            margin-left: -3mm;
+        }
+        #imageButton {
+            width: 2.5rem;
+            height: 2.5rem;
+            background-color: #10b981;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s ease;
+        }
+        #imageButton:hover {
+            background-color: #059669;
+        }
+        @media (max-width: 640px) {
+            #messageInput {
+                padding: 0.5rem 0.75rem;
+            }
+            .input-container {
+                padding: 0 0.3rem;
+            }
+        }
+        #messageInput::-webkit-scrollbar {
+            display: none;
+        }
+        #messageInput {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        #sendButton {
+            width: 2.5rem;
+            height: 2.5rem;
+            background-color: #2563eb;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s ease;
+        }
+        #sendButton:hover {
+            background-color: #1d4ed8;
+        }
+        .button-group {
+            display: flex;
+            justify-content: space-between;
+            margin: 0.5rem 0.8rem;
+            width: calc(100% - 1.6rem);
+            box-sizing: border-box;
+        }
+        .button-group button {
+            padding: 0.35rem 0.9rem;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s ease;
+            flex: 1;
+            margin: 0 0.25rem;
+        }
+        #button1 {
+            background-color: #9b59b6;
+            color: white;
+            margin-left: -3.25mm;
+        }
+        #button1:hover {
+            background-color: #8e44ad;
+        }
+        #button2 {
+            background-color: #f1c40f;
+            color: white;
+        }
+        #button2:hover {
+            background-color: #d4a017;
+        }
+        #button2:disabled {
+            background-color: #d4a017;
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        #copyCodeButton {
+            background-color: #10b981;
+            color: white;
+            margin-right: -3.25mm;
+        }
+        #copyCodeButton:hover {
+            background-color: #059669;
+        }
+        #helpText {
+            color: #3b82f6;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+        #helpText:hover {
+            color: #1d4ed8;
+        }
+        @media (min-width: 1025px) {
+            .bg-white {
+                margin-top: -40px;
+            }
+            #maxClientsContainer {
+                min-height: calc(100% + 37.8px);
+                margin-top: 145px;
+            }
+        }
+        @media (min-width: 641px) and (max-width: 1024px) {
+            #maxClientsContainer {
+                margin-top: 145px;
+            }
+        }
+        @media (max-width: 640px) {
+            .button-group {
+                flex-direction: column;
+                align-items: center;
+                gap: 0.5rem;
+                margin: 0.5rem 0;
+                width: 100%;
+            }
+            .button-group button {
+                width: 100%;
+                max-width: none;
+                margin: 0;
+                padding: 0.8rem 0.9rem;
+                font-size: 0.9rem;
+            }
+            h1.text-3xl {
+                font-size: 1.5rem;
+                margin-bottom: 0.75rem;
+                padding: 0.25rem 0;
+            }
+            #status {
+                font-size: 0.875rem;
+                margin-bottom: 0.5rem;
+                padding: 0.25rem 0;
+            }
+            #privacyStatus {
+                font-size: 0.875rem;
+                margin-bottom: 0.5rem;
+                padding: 0.25rem 0;
+            }
+            #messages {
+                width: 100%;
+                max-width: none;
+            }
+        }
+        #privacyStatus {
+            text-align: center;
+            font-size: 0.875rem;
+            color: #10b981;
+            margin-bottom: 0.5rem;
+        }
+    </style>
+</head>
+<body class="bg-black min-h-screen flex items-center justify-center">
+    <div class="corner-logo" id="cornerLogo" role="img" aria-label="Anonomoose Chat logo"></div>
+    <div class="flex w-full max-w-xl mx-auto">
+        <div class="bg-white p-8 rounded-lg shadow-lg flex-grow">
+            <h1 class="text-3xl font-bold mb-8 text-center text-gray-800">Anonomoose Chat</h1>
+            <div id="status" class="text-center mb-4 text-gray-600" role="status" aria-live="polite">Start a new chat or connect to an existing one</div>
+            <div id="privacyStatus" class="hidden text-center mb-4 text-green-500 text-sm" role="status" aria-live="polite">E2E Encrypted (P2P)</div>
+            <div id="initialContainer">
+                <button id="startChatToggleButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full mb-2 hover:bg-blue-600 transition-colors" aria-label="Start a new chat">Start Chat</button>
+                <button id="connectToggleButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600 transition-colors" aria-label="Connect to an existing chat">Connect to Chat</button>
+            </div>
+            <div id="usernameContainer" class="hidden">
+                <label for="usernameInput" class="sr-only">Enter your username</label>
+                <input id="usernameInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)" aria-describedby="usernameHelp" maxlength="16">
+                <div id="usernameHelp" class="text-sm text-gray-600 mb-2">Username must be 1-16 alphanumeric characters</div>
+                <button id="joinWithUsernameButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600 transition-colors" aria-label="Join chat with username">Join Chat</button>
+                <button id="backButton" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600 transition-colors" aria-label="Back to main menu">Back</button>
+            </div>
+            <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800 hidden" role="region" aria-live="polite"></div>
+            <div id="chatContainer" class="hidden">
+                <button id="newSessionButton" class="bg-red-500 text-white px-2 py-1 rounded w-full mb-1 hover:bg-red-600 transition-colors hidden" aria-label="Start a new session">New Session</button>
+                <div class="button-group">
+                    <button id="button1" aria-label="Send code to random chat board">Send Code</button>
+                    <button id="button2" aria-label="Join a random chat">Random Chat</button>
+                    <button id="copyCodeButton" aria-label="Copy chat code">Copy Code</button>
+                </div>
+                <div id="messages" class="border border-gray-300 p-4 h-64 overflow-y-auto mb-4 rounded" role="log" aria-live="polite"></div>
+                <div class="input-container hidden">
+                    <label for="messageInput" class="sr-only">Type a message</label>
+                    <textarea id="messageInput" placeholder="Type a message..." cols="30" maxlength="1000" aria-describedby="messageHelp"></textarea>
+                    <div id="messageHelp" class="sr-only">Maximum 1000 characters. Press Enter to send, Shift+Enter for new line.</div>
+                    <input type="file" id="imageInput" accept="image/jpeg,image/png" style="display: none;" aria-label="Upload image" />
+                    <button id="imageButton" title="Send Image" aria-label="Send image">📷</button>
+                    <button id="sendButton" aria-label="Send message">📤</button>
+                </div>
+            </div>
+            <div id="connectContainer" class="hidden">
+                <label for="usernameConnectInput" class="sr-only">Enter your username</label>
+                <input id="usernameConnectInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)" aria-describedby="usernameConnectHelp" maxlength="16">
+                <div id="usernameConnectHelp" class="text-sm text-gray-600 mb-2">Username must be 1-16 alphanumeric characters</div>
+                <label for="codeInput" class="sr-only">Enter chat code</label>
+                <input id="codeInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter code (xxxx-xxxx-xxxx-xxxx)" aria-describedby="codeHelp" maxlength="19">
+                <div id="codeHelp" class="text-sm text-gray-600 mb-2">Code format: xxxx-xxxx-xxxx-xxxx</div>
+                <button id="connectButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600 transition-colors" aria-label="Connect to chat">Connect</button>
+                <button id="backButtonConnect" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600 transition-colors" aria-label="Back to main menu">Back</button>
+            </div>
+            <div class="text-center mt-4">
+                <button id="helpText" class="text-blue-500 hover:underline" aria-label="View help information">Help</button>
+            </div>
+        </div>
+        <div id="maxClientsContainer" class="hidden flex flex-col justify-center bg-black p-4 rounded-lg shadow-lg">
+            <span class="text-white mb-2 font-bold">Max Users</span>
+            <div id="maxClientsRadios" class="grid grid-cols-5 gap-2" role="radiogroup" aria-label="Select maximum number of users"></div>
+        </div>
+    </div>
+    <div id="helpModal" class="help-modal" role="dialog" aria-label="Help information" tabindex="-1">
+        <div class="help-modal-content">
+            <h2 class="text-xl font-bold mb-4">Button Help</h2>
+            <p><strong>Start Chat:</strong> Starts New Chat</p>
+            <p><strong>Connect to Chat:</strong> This connects you to a chat that you have code for</p>
+            <p><strong>Send Code:</strong> This sends your code to Random chat board</p>
+            <p><strong>Random Chat:</strong> This takes you to random chat board for a random chat</p>
+            <p><strong>Copy Code:</strong> Copies the code so you can send to people in text or social chats</p>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js" integrity="sha512-jB0TkTBeQC9ZSkBqDhdmfTv1qdfbWpGE72yJ/01Srq6hEzZIz2xkz1e57p9ai7IeHMwEG7HpzG6NdptChif5Pg==" crossorigin="anonymous"></script>
+    <script src="utils.js"></script>
+    <script src="init.js"></script>
+    <script src="main.js"></script>
+    <script src="events.js"></script>
+</body>
+</html>
