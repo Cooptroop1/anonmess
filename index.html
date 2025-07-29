@@ -54,7 +54,7 @@
         }
         .corner-logo {
             position: absolute;
-            top: 10px;
+            top: -50px; /* Moved higher to sit above white box */
             right: 10px;
             width: 256px;
             height: 256px;
@@ -91,7 +91,7 @@
             }
             .corner-logo {
                 position: absolute;
-                top: 10px;
+                top: 0px; /* Adjusted for mobile to sit above white box */
                 right: 10px;
                 width: 128px;
                 height: 128px;
@@ -99,7 +99,7 @@
             }
             #chatContainer:not(.hidden) #messages.waiting ~ .corner-logo {
                 position: absolute;
-                top: 10px;
+                top: 0px;
                 right: 10px;
                 width: 128px;
                 height: 128px;
@@ -499,7 +499,7 @@
             <div id="privacyStatus" class="text-center mb-4 text-green-500 text-sm hidden" role="status" aria-live="polite">E2E Encrypted (P2P)</div>
             <div id="initialContainer">
                 <button id="startChatToggleButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full mb-2 hover:bg-blue-600 transition-colors" aria-label="Start a new chat">Start Chat</button>
-                <button id="connectToggleButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600 transition-colors" aria-label="Connect to an existing chat">Connect to Chat</button>
+                <button id="connectToggleButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600 transition-colors" aria-label="Connect to an existing chat">Connect to Chat</button>
             </div>
             <div id="usernameContainer" class="hidden">
                 <label for="usernameInput" class="sr-only">Enter your username</label>
