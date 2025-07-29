@@ -27,6 +27,9 @@
             min-height: 100vh;
             padding-top: 140px;
             padding-bottom: 140px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
         #messages {
             display: flex;
@@ -47,7 +50,7 @@
         }
         #messages.waiting {
             background-color: transparent;
-            background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/logo.JPG?sanitize=true');
+            background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/logo.JPG');
         }
         .corner-logo {
             position: absolute;
@@ -55,7 +58,7 @@
             right: 10px;
             width: 256px;
             height: 256px;
-            background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/corner%20logo.png?sanitize=true');
+            background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/corner%20logo.png');
             background-size: contain;
             background-repeat: no-repeat;
             background-position: center;
@@ -63,10 +66,13 @@
             transition: background-image 0.5s ease;
         }
         .corner-logo.wink {
-            background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/corner%20logoWink.png?sanitize=true');
+            background-image: url('https://raw.githubusercontent.com/Cooptroop1/anonmess/main/corner%20logoWink.png');
         }
         .bg-white {
             z-index: 10;
+            max-width: 500px;
+            width: 100%;
+            margin: 0 auto;
         }
         @media (min-width: 641px) and (max-width: 1024px) {
             .corner-logo {
@@ -74,6 +80,13 @@
             }
         }
         @media (max-width: 640px) {
+            body {
+                padding-top: 80px;
+                padding-bottom: 80px;
+            }
+            .bg-white {
+                padding: 1rem;
+            }
             .corner-logo {
                 position: absolute;
                 top: 10px;
@@ -91,13 +104,13 @@
                 z-index: 1000;
             }
             #maxClientsContainer {
-                position: absolute;
-                bottom: -335px;
-                left: 50%;
-                transform: translateX(-50%);
+                position: relative;
+                bottom: auto;
+                left: auto;
+                transform: none;
                 width: 100%;
                 max-width: 360px;
-                margin: 0;
+                margin: 0 auto;
                 padding: 0.75rem;
                 background-color: #000000;
                 border-radius: 0.5rem;
@@ -414,14 +427,21 @@
                 cursor: not-allowed;
             }
         }
+        #privacyStatus {
+            text-align: center;
+            font-size: 0.875rem;
+            color: #10b981;
+            margin-bottom: 0.5rem;
+        }
     </style>
 </head>
 <body class="bg-black min-h-screen flex items-center justify-center">
     <div class="corner-logo" id="cornerLogo" role="img" aria-label="Anonomoose Chat logo"></div>
-    <div class="flex w-full max-w-xl">
+    <div class="flex w-full max-w-xl mx-auto">
         <div class="bg-white p-8 rounded-lg shadow-lg flex-grow">
             <h1 class="text-3xl font-bold mb-8 text-center text-gray-800">Anonomoose Chat</h1>
             <div id="status" class="text-center mb-4 text-gray-600" role="status" aria-live="polite">Start a new chat or connect to an existing one</div>
+            <div id="privacyStatus" class="hidden text-center mb-4 text-green-500 text-sm" role="status" aria-live="polite">E2E Encrypted (P2P)</div>
             <div id="initialContainer">
                 <button id="startChatToggleButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full mb-2 hover:bg-blue-600 transition-colors" aria-label="Start a new chat">Start Chat</button>
                 <button id="connectToggleButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600 transition-colors" aria-label="Connect to an existing chat">Connect to Chat</button>
@@ -435,7 +455,7 @@
             </div>
             <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800 hidden" role="region" aria-live="polite"></div>
             <div id="chatContainer" class="hidden">
-                <button id="newSessionButton" class="bg-red-500 text-white px-2 py-1 rounded w-full mb-1 rounded hover:bg-red-600 transition-colors hidden" aria-label="Start a new session">New Session</button>
+                <button id="newSessionButton" class="bg-red-500 text-white px-2 py-1 rounded w-full mb-1 hover:bg-red-600 transition-colors hidden" aria-label="Start a new session">New Session</button>
                 <div class="button-group">
                     <button id="button1" aria-label="Send code to random chat board">Send Code</button>
                     <button id="button2" aria-label="Join a random chat">Random Chat</button>
