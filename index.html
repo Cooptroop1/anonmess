@@ -80,6 +80,15 @@
             }
         }
         @media (max-width: 640px) {
+            body {
+                padding-top: 80px;
+                padding-bottom: 80px;
+            }
+            .bg-white {
+                padding: 1rem;
+                max-width: none;
+                width: 100%;
+            }
             .corner-logo {
                 position: absolute;
                 top: 10px;
@@ -138,21 +147,32 @@
             }
             .button-group {
                 display: flex;
-                flex-direction: column;
-                gap: 0.5rem;
-                margin: 0.5rem 0;
+                flex-direction: row; /* Side by side on mobile */
+                gap: 0.3rem;
+                margin: 0.5rem 0.3rem;
                 width: 100%;
+                justify-content: space-between;
+                flex-wrap: nowrap;
             }
             .button-group button {
-                width: 100%;
-                max-width: none;
+                flex: 1;
+                max-width: 33%; /* Equal width for three buttons */
                 margin: 0;
-                padding: 0.8rem 0.9rem;
-                font-size: 0.9rem;
+                padding: 0.6rem 0.4rem;
+                font-size: 0.8rem;
             }
             #messages {
                 width: 100%;
                 max-width: none;
+            }
+            .bg-white {
+                width: 100%;
+                max-width: none;
+            }
+            #privacyStatus {
+                font-size: 0.875rem;
+                margin-bottom: 0.5rem;
+                padding: 0.25rem 0;
             }
         }
         .message-bubble {
@@ -389,13 +409,19 @@
         }
         @media (max-width: 640px) {
             .button-group {
+                flex-direction: row;
+                gap: 0.3rem;
                 margin: 0.5rem 0.3rem;
-                width: calc(100% - 0.6rem);
+                width: 100%;
+                justify-content: space-between;
+                flex-wrap: nowrap;
             }
             .button-group button {
-                padding: 0.8rem 0.9rem;
-                font-size: 0.9rem;
-                margin: 0 0.125rem;
+                flex: 1;
+                max-width: 33%;
+                margin: 0;
+                padding: 0.6rem 0.4rem;
+                font-size: 0.8rem;
             }
             h1.text-3xl {
                 font-size: 1.5rem;
@@ -407,6 +433,23 @@
                 margin-bottom: 0.5rem;
                 padding: 0.25rem 0;
             }
+            #privacyStatus {
+                font-size: 0.875rem;
+                margin-bottom: 0.5rem;
+                padding: 0.25rem 0;
+            }
+            #messages {
+                width: 100%;
+                max-width: none;
+            }
+        }
+        #privacyStatus {
+            text-align: center;
+            font-size: 0.875rem;
+            color: #10b981;
+            margin-bottom: 0.5rem;
+            display: block !important;
+            visibility: visible !important;
         }
         /* Desktop-specific styles for maxClientsRadios */
         @media (min-width: 641px) {
@@ -446,6 +489,7 @@
         <div class="bg-white p-8 rounded-lg shadow-lg flex-grow">
             <h1 class="text-3xl font-bold mb-8 text-center text-gray-800">Anonomoose Chat</h1>
             <div id="status" class="text-center mb-4 text-gray-600" role="status" aria-live="polite">Start a new chat or connect to an existing one</div>
+            <div id="privacyStatus" class="text-center mb-4 text-green-500 text-sm hidden" role="status" aria-live="polite">E2E Encrypted (P2P)</div>
             <div id="initialContainer">
                 <button id="startChatToggleButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full mb-2 hover:bg-blue-600 transition-colors" aria-label="Start a new chat">Start Chat</button>
                 <button id="connectToggleButton" class="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600 transition-colors" aria-label="Connect to an existing chat">Connect to Chat</button>
@@ -459,7 +503,7 @@
             </div>
             <div id="codeDisplay" class="text-center mb-4 font-mono text-lg text-gray-800 hidden" role="region" aria-live="polite"></div>
             <div id="chatContainer" class="hidden">
-                <button id="newSessionButton" class="bg-red-500 text-white px-2 py-1 rounded w-full mb-1 rounded hover:bg-red-600 transition-colors hidden" aria-label="Start a new session">New Session</button>
+                <button id="newSessionButton" class="bg-red-500 text-white px-2 py-1 rounded w-full mb-1 hover:bg-red-600 transition-colors hidden" aria-label="Start a new session">New Session</button>
                 <div class="button-group">
                     <button id="button1" aria-label="Send code to random chat board">Send Code</button>
                     <button id="button2" aria-label="Join a random chat">Random Chat</button>
