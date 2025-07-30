@@ -1,4 +1,3 @@
-
 // Event handlers and listeners
 helpText.addEventListener('click', () => {
   helpModal.classList.add('active');
@@ -19,6 +18,72 @@ helpModal.addEventListener('keydown', (event) => {
 
 let pendingCode = null;
 let pendingJoin = null;
+let mediaRecorder = null;
+let voiceTimerInterval = null;
+const voiceRateLimits = new Map(); // Added for voice message rate limiting
+
+function startVoiceRecording() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showStatusMessage('Error: Microphone not supported by your browser.');
+    document.getElementById('voiceButton')?.focus();
+    return;
+  }
+
+  navigator.mediaDevices.getUserMedia({ audio: true })
+    .then(stream => {
+      mediaRecorder = new MediaRecorder(stream);
+      const chunks = [];
+      let startTime = Date.now();
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunks.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        stream.getTracks().forEach(track => track.stop());
+        clearInterval(voiceTimerInterval);
+        document.getElementById('voiceTimer').style.display = 'none';
+        document.getElementById('voiceButton').classList.remove('recording');
+        document.getElementById('voiceButton').textContent = '🎤';
+        if (blob.size > 0) {
+          await sendMedia(blob, 'voice');
+        } else {
+          showStatusMessage('Error: No audio recorded.');
+        }
+      };
+
+      mediaRecorder.start();
+      document.getElementById('voiceButton').classList.add('recording');
+      document.getElementById('voiceButton').textContent = '⏹';
+      document.getElementById('voiceTimer').style.display = 'flex';
+      document.getElementById('voiceTimer').textContent = '0:00';
+
+      voiceTimerInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        if (elapsed >= 30) {
+          mediaRecorder.stop();
+          return;
+        }
+        const minutes = Math.floor(elapsed / 60);
+        const seconds = elapsed % 60;
+        document.getElementById('voiceTimer').textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+      }, 1000);
+    })
+    .catch(error => {
+      console.error('Error accessing microphone:', error);
+      showStatusMessage('Error: Could not access microphone. Please check permissions.');
+      document.getElementById('voiceButton')?.focus();
+    });
+}
+
+function stopVoiceRecording() {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
+  }
+}
 
 socket.onopen = () => {
   console.log('WebSocket opened');
@@ -34,7 +99,7 @@ socket.onopen = () => {
     console.log('No valid code in URL, showing initial container');
     initialContainer.classList.remove('hidden');
     usernameContainer.classList.add('hidden');
-    connectContainer.classList.add('hidden'); // Fixed: Hide connectContainer on start
+    connectContainer.classList.add('hidden');
     chatContainer.classList.add('hidden');
     codeDisplayElement.classList.add('hidden');
     copyCodeButton.classList.add('hidden');
@@ -249,7 +314,7 @@ socket.onmessage = async (event) => {
       try {
         const initiatorPublic = await importPublicKey(message.publicKey);
         const sharedKey = await deriveSharedKey(keyPair.privateKey, initiatorPublic);
-        const roomKeyRaw = await decryptRaw(sharedKey, message.encryptedKey, message.iv);
+        const roomKeyRaw = await decryptBytes(sharedKey, message.encryptedKey, message.iv);
         roomKey = await window.crypto.subtle.importKey(
           'raw',
           roomKeyRaw,
@@ -264,7 +329,7 @@ socket.onmessage = async (event) => {
       }
     }
 
-    if ((message.type === 'message' || message.type === 'image') && useRelay) {
+    if ((message.type === 'message' || message.type === 'image' || message.type === 'voice') && useRelay) {
       if (processedMessageIds.has(message.messageId)) return;
       processedMessageIds.add(message.messageId);
       const senderUsername = message.username;
@@ -276,46 +341,25 @@ socket.onmessage = async (event) => {
       timeSpan.className = 'timestamp';
       timeSpan.textContent = new Date(message.timestamp).toLocaleTimeString();
       messageDiv.appendChild(timeSpan);
+      messageDiv.appendChild(document.createTextNode(`${senderUsername}: `));
       if (message.type === 'image') {
-        messageDiv.appendChild(document.createTextNode(`${senderUsername}: `));
         const img = document.createElement('img');
         img.src = message.data;
         img.style.maxWidth = '100%';
         img.style.borderRadius = '0.5rem';
         img.style.cursor = 'pointer';
         img.setAttribute('alt', 'Received image');
-        img.addEventListener('click', () => {
-          let modal = document.getElementById('imageModal');
-          if (!modal) {
-            modal = document.createElement('div');
-            modal.id = 'imageModal';
-            modal.className = 'modal';
-            modal.setAttribute('role', 'dialog');
-            modal.setAttribute('aria-label', 'Image viewer');
-            modal.setAttribute('tabindex', '-1');
-            document.body.appendChild(modal);
-          }
-          modal.innerHTML = '';
-          const modalImg = document.createElement('img');
-          modalImg.src = message.data;
-          modalImg.setAttribute('alt', 'Enlarged image');
-          modal.appendChild(modalImg);
-          modal.classList.add('active');
-          modal.focus();
-          modal.addEventListener('click', () => {
-            modal.classList.remove('active');
-            document.getElementById('messageInput')?.focus();
-          });
-          modal.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape') {
-              modal.classList.remove('active');
-              document.getElementById('messageInput')?.focus();
-            }
-          });
-        });
+        img.addEventListener('click', () => createImageModal(message.data, 'messageInput'));
         messageDiv.appendChild(img);
+      } else if (message.type === 'voice') {
+        const audio = document.createElement('audio');
+        audio.src = message.data;
+        audio.controls = true;
+        audio.setAttribute('alt', 'Received voice message');
+        audio.addEventListener('click', () => createAudioModal(message.data, 'messageInput'));
+        messageDiv.appendChild(audio);
       } else {
-        messageDiv.appendChild(document.createTextNode(`${senderUsername}: ${sanitizeMessage(message.content)}`));
+        messageDiv.appendChild(document.createTextNode(sanitizeMessage(message.content)));
       }
       messages.prepend(messageDiv);
       messages.scrollTop = 0;
@@ -476,8 +520,16 @@ document.getElementById('imageButton').onclick = () => {
 document.getElementById('imageInput').onchange = (event) => {
   const file = event.target.files[0];
   if (file) {
-    sendImage(file);
+    sendMedia(file, 'image');
     event.target.value = '';
+  }
+};
+
+document.getElementById('voiceButton').onclick = () => {
+  if (!mediaRecorder || mediaRecorder.state !== 'recording') {
+    startVoiceRecording();
+  } else {
+    stopVoiceRecording();
   }
 };
 
@@ -512,6 +564,7 @@ document.getElementById('newSessionButton').onclick = () => {
   usernames.clear();
   messageRateLimits.clear();
   imageRateLimits.clear();
+  voiceRateLimits.clear();
   isConnected = false;
   isInitiator = false;
   maxClients = 2;
