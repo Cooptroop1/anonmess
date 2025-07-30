@@ -470,6 +470,13 @@ document.getElementById('voiceButton').onclick = () => {
 };
 
 function startVoiceRecording() {
+  if (window.location.protocol !== 'https:') {
+    console.error('Insecure context: HTTPS required for microphone access');
+    showStatusMessage('Error: Microphone access requires HTTPS. Please load the site over a secure connection.');
+    document.getElementById('voiceButton')?.focus();
+    return;
+  }
+
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     console.error('Microphone not supported');
     showStatusMessage('Error: Microphone not supported by your browser or device.');
@@ -523,7 +530,7 @@ function startVoiceRecording() {
     .catch(error => {
       console.error('Error accessing microphone:', error.name, error.message);
       if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-        showStatusMessage('Error: Microphone permission denied. Please enable in browser settings.');
+        showStatusMessage('Error: Microphone permission denied. Please enable in browser or device settings.');
       } else if (error.name === 'NotFoundError') {
         showStatusMessage('Error: No microphone found on device.');
       } else if (error.name === 'NotReadableError') {
@@ -531,7 +538,7 @@ function startVoiceRecording() {
       } else if (error.name === 'SecurityError') {
         showStatusMessage('Error: Insecure context. Ensure site is loaded over HTTPS.');
       } else {
-        showStatusMessage('Error: Could not access microphone. Please check permissions and device support.');
+        showStatusMessage('Error: Could not access microphone. Check permissions and device support.');
       }
       document.getElementById('voiceButton')?.focus();
     });
