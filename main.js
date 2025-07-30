@@ -4,88 +4,181 @@
 let turnUsername = '';
 let turnCredential = '';
 
-async function sendMedia(file, type) {
-  const validTypes = {
-    image: ['image/jpeg', 'image/png'],
-    voice: ['audio/webm', 'audio/ogg']
-  };
-  if (!file || !validTypes[type].includes(file.type) || !username || dataChannels.size === 0) {
-    showStatusMessage(`Error: Select a ${type === 'image' ? 'JPEG/PNG image' : 'valid audio format'} and ensure you are connected.`);
-    document.getElementById(`${type}Button`)?.focus();
+async function sendImage(file) {
+  const validImageTypes = ['image/jpeg', 'image/png'];
+  if (!file || !validImageTypes.includes(file.type) || !username || dataChannels.size === 0) {
+    showStatusMessage('Error: Select a JPEG or PNG image and ensure you are connected.');
+    document.getElementById('imageButton')?.focus();
     return;
   }
   if (file.size > 5 * 1024 * 1024) {
-    showStatusMessage(`Error: ${type === 'image' ? 'Image' : 'Audio'} size exceeds 5MB limit.`);
-    document.getElementById(`${type}Button`)?.focus();
+    showStatusMessage('Error: Image size exceeds 5MB limit.');
+    document.getElementById('imageButton')?.focus();
     return;
   }
 
-  // Rate limiting
-  const rateLimits = type === 'image' ? imageRateLimits : voiceRateLimits;
+  // Image rate limiting
   const now = performance.now();
-  const rateLimit = rateLimits.get(clientId) || { count: 0, startTime: now };
+  const rateLimit = imageRateLimits.get(clientId) || { count: 0, startTime: now };
   if (now - rateLimit.startTime >= 60000) {
     rateLimit.count = 0;
     rateLimit.startTime = now;
   }
   rateLimit.count += 1;
-  rateLimits.set(clientId, rateLimit);
+  imageRateLimits.set(clientId, rateLimit);
   if (rateLimit.count > 5) {
-    showStatusMessage(`${type === 'image' ? 'Image' : 'Voice'} rate limit reached (5/min). Please wait.`);
-    document.getElementById(`${type}Button`)?.focus();
+    showStatusMessage('Image rate limit reached (5 images/min). Please wait.');
+    document.getElementById('imageButton')?.focus();
     return;
   }
 
-  let base64;
-  if (type === 'image') {
-    const maxWidth = 640;
-    const maxHeight = 360;
-    let quality = 0.4;
-    if (file.size > 3 * 1024 * 1024) {
-      quality = 0.3;
-    } else if (file.size > 1 * 1024 * 1024) {
-      quality = 0.35;
-    }
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    const img = new Image();
-    img.src = URL.createObjectURL(file);
-    await new Promise(resolve => img.onload = resolve);
-
-    let width = img.width;
-    let height = img.height;
-    if (width > height) {
-      if (width > maxWidth) {
-        height = Math.round((height * maxWidth) / width);
-        width = maxWidth;
-      }
-    } else {
-      if (height > maxHeight) {
-        width = Math.round((width * maxHeight) / height);
-        height = maxHeight;
-      }
-    }
-    canvas.width = width;
-    canvas.height = height;
-    ctx.drawImage(img, 0, 0, width, height);
-    base64 = canvas.toDataURL('image/jpeg', quality);
-    URL.revokeObjectURL(img.src);
-  } else {
-    const mp3Blob = await encodeAudioToMp3(file);
-    base64 = await new Promise(resolve => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.readAsDataURL(mp3Blob);
-    });
+  const maxWidth = 640;
+  const maxHeight = 360;
+  let quality = 0.4;
+  if (file.size > 3 * 1024 * 1024) {
+    quality = 0.3; // Lower quality for files > 3MB
+  } else if (file.size > 1 * 1024 * 1024) {
+    quality = 0.35; // Medium for 1-3MB
   }
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const img = new Image();
+  img.src = URL.createObjectURL(file);
+  await new Promise(resolve => img.onload = resolve);
+
+  let width = img.width;
+  let height = img.height;
+  if (width > height) {
+    if (width > maxWidth) {
+      height = Math.round((height * maxWidth) / width);
+      width = maxWidth;
+    }
+  } else {
+    if (height > maxHeight) {
+      width = Math.round((width * maxHeight) / height);
+      height = maxHeight;
+    }
+  }
+  canvas.width = width;
+  canvas.height = height;
+  ctx.drawImage(img, 0, 0, width, height);
+  const base64 = canvas.toDataURL('image/jpeg', quality);
+  URL.revokeObjectURL(img.src);
 
   const messageId = generateMessageId();
   const timestamp = Date.now();
-  let payload = { messageId, type, data: base64, username, timestamp };
+  let payload = { messageId, type: 'image', data: base64, username, timestamp };
+  if (useRelay) {
+    // New: Encrypt for relay
+    const { encrypted, iv } = await encrypt(JSON.stringify(payload));
+    if (socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: 'relay-image', code, clientId, token, encryptedData: encrypted, iv }));
+    }
+  } else if (dataChannels.size > 0) {
+    // P2P mode (already E2E via DTLS, no additional encryption needed)
+    const jsonString = JSON.stringify(payload);
+    dataChannels.forEach((dataChannel) => {
+      if (dataChannel.readyState === 'open') {
+        dataChannel.send(jsonString);
+      }
+    });
+  } else {
+    showStatusMessage('Error: No connections.');
+    return;
+  }
+  // Display locally (unencrypted)
+  const messages = document.getElementById('messages');
+  const messageDiv = document.createElement('div');
+  messageDiv.className = 'message-bubble self';
+  const timeSpan = document.createElement('span');
+  timeSpan.className = 'timestamp';
+  timeSpan.textContent = new Date(timestamp).toLocaleTimeString();
+  messageDiv.appendChild(timeSpan);
+  messageDiv.appendChild(document.createTextNode(`${username}: `));
+  const imgElement = document.createElement('img');
+  imgElement.src = base64;
+  imgElement.style.maxWidth = '100%';
+  imgElement.style.borderRadius = '0.5rem';
+  imgElement.style.cursor = 'pointer';
+  imgElement.setAttribute('alt', 'Sent image');
+  imgElement.addEventListener('click', () => {
+    let modal = document.getElementById('imageModal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'imageModal';
+      modal.className = 'modal';
+      modal.setAttribute('role', 'dialog');
+      modal.setAttribute('aria-label', 'Image viewer');
+      modal.setAttribute('tabindex', '-1');
+      document.body.appendChild(modal);
+    }
+    modal.innerHTML = '';
+    const modalImg = document.createElement('img');
+    modalImg.src = base64;
+    modalImg.setAttribute('alt', 'Enlarged image');
+    modal.appendChild(modalImg);
+    modal.classList.add('active');
+    modal.focus();
+    modal.addEventListener('click', () => {
+      modal.classList.remove('active');
+      document.getElementById('imageButton')?.focus();
+    });
+    modal.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        modal.classList.remove('active');
+        document.getElementById('imageButton')?.focus();
+      }
+    });
+  });
+  messageDiv.appendChild(imgElement);
+  messages.prepend(messageDiv);
+  messages.scrollTop = 0;
+  processedMessageIds.add(messageId);
+  document.getElementById('imageButton')?.focus();
+}
+
+async function sendVoice(file) {
+  const validAudioTypes = ['audio/webm', 'audio/ogg'];
+  if (!file || !validAudioTypes.includes(file.type) || !username || dataChannels.size === 0) {
+    showStatusMessage('Error: Select a valid audio format and ensure you are connected.');
+    document.getElementById('voiceButton')?.focus();
+    return;
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    showStatusMessage('Error: Audio size exceeds 5MB limit.');
+    document.getElementById('voiceButton')?.focus();
+    return;
+  }
+
+  // Voice rate limiting
+  const now = performance.now();
+  const rateLimit = voiceRateLimits.get(clientId) || { count: 0, startTime: now };
+  if (now - rateLimit.startTime >= 60000) {
+    rateLimit.count = 0;
+    rateLimit.startTime = now;
+  }
+  rateLimit.count += 1;
+  voiceRateLimits.set(clientId, rateLimit);
+  if (rateLimit.count > 5) {
+    showStatusMessage('Voice rate limit reached (5/min). Please wait.');
+    document.getElementById('voiceButton')?.focus();
+    return;
+  }
+
+  const mp3Blob = await encodeAudioToMp3(file);
+  const base64 = await new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.readAsDataURL(mp3Blob);
+  });
+
+  const messageId = generateMessageId();
+  const timestamp = Date.now();
+  let payload = { messageId, type: 'voice', data: base64, username, timestamp };
   if (useRelay) {
     const { encrypted, iv } = await encrypt(JSON.stringify(payload));
     if (socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({ type: `relay-${type}`, code, clientId, token, encryptedData: encrypted, iv }));
+      socket.send(JSON.stringify({ type: 'relay-voice', code, clientId, token, encryptedData: encrypted, iv }));
     }
   } else if (dataChannels.size > 0) {
     const jsonString = JSON.stringify(payload);
@@ -98,7 +191,6 @@ async function sendMedia(file, type) {
     showStatusMessage('Error: No connections.');
     return;
   }
-
   // Display locally
   const messages = document.getElementById('messages');
   const messageDiv = document.createElement('div');
@@ -108,27 +200,16 @@ async function sendMedia(file, type) {
   timeSpan.textContent = new Date(timestamp).toLocaleTimeString();
   messageDiv.appendChild(timeSpan);
   messageDiv.appendChild(document.createTextNode(`${username}: `));
-  if (type === 'image') {
-    const imgElement = document.createElement('img');
-    imgElement.src = base64;
-    imgElement.style.maxWidth = '100%';
-    imgElement.style.borderRadius = '0.5rem';
-    imgElement.style.cursor = 'pointer';
-    imgElement.setAttribute('alt', 'Sent image');
-    imgElement.addEventListener('click', () => createImageModal(base64, `${type}Button`));
-    messageDiv.appendChild(imgElement);
-  } else {
-    const audioElement = document.createElement('audio');
-    audioElement.src = base64;
-    audioElement.controls = true;
-    audioElement.setAttribute('alt', 'Sent voice message');
-    audioElement.addEventListener('click', () => createAudioModal(base64, `${type}Button`));
-    messageDiv.appendChild(audioElement);
-  }
+  const audioElement = document.createElement('audio');
+  audioElement.src = base64;
+  audioElement.controls = true;
+  audioElement.setAttribute('alt', 'Sent voice message');
+  audioElement.addEventListener('click', () => createAudioModal(base64, 'voiceButton'));
+  messageDiv.appendChild(audioElement);
   messages.prepend(messageDiv);
   messages.scrollTop = 0;
   processedMessageIds.add(messageId);
-  document.getElementById(`${type}Button`)?.focus();
+  document.getElementById('voiceButton')?.focus();
 }
 
 function startPeerConnection(targetId, isOfferer) {
