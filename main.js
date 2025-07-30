@@ -85,7 +85,7 @@ async function sendMedia(file, type) {
   if (useRelay) {
     const { encrypted, iv } = await encrypt(JSON.stringify(payload));
     if (socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({ type: `relay-${type}`, code, clientId, token, [`encrypted${type === 'image' ? 'Data' : 'Audio'}`]: encrypted, iv }));
+      socket.send(JSON.stringify({ type: `relay-${type}`, code, clientId, token, encryptedData: encrypted, iv }));
     }
   } else if (dataChannels.size > 0) {
     const jsonString = JSON.stringify(payload);
@@ -265,7 +265,7 @@ function startPeerConnection(targetId, isOfferer) {
         privacyStatus.classList.remove('hidden');
       }
     }
-  }, 10000);
+  }, 10000); // 10s timeout for fallback
   connectionTimeouts.set(targetId, timeout);
 }
 
@@ -353,7 +353,7 @@ function setupDataChannel(dataChannel, targetId) {
     if (isInitiator) {
       dataChannels.forEach((dc, id) => {
         if (id !== targetId && dc.readyState === 'open') {
-          dc.send(event.data);
+          dc.send(event.data); // Forward the original data (unencrypted in P2P)
         }
       });
     }
