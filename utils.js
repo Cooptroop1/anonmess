@@ -34,7 +34,6 @@ function validateCode(code) {
 // Keepalive function to prevent WebSocket timeout
 function startKeepAlive() {
   if (keepAliveTimer) clearInterval(keepAliveTimer);
-  // Ensure keepAliveTimer is globally accessible
   window.keepAliveTimer = setInterval(() => {
     if (typeof socket !== 'undefined' && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({ type: 'ping', clientId, token }));
@@ -72,6 +71,7 @@ function cleanupPeerConnection(targetId) {
   retryCounts.delete(targetId);
   messageRateLimits.delete(targetId);
   imageRateLimits.delete(targetId);
+  voiceRateLimits.delete(targetId);
   isConnected = dataChannels.size > 0;
   updateMaxClientsUI();
   if (!isConnected) {
@@ -191,6 +191,37 @@ function createImageModal(base64, focusId) {
   });
 }
 
+function createAudioModal(base64, focusId) {
+  let modal = document.getElementById('audioModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'audioModal';
+    modal.className = 'modal';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-label', 'Audio player');
+    modal.setAttribute('tabindex', '-1');
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = '';
+  const audio = document.createElement('audio');
+  audio.src = base64;
+  audio.controls = true;
+  audio.setAttribute('alt', 'Voice message');
+  modal.appendChild(audio);
+  modal.classList.add('active');
+  modal.focus();
+  modal.addEventListener('click', () => {
+    modal.classList.remove('active');
+    document.getElementById(focusId)?.focus();
+  });
+  modal.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      modal.classList.remove('active');
+      document.getElementById(focusId)?.focus();
+    }
+  });
+}
+
 function arrayBufferToBase64(buffer) {
   return btoa(String.fromCharCode(...new Uint8Array(buffer)));
 }
@@ -202,6 +233,36 @@ function base64ToArrayBuffer(base64) {
     bytes[i] = binary.charCodeAt(i);
   }
   return bytes.buffer;
+}
+
+async function encodeAudioToMp3(audioBlob) {
+  const arrayBuffer = await audioBlob.arrayBuffer();
+  const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+  const channelData = audioBuffer.getChannelData(0);
+  const sampleRate = audioBuffer.sampleRate;
+
+  const mp3encoder = new lamejs.Mp3Encoder(1, sampleRate, 96); // 96kbps
+  const mp3Data = [];
+  const sampleBlockSize = 1152;
+
+  for (let i = 0; i < channelData.length; i += sampleBlockSize) {
+    const samples = channelData.subarray(i, i + sampleBlockSize);
+    const sampleInt16 = new Int16Array(samples.length);
+    for (let j = 0; j < samples.length; j++) {
+      sampleInt16[j] = samples[j] * 32767;
+    }
+    const mp3buf = mp3encoder.encodeBuffer(sampleInt16);
+    if (mp3buf.length > 0) {
+      mp3Data.push(mp3buf);
+    }
+  }
+  const endBuf = mp3encoder.flush();
+  if (endBuf.length > 0) {
+    mp3Data.push(endBuf);
+  }
+  const mp3Blob = new Blob(mp3Data, { type: 'audio/mp3' });
+  return mp3Blob;
 }
 
 async function exportPublicKey(key) {
@@ -269,7 +330,7 @@ async function deriveSharedKey(privateKey, publicKey) {
 
 async function encryptRaw(key, data) {
   const iv = window.crypto.getRandomValues(new Uint8Array(12));
-  const encoded = new TextEncoder().encode(data); // Encode string to bytes
+  const encoded = new TextEncoder().encode(data);
   const encrypted = await window.crypto.subtle.encrypt(
     { name: 'AES-GCM', iv },
     key,
