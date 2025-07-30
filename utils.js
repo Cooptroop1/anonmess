@@ -330,7 +330,7 @@ async function deriveSharedKey(privateKey, publicKey) {
 
 async function encryptRaw(key, data) {
   const iv = window.crypto.getRandomValues(new Uint8Array(12));
-  const encoded = new TextEncoder().encode(data);
+  const encoded = new TextEncoder().encode(data); // Encode string to bytes
   const encrypted = await window.crypto.subtle.encrypt(
     { name: 'AES-GCM', iv },
     key,
