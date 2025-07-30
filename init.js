@@ -1,10 +1,11 @@
-
 // Keepalive timer ID
 let keepAliveTimer = null;
 // Reconnection attempt counter for exponential backoff
 let reconnectAttempts = 0;
 // Image rate limiting
 const imageRateLimits = new Map();
+// Voice rate limiting
+const voiceRateLimits = new Map();
 // Global message rate limit (shared for DoS mitigation)
 let globalMessageRate = { count: 0, startTime: Date.now() };
 
