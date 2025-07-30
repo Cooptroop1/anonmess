@@ -1,126 +1,127 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
- <meta charset="UTF-8">
- <meta name="viewport" content="width=device-width, initial-scale=1.0">
- <title>Anonomoose Admin Dashboard</title>
- <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; img-src 'self' data: https://raw.githubusercontent.com https://cdnjs.cloudflare.com; connect-src 'self' wss://wss.anonomoose.com;">
- <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" integrity="sha512-wnea99uKIC3TJF7v4eKk4Y+lMz2Mklv18+r4na2Gn1abDRPPOeef95xTzdwGD9e6zXJBteMIhZ1+68QC5byJZw==" crossorigin="anonymous">
- <link rel="icon" type="image/png" href="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f60e.png"/>
- <style>
- body {
- background-color: #000;
- color: #fff;
- min-height: 100vh;
- display: flex;
- justify-content: center;
- align-items: center;
- margin: 0;
- padding-top: 140px;
- }
- .container {
- text-align: center;
- padding: 20px;
- background-color: #fff;
- color: #000;
- border-radius: 10px;
- box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
- max-width: 500px;
- width: 100%;
- }
- #stats {
- margin-top: 20px;
- text-align: left;
- }
- #errorMessage {
- color: #e53e3e;
- font-weight: bold;
- margin-top: 10px;
- }
- </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anonomoose Admin Dashboard</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; img-src 'self' data: https://raw.githubusercontent.com https://cdnjs.cloudflare.com; connect-src 'self' wss://signaling-server-zc6m.onrender.com;">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" integrity="sha512-wnea99uKIC3TJF7v4eKk4Y+lMz2Mklv18+r4na2Gn1abDRPPOeef95xTzdwGD9e6zXJBteMIhZ1+68QC5byJZw==" crossorigin="anonymous">
+    <link rel="icon" type="image/png" href="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f60e.png"/>
+    <style>
+        body {
+            background-color: #000;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+            padding-top: 140px;
+        }
+        .container {
+            text-align: center;
+            padding: 20px;
+            background-color: #fff;
+            color: #000;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            max-width: 500px;
+            width: 100%;
+        }
+        #stats {
+            margin-top: 20px;
+            text-align: left;
+        }
+        #errorMessage {
+            color: #e53e3e;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+    </style>
 </head>
 <body>
- <div class="container">
- <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">Anonomoose Admin Dashboard</h1>
- <div id="status" class="text-center mb-4 text-gray-600">Enter admin secret to view stats</div>
- <input id="secretInput" type="password" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter admin secret" aria-describedby="secretHelp">
- <div id="secretHelp" class="text-sm text-gray-600 mb-2">Enter the admin secret key</div>
- <button id="submitButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full mb-4 hover:bg-blue-600 transition-colors" aria-label="Submit admin secret">Submit</button>
- <div id="stats" class="text-gray-800"></div>
- <div id="errorMessage" class="hidden"></div>
- <div class="text-center mt-4">
- <a href="https://anonomoose.com/index.html" class="text-blue-500 hover:underline">Back to Chat</a>
- </div>
- </div>
- <script>
- const socket = new WebSocket('wss://wss.anonomoose.com');
- const statusElement = document.getElementById('status');
- const secretInput = document.getElementById('secretInput');
- const submitButton = document.getElementById('submitButton');
- const statsElement = document.getElementById('stats');
- const errorMessageElement = document.getElementById('errorMessage');
+    <div class="container">
+        <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">Anonomoose Admin Dashboard</h1>
+        <div id="status" class="text-center mb-4 text-gray-600">Enter admin secret to view stats</div>
+        <input id="secretInput" type="password" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter admin secret" aria-describedby="secretHelp">
+        <div id="secretHelp" class="text-sm text-gray-600 mb-2">Enter the admin secret key</div>
+        <button id="submitButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full mb-4 hover:bg-blue-600 transition-colors" aria-label="Submit admin secret">Submit</button>
+        <div id="stats" class="text-gray-800"></div>
+        <div id="errorMessage" class="hidden"></div>
+        <div class="text-center mt-4">
+            <a href="https://anonomoose.com/index.html" class="text-blue-500 hover:underline">Back to Chat</a>
+        </div>
+    </div>
+    <script>
+        const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
+        const statusElement = document.getElementById('status');
+        const secretInput = document.getElementById('secretInput');
+        const submitButton = document.getElementById('submitButton');
+        const statsElement = document.getElementById('stats');
+        const errorMessageElement = document.getElementById('errorMessage');
 
- socket.onopen = () => {
- console.log('Admin page WebSocket opened');
- statusElement.textContent = 'Enter admin secret to view stats';
- };
+        socket.onopen = () => {
+            console.log('Admin page WebSocket opened');
+            statusElement.textContent = 'Enter admin secret to view stats';
+        };
 
- socket.onmessage = (event) => {
- console.log('Received message:', event.data);
- try {
- const data = JSON.parse(event.data);
- if (data.type === 'stats') {
- statusElement.textContent = 'Stats retrieved successfully';
- statsElement.innerHTML = `
- <p><strong>Daily Unique Users:</strong> ${data.dailyUsers}</p>
- <p><strong>Daily WebRTC Connections:</strong> ${data.dailyConnections}</p>
- <p><strong>All-Time Unique Users:</strong> ${data.allTimeUsers}</p>
- <p><strong>Active Rooms:</strong> ${data.activeRooms}</p>
- <p><strong>Total Clients:</strong> ${data.totalClients}</p>
- `;
- errorMessageElement.classList.add('hidden');
- } else if (data.type === 'error') {
- errorMessageElement.textContent = data.message;
- errorMessageElement.classList.remove('hidden');
- statusElement.textContent = 'Error retrieving stats';
- }
- } catch (error) {
- console.error('Error parsing message:', error);
- statusElement.textContent = 'Error processing stats';
- errorMessageElement.textContent = 'Invalid server response';
- errorMessageElement.classList.remove('hidden');
- }
- };
+        socket.onmessage = (event) => {
+            console.log('Received message:', event.data);
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'stats') {
+                    statusElement.textContent = 'Stats retrieved successfully';
+                    statsElement.innerHTML = `
+                        <p><strong>Daily Unique Users:</strong> ${data.dailyUsers}</p>
+                        <p><strong>Daily WebRTC Connections:</strong> ${data.dailyConnections}</p>
+                        <p><strong>All-Time Unique Users:</strong> ${data.allTimeUsers}</p>
+                        <p><strong>Active Rooms:</strong> ${data.activeRooms}</p>
+                        <p><strong>Total Clients:</strong> ${data.totalClients}</p>
+                    `;
+                    errorMessageElement.classList.add('hidden');
+                } else if (data.type === 'error') {
+                    errorMessageElement.textContent = data.message;
+                    errorMessageElement.classList.remove('hidden');
+                    statusElement.textContent = 'Error retrieving stats';
+                }
+            } catch (error) {
+                console.error('Error parsing message:', error);
+                statusElement.textContent = 'Error processing stats';
+                errorMessageElement.textContent = 'Invalid server response';
+                errorMessageElement.classList.remove('hidden');
+            }
+        };
 
- socket.onerror = (error) => {
- console.error('WebSocket error:', error);
- statusElement.textContent = 'Connection error. Please try again.';
- errorMessageElement.textContent = 'WebSocket connection failed';
- errorMessageElement.classList.remove('hidden');
- };
+        socket.onerror = (error) => {
+            console.error('WebSocket error:', error);
+            statusElement.textContent = 'Connection error. Please try again.';
+            errorMessageElement.textContent = 'WebSocket connection failed';
+            errorMessageElement.classList.remove('hidden');
+        };
 
- socket.onclose = () => {
- console.log('WebSocket closed');
- statusElement.textContent = 'Disconnected. Reconnecting...';
- errorMessageElement.textContent = 'WebSocket connection closed';
- errorMessageElement.classList.remove('hidden');
- setTimeout(() => {
- window.location.reload();
- }, 5000);
- };
+        socket.onclose = () => {
+            console.log('WebSocket closed');
+            statusElement.textContent = 'Disconnected. Reconnecting...';
+            errorMessageElement.textContent = 'WebSocket connection closed';
+            errorMessageElement.classList.remove('hidden');
+            setTimeout(() => {
+                window.location.reload();
+            }, 5000);
+        };
 
- submitButton.onclick = () => {
- const secret = secretInput.value.trim();
- if (secret) {
- socket.send(JSON.stringify({ type: 'get-stats', secret }));
- statusElement.textContent = 'Fetching stats...';
- secretInput.value = '';
- } else {
- errorMessageElement.textContent = 'Please enter a valid admin secret';
- errorMessageElement.classList.remove('hidden');
- statusElement.textContent = 'Enter admin secret to view stats';
- }
- };
- </script>
+        submitButton.onclick = () => {
+            const secret = secretInput.value.trim();
+            if (secret) {
+                socket.send(JSON.stringify({ type: 'get-stats', secret }));
+                statusElement.textContent = 'Fetching stats...';
+                secretInput.value = '';
+            } else {
+                errorMessageElement.textContent = 'Please enter a valid admin secret';
+                errorMessageElement.classList.remove('hidden');
+                statusElement.textContent = 'Enter admin secret to view stats';
+            }
+        };
+    </script>
 </body>
 </html>
