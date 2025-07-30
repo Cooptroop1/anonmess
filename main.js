@@ -4,78 +4,90 @@
 let turnUsername = '';
 let turnCredential = '';
 
-async function sendImage(file) {
-  const validImageTypes = ['image/jpeg', 'image/png'];
-  if (!file || !validImageTypes.includes(file.type) || !username || dataChannels.size === 0) {
-    showStatusMessage('Error: Select a JPEG or PNG image and ensure you are connected.');
-    document.getElementById('imageButton')?.focus();
+async function sendMedia(file, type) {
+  const validTypes = {
+    image: ['image/jpeg', 'image/png'],
+    voice: ['audio/webm', 'audio/ogg']
+  };
+  if (!file || !validTypes[type].includes(file.type) || !username || dataChannels.size === 0) {
+    showStatusMessage(`Error: Select a ${type === 'image' ? 'JPEG/PNG image' : 'valid audio format'} and ensure you are connected.`);
+    document.getElementById(`${type}Button`)?.focus();
     return;
   }
   if (file.size > 5 * 1024 * 1024) {
-    showStatusMessage('Error: Image size exceeds 5MB limit.');
-    document.getElementById('imageButton')?.focus();
+    showStatusMessage(`Error: ${type === 'image' ? 'Image' : 'Audio'} size exceeds 5MB limit.`);
+    document.getElementById(`${type}Button`)?.focus();
     return;
   }
 
-  // Image rate limiting
+  // Rate limiting
+  const rateLimits = type === 'image' ? imageRateLimits : voiceRateLimits;
   const now = performance.now();
-  const rateLimit = imageRateLimits.get(clientId) || { count: 0, startTime: now };
+  const rateLimit = rateLimits.get(clientId) || { count: 0, startTime: now };
   if (now - rateLimit.startTime >= 60000) {
     rateLimit.count = 0;
     rateLimit.startTime = now;
   }
   rateLimit.count += 1;
-  imageRateLimits.set(clientId, rateLimit);
+  rateLimits.set(clientId, rateLimit);
   if (rateLimit.count > 5) {
-    showStatusMessage('Image rate limit reached (5 images/min). Please wait.');
-    document.getElementById('imageButton')?.focus();
+    showStatusMessage(`${type === 'image' ? 'Image' : 'Voice'} rate limit reached (5/min). Please wait.`);
+    document.getElementById(`${type}Button`)?.focus();
     return;
   }
 
-  const maxWidth = 640;
-  const maxHeight = 360;
-  let quality = 0.4;
-  if (file.size > 3 * 1024 * 1024) {
-    quality = 0.3; // Lower quality for files > 3MB
-  } else if (file.size > 1 * 1024 * 1024) {
-    quality = 0.35; // Medium for 1-3MB
-  }
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-  const img = new Image();
-  img.src = URL.createObjectURL(file);
-  await new Promise(resolve => img.onload = resolve);
+  let base64;
+  if (type === 'image') {
+    const maxWidth = 640;
+    const maxHeight = 360;
+    let quality = 0.4;
+    if (file.size > 3 * 1024 * 1024) {
+      quality = 0.3;
+    } else if (file.size > 1 * 1024 * 1024) {
+      quality = 0.35;
+    }
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    img.src = URL.createObjectURL(file);
+    await new Promise(resolve => img.onload = resolve);
 
-  let width = img.width;
-  let height = img.height;
-  if (width > height) {
-    if (width > maxWidth) {
-      height = Math.round((height * maxWidth) / width);
-      width = maxWidth;
+    let width = img.width;
+    let height = img.height;
+    if (width > height) {
+      if (width > maxWidth) {
+        height = Math.round((height * maxWidth) / width);
+        width = maxWidth;
+      }
+    } else {
+      if (height > maxHeight) {
+        width = Math.round((width * maxHeight) / height);
+        height = maxHeight;
+      }
     }
+    canvas.width = width;
+    canvas.height = height;
+    ctx.drawImage(img, 0, 0, width, height);
+    base64 = canvas.toDataURL('image/jpeg', quality);
+    URL.revokeObjectURL(img.src);
   } else {
-    if (height > maxHeight) {
-      width = Math.round((width * maxHeight) / height);
-      height = maxHeight;
-    }
+    const mp3Blob = await encodeAudioToMp3(file);
+    base64 = await new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.readAsDataURL(mp3Blob);
+    });
   }
-  canvas.width = width;
-  canvas.height = height;
-  ctx.drawImage(img, 0, 0, width, height);
-  const base64 = canvas.toDataURL('image/jpeg', quality);
-  URL.revokeObjectURL(img.src);
 
   const messageId = generateMessageId();
   const timestamp = Date.now();
-  let payload = { messageId, type: 'image', data: base64, username, timestamp };
+  let payload = { messageId, type, data: base64, username, timestamp };
   if (useRelay) {
-    // New: Encrypt for relay
     const { encrypted, iv } = await encrypt(JSON.stringify(payload));
     if (socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({ type: 'relay-image', code, clientId, token, encryptedData: encrypted, iv }));
+      socket.send(JSON.stringify({ type: `relay-${type}`, code, clientId, token, [`encrypted${type === 'image' ? 'Data' : 'Audio'}`]: encrypted, iv }));
     }
   } else if (dataChannels.size > 0) {
-    // P2P mode (already E2E via DTLS, no additional encryption needed)
     const jsonString = JSON.stringify(payload);
     dataChannels.forEach((dataChannel) => {
       if (dataChannel.readyState === 'open') {
@@ -86,7 +98,8 @@ async function sendImage(file) {
     showStatusMessage('Error: No connections.');
     return;
   }
-  // Display locally (unencrypted)
+
+  // Display locally
   const messages = document.getElementById('messages');
   const messageDiv = document.createElement('div');
   messageDiv.className = 'message-bubble self';
@@ -95,46 +108,27 @@ async function sendImage(file) {
   timeSpan.textContent = new Date(timestamp).toLocaleTimeString();
   messageDiv.appendChild(timeSpan);
   messageDiv.appendChild(document.createTextNode(`${username}: `));
-  const imgElement = document.createElement('img');
-  imgElement.src = base64;
-  imgElement.style.maxWidth = '100%';
-  imgElement.style.borderRadius = '0.5rem';
-  imgElement.style.cursor = 'pointer';
-  imgElement.setAttribute('alt', 'Sent image');
-  imgElement.addEventListener('click', () => {
-    let modal = document.getElementById('imageModal');
-    if (!modal) {
-      modal = document.createElement('div');
-      modal.id = 'imageModal';
-      modal.className = 'modal';
-      modal.setAttribute('role', 'dialog');
-      modal.setAttribute('aria-label', 'Image viewer');
-      modal.setAttribute('tabindex', '-1');
-      document.body.appendChild(modal);
-    }
-    modal.innerHTML = '';
-    const modalImg = document.createElement('img');
-    modalImg.src = base64;
-    modalImg.setAttribute('alt', 'Enlarged image');
-    modal.appendChild(modalImg);
-    modal.classList.add('active');
-    modal.focus();
-    modal.addEventListener('click', () => {
-      modal.classList.remove('active');
-      document.getElementById('imageButton')?.focus();
-    });
-    modal.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') {
-        modal.classList.remove('active');
-        document.getElementById('imageButton')?.focus();
-      }
-    });
-  });
-  messageDiv.appendChild(imgElement);
+  if (type === 'image') {
+    const imgElement = document.createElement('img');
+    imgElement.src = base64;
+    imgElement.style.maxWidth = '100%';
+    imgElement.style.borderRadius = '0.5rem';
+    imgElement.style.cursor = 'pointer';
+    imgElement.setAttribute('alt', 'Sent image');
+    imgElement.addEventListener('click', () => createImageModal(base64, `${type}Button`));
+    messageDiv.appendChild(imgElement);
+  } else {
+    const audioElement = document.createElement('audio');
+    audioElement.src = base64;
+    audioElement.controls = true;
+    audioElement.setAttribute('alt', 'Sent voice message');
+    audioElement.addEventListener('click', () => createAudioModal(base64, `${type}Button`));
+    messageDiv.appendChild(audioElement);
+  }
   messages.prepend(messageDiv);
   messages.scrollTop = 0;
   processedMessageIds.add(messageId);
-  document.getElementById('imageButton')?.focus();
+  document.getElementById(`${type}Button`)?.focus();
 }
 
 function startPeerConnection(targetId, isOfferer) {
@@ -225,7 +219,6 @@ function startPeerConnection(targetId, isOfferer) {
       retryCounts.delete(targetId);
       clearTimeout(connectionTimeouts.get(targetId));
       updateMaxClientsUI();
-      // New: Show privacy status badge
       const privacyStatus = document.getElementById('privacyStatus');
       if (privacyStatus) {
         privacyStatus.textContent = 'E2E Encrypted (P2P)';
@@ -266,14 +259,13 @@ function startPeerConnection(targetId, isOfferer) {
       useRelay = true;
       showStatusMessage('P2P connection failed, switching to server relay mode.');
       cleanupPeerConnection(targetId);
-      // New: Update privacy status badge to relay mode
       const privacyStatus = document.getElementById('privacyStatus');
       if (privacyStatus) {
         privacyStatus.textContent = 'Relay Mode: Server-Encrypted';
         privacyStatus.classList.remove('hidden');
       }
     }
-  }, 10000); // 10s timeout for fallback
+  }, 10000);
   connectionTimeouts.set(targetId, timeout);
 }
 
@@ -318,7 +310,7 @@ function setupDataChannel(dataChannel, targetId) {
       showStatusMessage('Invalid message received.');
       return;
     }
-    if (!data.messageId || !data.username || (!data.content && data.type !== 'image') || (data.type === 'image' && !data.data)) {
+    if (!data.messageId || !data.username || (!data.content && !data.data)) {
       console.log(`Invalid message format from ${targetId}:`, data);
       return;
     }
@@ -344,36 +336,15 @@ function setupDataChannel(dataChannel, targetId) {
       img.style.borderRadius = '0.5rem';
       img.style.cursor = 'pointer';
       img.setAttribute('alt', 'Received image');
-      img.addEventListener('click', () => {
-        let modal = document.getElementById('imageModal');
-        if (!modal) {
-          modal = document.createElement('div');
-          modal.id = 'imageModal';
-          modal.className = 'modal';
-          modal.setAttribute('role', 'dialog');
-          modal.setAttribute('aria-label', 'Image viewer');
-          modal.setAttribute('tabindex', '-1');
-          document.body.appendChild(modal);
-        }
-        modal.innerHTML = '';
-        const modalImg = document.createElement('img');
-        modalImg.src = data.data;
-        modalImg.setAttribute('alt', 'Enlarged image');
-        modal.appendChild(modalImg);
-        modal.classList.add('active');
-        modal.focus();
-        modal.addEventListener('click', () => {
-          modal.classList.remove('active');
-          document.getElementById('messageInput')?.focus();
-        });
-        modal.addEventListener('keydown', (event) => {
-          if (event.key === 'Escape') {
-            modal.classList.remove('active');
-            document.getElementById('messageInput')?.focus();
-          }
-        });
-      });
+      img.addEventListener('click', () => createImageModal(data.data, 'messageInput'));
       messageDiv.appendChild(img);
+    } else if (data.type === 'voice') {
+      const audio = document.createElement('audio');
+      audio.src = data.data;
+      audio.controls = true;
+      audio.setAttribute('alt', 'Received voice message');
+      audio.addEventListener('click', () => createAudioModal(data.data, 'messageInput'));
+      messageDiv.appendChild(audio);
     } else {
       messageDiv.appendChild(document.createTextNode(sanitizeMessage(data.content)));
     }
@@ -382,7 +353,7 @@ function setupDataChannel(dataChannel, targetId) {
     if (isInitiator) {
       dataChannels.forEach((dc, id) => {
         if (id !== targetId && dc.readyState === 'open') {
-          dc.send(event.data); // Forward the original data (unencrypted in P2P)
+          dc.send(event.data);
         }
       });
     }
@@ -399,6 +370,7 @@ function setupDataChannel(dataChannel, targetId) {
     cleanupPeerConnection(targetId);
     messageRateLimits.delete(targetId);
     imageRateLimits.delete(targetId);
+    voiceRateLimits.delete(targetId);
     if (dataChannels.size === 0) {
       inputContainer.classList.add('hidden');
       messages.classList.add('waiting');
@@ -528,7 +500,7 @@ async function sendMessage(content) {
   }
 }
 
-function autoConnect(codeParam) {
+async function autoConnect(codeParam) {
   console.log('autoConnect running with code:', codeParam);
   code = codeParam;
   initialContainer.classList.add('hidden');
