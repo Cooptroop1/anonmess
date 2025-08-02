@@ -1,166 +1,229 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anonomoose Admin Dashboard</title>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net 'sha256-PQzkOcgCjiED9RA3MmXA2AaKrGdxgILroL1hlW/49KU='; style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; img-src 'self' data: https://raw.githubusercontent.com https://cdnjs.cloudflare.com; connect-src 'self' wss://signaling-server-zc6m.onrender.com;">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" integrity="sha512-wnea99uKIC3TJF7v4eKk4Y+lMz2Mklv18+r4na2Gn1abDRPPOeef95xTzdwGD9e6zXJBteMIhZ1+68QC5byJZw==" crossorigin="anonymous">
-    <link rel="icon" type="image/png" href="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f60e.png"/>
-    <style>
-        body {
-            background-color: #000;
-            color: #fff;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin: 0;
-            padding-top: 140px;
-        }
-        .container {
-            text-align: center;
-            padding: 20px;
-            background-color: #fff;
-            color: #000;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-            max-width: 500px;
-            width: 100%;
-        }
-        #statsDisplay {
-            margin-top: 1rem;
-            text-align: left;
-            font-size: 1rem;
-            color: #333;
-        }
-        #statsDisplay p {
-            margin: 0.5rem 0;
-        }
-        #errorMessage {
-            font-size: 1.2rem;
-            font-weight: bold;
-            color: #e53e3e;
-            margin: 1rem 0;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anonomoose Admin Dashboard</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net 'sha256-PQzkOcgCjiED9RA3MmXA2AaKrGdxgILroL1hlW/49KU='; style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; img-src 'self' data: https://raw.githubusercontent.com https://cdnjs.cloudflare.com; connect-src 'self' wss://signaling-server-zc6m.onrender.com;">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" integrity="sha512-wnea99uKIC3TJF7v4eKk4Y+lMz2Mklv18+r4na2Gn1abDRPPOeef95xTzdwGD9e6zXJBteMIhZ1+68QC5byJZw==" crossorigin="anonymous">
+  <link rel="icon" type="image/png" href="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f60e.png"/>
+  <style>
+    body {
+      background-color: #000;
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 0;
+      padding-top: 140px;
+    }
+    .container {
+      text-align: center;
+      padding: 20px;
+      background-color: #fff;
+      color: #000;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+      max-width: 500px;
+      width: 100%;
+    }
+    #statsDisplay {
+      margin-top: 1rem;
+      text-align: left;
+      font-size: 1rem;
+      color: #333;
+    }
+    #statsDisplay p {
+      margin: 0.5rem 0;
+    }
+    #errorMessage {
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: #e53e3e;
+      margin: 1rem 0;
+    }
+    #featuresContainer {
+      margin-top: 2rem;
+      text-align: left;
+    }
+    .feature-toggle {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    .feature-toggle button {
+      background-color: #10b981;
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+    }
+    .feature-toggle button.off {
+      background-color: #ef4444;
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">Anonomoose Admin Dashboard</h1>
-        <div id="status" class="text-center mb-4 text-gray-600">Enter admin password to view stats</div>
-        <input id="adminPassword" type="password" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter admin password" aria-describedby="passwordHelp">
-        <div id="passwordHelp" class="text-sm text-gray-600 mb-2">Enter the ADMIN_SECRET from your server</div>
-        <button id="submitButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full mb-4 hover:bg-blue-600 transition-colors" aria-label="Submit admin password">Submit</button>
-        <div id="statsDisplay" class="hidden"></div>
-        <div class="text-center mt-4">
-            <a href="https://anonomoose.com/index.html" class="text-blue-500 hover:underline">Back to Chat</a>
-        </div>
+  <div class="container">
+    <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">Anonomoose Admin Dashboard</h1>
+    <div id="status" class="text-center mb-4 text-gray-600">Enter admin password to view stats</div>
+    <input id="adminPassword" type="password" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter admin password" aria-describedby="passwordHelp">
+    <div id="passwordHelp" class="text-sm text-gray-600 mb-2">Enter the ADMIN_SECRET from your server</div>
+    <button id="submitButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full mb-4 hover:bg-blue-600 transition-colors" aria-label="Submit admin password">Submit</button>
+    <div id="statsDisplay" class="hidden"></div>
+    <div id="featuresContainer" class="hidden">
+      <h2 class="text-xl font-bold mb-4">Feature Toggles</h2>
+      <div class="feature-toggle">
+        <span>Service Enabled</span>
+        <button id="toggleService" aria-label="Toggle service">Loading...</button>
+      </div>
+      <div class="feature-toggle">
+        <span>Image Messages</span>
+        <button id="toggleImages" aria-label="Toggle image messages">Loading...</button>
+      </div>
+      <div class="feature-toggle">
+        <span>Voice Messages</span>
+        <button id="toggleVoice" aria-label="Toggle voice messages">Loading...</button>
+      </div>
     </div>
-    <script>
-        const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
-        const statusElement = document.getElementById('status');
-        const adminPasswordInput = document.getElementById('adminPassword');
-        const submitButton = document.getElementById('submitButton');
-        const statsDisplay = document.getElementById('statsDisplay');
-        let clientId = Math.random().toString(36).substr(2, 9);
-        let token = '';
+    <div class="text-center mt-4">
+      <a href="https://anonomoose.com/index.html" class="text-blue-500 hover:underline">Back to Chat</a>
+    </div>
+  </div>
+  <script>
+    const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
+    const statusElement = document.getElementById('status');
+    const adminPasswordInput = document.getElementById('adminPassword');
+    const submitButton = document.getElementById('submitButton');
+    const statsDisplay = document.getElementById('statsDisplay');
+    const featuresContainer = document.getElementById('featuresContainer');
+    let clientId = Math.random().toString(36).substr(2, 9);
+    let token = '';
 
-        if (localStorage.getItem('clientId')) {
-            clientId = localStorage.getItem('clientId');
-        } else {
-            localStorage.setItem('clientId', clientId);
-        }
+    if (localStorage.getItem('clientId')) {
+      clientId = localStorage.getItem('clientId');
+    } else {
+      localStorage.setItem('clientId', clientId);
+    }
 
-        function fetchStats() {
-            const secret = adminPasswordInput.value.trim();
-            if (!secret) {
-                statusElement.textContent = 'Please enter the admin password.';
-                adminPasswordInput.focus();
-                return;
-            }
-            if (socket.readyState === WebSocket.OPEN && token) {
-                statusElement.textContent = 'Fetching server stats...';
-                socket.send(JSON.stringify({ type: 'get-stats', secret, clientId, token }));
-            } else {
-                statusElement.textContent = 'Connecting to server...';
-            }
-        }
+    function fetchStatsAndFeatures() {
+      const secret = adminPasswordInput.value.trim();
+      if (!secret) {
+        statusElement.textContent = 'Please enter the admin password.';
+        adminPasswordInput.focus();
+        return;
+      }
+      if (socket.readyState === WebSocket.OPEN && token) {
+        statusElement.textContent = 'Fetching server stats and features...';
+        socket.send(JSON.stringify({ type: 'get-stats', secret, clientId, token }));
+        socket.send(JSON.stringify({ type: 'get-features', secret, clientId, token }));
+      } else {
+        statusElement.textContent = 'Connecting to server...';
+      }
+    }
 
-        socket.onopen = () => {
-            console.log('Admin page WebSocket opened');
+    function toggleFeature(feature) {
+      const secret = adminPasswordInput.value.trim();
+      socket.send(JSON.stringify({ type: 'toggle-feature', feature, secret, clientId, token }));
+    }
+
+    socket.onopen = () => {
+      console.log('Admin page WebSocket opened');
+      socket.send(JSON.stringify({ type: 'connect', clientId }));
+    };
+
+    socket.onmessage = (event) => {
+      console.log('Received message:', event.data);
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'connected') {
+          token = data.accessToken;
+          console.log('Received token:', token);
+          statusElement.textContent = 'Connected. Enter admin password to view stats.';
+          adminPasswordInput.focus();
+        } else if (data.type === 'stats') {
+          statsDisplay.innerHTML = '';
+          statsDisplay.classList.remove('hidden');
+          statusElement.textContent = 'Server stats retrieved.';
+          const stats = [
+            `Daily Users: ${data.dailyUsers}`,
+            `Daily Connections: ${data.dailyConnections}`,
+            `All-Time Users: ${data.allTimeUsers}`,
+            `Active Rooms: ${data.activeRooms}`,
+            `Total Clients: ${data.totalClients}`
+          ];
+          stats.forEach(stat => {
+            const p = document.createElement('p');
+            p.textContent = stat;
+            statsDisplay.appendChild(p);
+          });
+        } else if (data.type === 'features') {
+          featuresContainer.classList.remove('hidden');
+          document.getElementById('toggleService').textContent = data.enableService ? 'On' : 'Off';
+          document.getElementById('toggleService').classList.toggle('off', !data.enableService);
+          document.getElementById('toggleImages').textContent = data.enableImages ? 'On' : 'Off';
+          document.getElementById('toggleImages').classList.toggle('off', !data.enableImages);
+          document.getElementById('toggleVoice').textContent = data.enableVoice ? 'On' : 'Off';
+          document.getElementById('toggleVoice').classList.toggle('off', !data.enableVoice);
+        } else if (data.type === 'feature-toggled') {
+          // Update button states after toggle
+          const button = document.getElementById(`toggle${data.feature.charAt(0).toUpperCase() + data.feature.slice(1)}`);
+          button.textContent = data.enabled ? 'On' : 'Off';
+          button.classList.toggle('off', !data.enabled);
+        } else if (data.type === 'error') {
+          statsDisplay.innerHTML = '';
+          statsDisplay.classList.add('hidden');
+          featuresContainer.classList.add('hidden');
+          statusElement.textContent = data.message || 'Error fetching stats. Please try again.';
+          console.error('Server error:', data.message);
+          if (data.message.includes('Invalid or expired token')) {
             socket.send(JSON.stringify({ type: 'connect', clientId }));
-        };
+          } else if (data.message.includes('Invalid admin secret')) {
+            adminPasswordInput.value = '';
+            adminPasswordInput.focus();
+          }
+        }
+      } catch (error) {
+        console.error('Error parsing message:', error);
+        statusElement.textContent = 'Error fetching stats. Please try again.';
+        statsDisplay.classList.add('hidden');
+        featuresContainer.classList.add('hidden');
+      }
+    };
 
-        socket.onmessage = (event) => {
-            console.log('Received message:', event.data);
-            try {
-                const data = JSON.parse(event.data);
-                if (data.type === 'connected') {
-                    token = data.accessToken;
-                    console.log('Received token:', token);
-                    statusElement.textContent = 'Connected. Enter admin password to view stats.';
-                    adminPasswordInput.focus();
-                } else if (data.type === 'stats') {
-                    statsDisplay.innerHTML = '';
-                    statsDisplay.classList.remove('hidden');
-                    statusElement.textContent = 'Server stats retrieved.';
-                    const stats = [
-                        `Daily Users: ${data.dailyUsers}`,
-                        `Daily Connections: ${data.dailyConnections}`,
-                        `All-Time Users: ${data.allTimeUsers}`,
-                        `Active Rooms: ${data.activeRooms}`,
-                        `Total Clients: ${data.totalClients}`
-                    ];
-                    stats.forEach(stat => {
-                        const p = document.createElement('p');
-                        p.textContent = stat;
-                        statsDisplay.appendChild(p);
-                    });
-                } else if (data.type === 'error') {
-                    statsDisplay.innerHTML = '';
-                    statsDisplay.classList.add('hidden');
-                    statusElement.textContent = data.message || 'Error fetching stats. Please try again.';
-                    console.error('Server error:', data.message);
-                    if (data.message.includes('Invalid or expired token')) {
-                        socket.send(JSON.stringify({ type: 'connect', clientId }));
-                    } else if (data.message.includes('Invalid admin secret')) {
-                        adminPasswordInput.value = '';
-                        adminPasswordInput.focus();
-                    }
-                }
-            } catch (error) {
-                console.error('Error parsing message:', error);
-                statusElement.textContent = 'Error fetching stats. Please try again.';
-                statsDisplay.classList.add('hidden');
-            }
-        };
+    socket.onerror = (error) => {
+      console.error('WebSocket error:', error);
+      statusElement.textContent = 'Connection error. Please try again.';
+      statsDisplay.classList.add('hidden');
+      featuresContainer.classList.add('hidden');
+    };
 
-        socket.onerror = (error) => {
-            console.error('WebSocket error:', error);
-            statusElement.textContent = 'Connection error. Please try again.';
-            statsDisplay.classList.add('hidden');
-        };
+    socket.onclose = () => {
+      console.log('WebSocket closed');
+      statusElement.textContent = 'Disconnected. Reconnecting...';
+      statsDisplay.classList.add('hidden');
+      featuresContainer.classList.add('hidden');
+      setTimeout(() => {
+        window.location.reload();
+      }, 5000);
+    };
 
-        socket.onclose = () => {
-            console.log('WebSocket closed');
-            statusElement.textContent = 'Disconnected. Reconnecting...';
-            statsDisplay.classList.add('hidden');
-            setTimeout(() => {
-                window.location.reload();
-            }, 5000);
-        };
+    submitButton.onclick = () => {
+      fetchStatsAndFeatures();
+    };
 
-        submitButton.onclick = () => {
-            fetchStats();
-        };
+    adminPasswordInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        fetchStatsAndFeatures();
+      }
+    });
 
-        adminPasswordInput.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                fetchStats();
-            }
-        });
-    </script>
+    document.getElementById('toggleService').onclick = () => toggleFeature('service');
+    document.getElementById('toggleImages').onclick = () => toggleFeature('images');
+    document.getElementById('toggleVoice').onclick = () => toggleFeature('voice');
+  </script>
 </body>
 </html>
