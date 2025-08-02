@@ -9,6 +9,12 @@ async function sendMedia(file, type) {
     image: ['image/jpeg', 'image/png'],
     voice: ['audio/webm', 'audio/ogg']
   };
+  // New: Check if feature is enabled before proceeding
+  if ((type === 'image' && !features.enableImages) || (type === 'voice' && !features.enableVoice)) {
+    showStatusMessage(`Error: ${type.charAt(0).toUpperCase() + type.slice(1)} messages are disabled by admin.`);
+    document.getElementById(`${type}Button`)?.focus();
+    return;
+  }
   if (!file || !validTypes[type].includes(file.type) || !username || dataChannels.size === 0) {
     showStatusMessage(`Error: Select a ${type === 'image' ? 'JPEG/PNG image' : 'valid audio format'} and ensure you are connected.`);
     document.getElementById(`${type}Button`)?.focus();
@@ -573,5 +579,28 @@ async function autoConnect(codeParam) {
     chatContainer.classList.add('hidden');
     showStatusMessage('Invalid code format. Please enter a valid code.');
     document.getElementById('connectToggleButton')?.focus();
+  }
+}
+
+// New: Function to update UI based on features
+function updateFeaturesUI() {
+  const imageButton = document.getElementById('imageButton');
+  const voiceButton = document.getElementById('voiceButton');
+
+  if (imageButton) {
+    imageButton.disabled = !features.enableImages;
+    imageButton.style.opacity = features.enableImages ? 1 : 0.5; // Gray out visually
+    imageButton.title = features.enableImages ? 'Send Image' : 'Images disabled by admin';
+  }
+
+  if (voiceButton) {
+    voiceButton.disabled = !features.enableVoice;
+    voiceButton.style.opacity = features.enableVoice ? 1 : 0.5; // Gray out visually
+    voiceButton.title = features.enableVoice ? 'Record Voice' : 'Voice disabled by admin';
+  }
+
+  if (!features.enableService) {
+    showStatusMessage('Service disabled by admin. Disconnecting...');
+    socket.close();
   }
 }
