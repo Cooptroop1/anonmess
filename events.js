@@ -150,10 +150,12 @@ socket.onmessage = async (event) => {
       clientId = message.clientId;
       maxClients = Math.min(message.maxClients, 10);
       isInitiator = message.isInitiator;
+      features = message.features || features; // New: Handle features from init
       totalClients = 1;
-      console.log(`Initialized client ${clientId}, username: ${username}, maxClients: ${maxClients}, isInitiator: ${isInitiator}`);
+      console.log(`Initialized client ${clientId}, username: ${username}, maxClients: ${maxClients}, isInitiator: ${isInitiator}, features:`, features);
       usernames.set(clientId, username);
       initializeMaxClientsUI();
+      updateFeaturesUI(); // New: Update UI based on features
       if (isInitiator) {
         isConnected = true;
         roomKey = await window.crypto.subtle.generateKey(
@@ -299,6 +301,17 @@ socket.onmessage = async (event) => {
       }
       messages.prepend(messageDiv);
       messages.scrollTop = 0;
+    }
+
+    // New: Handle features-update broadcast
+    if (message.type === 'features-update') {
+      features = message;
+      console.log('Received features update:', features);
+      updateFeaturesUI();
+      if (!features.enableService) {
+        showStatusMessage('Service disabled by admin. Disconnecting...');
+        socket.close();
+      }
     }
   } catch (error) {
     console.error('Error parsing message:', error, 'Raw data:', event.data);
