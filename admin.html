@@ -101,6 +101,7 @@
     const featuresContainer = document.getElementById('featuresContainer');
     let clientId = Math.random().toString(36).substr(2, 9);
     let token = '';
+    let reconnectAttempts = 0; // New: Track reconnect attempts
 
     if (localStorage.getItem('clientId')) {
       clientId = localStorage.getItem('clientId');
@@ -108,10 +109,19 @@
       localStorage.setItem('clientId', clientId);
     }
 
+    function showStatusMessage(message, duration = 3000) {
+      statusElement.textContent = message;
+      statusElement.setAttribute('aria-live', 'assertive');
+      setTimeout(() => {
+        statusElement.textContent = 'Enter admin password to view stats';
+        statusElement.setAttribute('aria-live', 'polite');
+      }, duration);
+    }
+
     function fetchStatsAndFeatures() {
       const secret = adminPasswordInput.value.trim();
       if (!secret) {
-        statusElement.textContent = 'Please enter the admin password.';
+        showStatusMessage('Please enter the admin password.');
         adminPasswordInput.focus();
         return;
       }
@@ -126,12 +136,19 @@
 
     function toggleFeature(feature) {
       const secret = adminPasswordInput.value.trim();
+      // New: Add confirmation for service toggle
+      if (feature === 'service' && !confirm('Toggling the service will disconnect all users. Continue?')) {
+        return;
+      }
       socket.send(JSON.stringify({ type: 'toggle-feature', feature, secret, clientId, token }));
     }
 
     socket.onopen = () => {
       console.log('Admin page WebSocket opened');
       socket.send(JSON.stringify({ type: 'connect', clientId }));
+      reconnectAttempts = 0; // Reset on successful connection
+      statusElement.textContent = 'Connected. Enter admin password to view stats.';
+      adminPasswordInput.focus();
     };
 
     socket.onmessage = (event) => {
@@ -167,16 +184,27 @@
           document.getElementById('toggleImages').classList.toggle('off', !data.enableImages);
           document.getElementById('toggleVoice').textContent = data.enableVoice ? 'On' : 'Off';
           document.getElementById('toggleVoice').classList.toggle('off', !data.enableVoice);
+          // New: Show service disabled status
+          if (!data.enableService) {
+            statusElement.textContent = 'Service is disabled. Toggle to re-enable.';
+          }
         } else if (data.type === 'feature-toggled') {
           // Update button states after toggle
           const button = document.getElementById(`toggle${data.feature.charAt(0).toUpperCase() + data.feature.slice(1)}`);
           button.textContent = data.enabled ? 'On' : 'Off';
           button.classList.toggle('off', !data.enabled);
+          showStatusMessage(`Feature ${data.feature} toggled to ${data.enabled ? 'On' : 'Off'}`);
+          // New: Update status if service toggled
+          if (data.feature === 'service' && !data.enabled) {
+            statusElement.textContent = 'Service is disabled. Toggle to re-enable.';
+          } else if (data.feature === 'service' && data.enabled) {
+            statusElement.textContent = 'Server stats retrieved.';
+          }
         } else if (data.type === 'error') {
           statsDisplay.innerHTML = '';
           statsDisplay.classList.add('hidden');
           featuresContainer.classList.add('hidden');
-          statusElement.textContent = data.message || 'Error fetching stats. Please try again.';
+          showStatusMessage(data.message || 'Error fetching stats. Please try again.');
           console.error('Server error:', data.message);
           if (data.message.includes('Invalid or expired token')) {
             socket.send(JSON.stringify({ type: 'connect', clientId }));
@@ -187,7 +215,7 @@
         }
       } catch (error) {
         console.error('Error parsing message:', error);
-        statusElement.textContent = 'Error fetching stats. Please try again.';
+        showStatusMessage('Error fetching stats. Please try again.');
         statsDisplay.classList.add('hidden');
         featuresContainer.classList.add('hidden');
       }
@@ -195,19 +223,27 @@
 
     socket.onerror = (error) => {
       console.error('WebSocket error:', error);
-      statusElement.textContent = 'Connection error. Please try again.';
+      showStatusMessage('Connection error. Reconnecting...');
       statsDisplay.classList.add('hidden');
       featuresContainer.classList.add('hidden');
     };
 
     socket.onclose = () => {
       console.log('WebSocket closed');
-      statusElement.textContent = 'Disconnected. Reconnecting...';
+      showStatusMessage('Disconnected. Reconnecting...');
       statsDisplay.classList.add('hidden');
       featuresContainer.classList.add('hidden');
+      // New: Implement exponential backoff for reconnect
+      const delay = Math.min(30000, 5000 * Math.pow(2, reconnectAttempts));
+      reconnectAttempts++;
       setTimeout(() => {
-        window.location.reload();
-      }, 5000);
+        const newSocket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
+        newSocket.onopen = socket.onopen;
+        newSocket.onmessage = socket.onmessage;
+        newSocket.onerror = socket.onerror;
+        newSocket.onclose = socket.onclose;
+        socket = newSocket;
+      }, delay);
     };
 
     submitButton.onclick = () => {
