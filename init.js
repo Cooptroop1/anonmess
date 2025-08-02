@@ -40,6 +40,7 @@ let codeSentToRandom = false;
 let useRelay = false;
 let token = '';
 let refreshToken = '';
+let features = { enableService: true, enableImages: true, enableVoice: true }; // New: Global features state
 
 let keyPair;
 let roomKey;
