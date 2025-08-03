@@ -93,7 +93,7 @@
     </div>
   </div>
   <script>
-    const socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
+    let socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
     const statusElement = document.getElementById('status');
     const adminPasswordInput = document.getElementById('adminPassword');
     const submitButton = document.getElementById('submitButton');
@@ -102,7 +102,8 @@
     let clientId = Math.random().toString(36).substr(2, 9);
     let token = '';
     let reconnectAttempts = 0;
-    const maxReconnectAttempts = 5; // New: Limit reconnect attempts
+    const maxReconnectAttempts = 5;
+    let lastToggleTime = 0; // New: For debouncing toggles
 
     if (localStorage.getItem('clientId')) {
       clientId = localStorage.getItem('clientId');
@@ -131,21 +132,33 @@
         socket.send(JSON.stringify({ type: 'get-stats', secret, clientId, token }));
         socket.send(JSON.stringify({ type: 'get-features', secret, clientId, token }));
       } else {
-        statusElement.textContent = 'Connecting to server...';
+        showStatusMessage('Connecting to server...');
       }
     }
 
     function toggleFeature(feature) {
+      const now = Date.now();
+      if (now - lastToggleTime < 1000) { // New: Debounce 1s
+        showStatusMessage('Please wait before toggling again.', 2000);
+        return;
+      }
+      lastToggleTime = now;
       const secret = adminPasswordInput.value.trim();
       if (feature === 'service' && !confirm('Toggling the service will disconnect all users. Continue?')) {
         return;
       }
-      socket.send(JSON.stringify({ type: 'toggle-feature', feature, secret, clientId, token }));
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'toggle-feature', feature, secret, clientId, token }));
+      } else {
+        showStatusMessage('Connection closed. Reconnecting to toggle...');
+      }
     }
 
     socket.onopen = () => {
       console.log('Admin page WebSocket opened');
-      socket.send(JSON.stringify({ type: 'connect', clientId }));
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'connect', clientId }));
+      }
       reconnectAttempts = 0;
       statusElement.textContent = 'Connected. Enter admin password to view stats.';
       adminPasswordInput.focus();
@@ -198,7 +211,6 @@
             statusElement.textContent = 'Server stats retrieved.';
           }
         } else if (data.type === 'features-update') {
-          // New: Handle features-update to keep UI in sync
           document.getElementById('toggleService').textContent = data.enableService ? 'On' : 'Off';
           document.getElementById('toggleService').classList.toggle('off', !data.enableService);
           document.getElementById('toggleImages').textContent = data.enableImages ? 'On' : 'Off';
@@ -216,20 +228,23 @@
           showStatusMessage(data.message || 'Error fetching stats. Please try again.');
           console.error('Server error:', data.message);
           if (data.message.includes('Invalid or expired token')) {
-            socket.send(JSON.stringify({ type: 'connect', clientId }));
+            if (socket.readyState === WebSocket.OPEN) {
+              socket.send(JSON.stringify({ type: 'connect', clientId }));
+            }
           } else if (data.message.includes('Invalid admin secret')) {
             adminPasswordInput.value = '';
             adminPasswordInput.focus();
-          } else if (data.message.includes('Token revoked') || data.message.includes('Invalid or expired refresh token')) {
+          } else if (data.message.includes('Token revoked')) {
             showStatusMessage('Session expired. Reconnecting...');
+            token = '';
             socket.close();
           } else if (data.message.includes('Rate limit exceeded')) {
-            showStatusMessage('Rate limit exceeded. Waiting before retrying...');
+            showStatusMessage('Rate limit exceeded. Retrying in 5 seconds...', 5000);
             setTimeout(() => {
-              if (reconnectAttempts < maxReconnectAttempts) {
-                socket.send(JSON.stringify({ type: 'connect', clientId }));
+              if (socket.readyState === WebSocket.OPEN && token) {
+                fetchStatsAndFeatures();
               }
-            }, 60000);
+            }, 5000); // Retry after 5s instead of closing
           }
         }
       } catch (error) {
@@ -259,12 +274,11 @@
       const delay = Math.min(30000, 5000 * Math.pow(2, reconnectAttempts));
       reconnectAttempts++;
       setTimeout(() => {
-        const newSocket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
-        newSocket.onopen = socket.onopen;
-        newSocket.onmessage = socket.onmessage;
-        newSocket.onerror = socket.onerror;
-        newSocket.onclose = socket.onclose;
-        socket = newSocket;
+        socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
+        socket.onopen = socket.onopen;
+        socket.onmessage = socket.onmessage;
+        socket.onerror = socket.onerror;
+        socket.onclose = socket.onclose;
       }, delay);
     };
 
