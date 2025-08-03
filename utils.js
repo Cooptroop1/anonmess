@@ -1,3 +1,4 @@
+
 // Utility to show temporary status messages
 function showStatusMessage(message, duration = 3000) {
   if (typeof statusElement !== 'undefined' && statusElement) {
@@ -25,6 +26,25 @@ function validateUsername(username) {
 function validateCode(code) {
   const regex = /^[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}$/;
   return code && regex.test(code);
+}
+// Keepalive timer ID
+let keepAliveTimer = null; // Moved from events.js to utils.js
+// Keepalive function to prevent WebSocket timeout
+function startKeepAlive() {
+  if (keepAliveTimer) clearInterval(keepAliveTimer);
+  keepAliveTimer = setInterval(() => {
+    if (typeof socket !== 'undefined' && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: 'ping', clientId, token }));
+      log('info', 'Sent keepalive ping');
+    }
+  }, 20000);
+}
+function stopKeepAlive() {
+  if (keepAliveTimer) {
+    clearInterval(keepAliveTimer);
+    keepAliveTimer = null;
+    log('info', 'Stopped keepalive');
+  }
 }
 function cleanupPeerConnection(targetId) {
   const peerConnection = peerConnections.get(targetId);
@@ -242,24 +262,15 @@ async function importPublicKey(base64) {
     []
   );
 }
-// Set to track used IVs for uniqueness (prevents reuse, though random IVs make collision unlikely)
-const usedIVs = new Set();
 async function encrypt(text) {
-  let iv = window.crypto.getRandomValues(new Uint8Array(12));
-  let ivBase64 = arrayBufferToBase64(iv);
-  // Ensure IV uniqueness (regenerate if collision, though improbable)
-  while (usedIVs.has(ivBase64)) {
-    iv = window.crypto.getRandomValues(new Uint8Array(12));
-    ivBase64 = arrayBufferToBase64(iv);
-  }
-  usedIVs.add(ivBase64);
+  const iv = window.crypto.getRandomValues(new Uint8Array(12));
   const encoded = new TextEncoder().encode(text);
   const encrypted = await window.crypto.subtle.encrypt(
     { name: 'AES-GCM', iv },
     roomKey,
     encoded
   );
-  return { encrypted: arrayBufferToBase64(encrypted), iv: ivBase64 };
+  return { encrypted: arrayBufferToBase64(encrypted), iv: arrayBufferToBase64(iv) };
 }
 async function decrypt(encrypted, iv) {
   const decoded = await window.crypto.subtle.decrypt(
@@ -270,20 +281,13 @@ async function decrypt(encrypted, iv) {
   return new TextDecoder().decode(decoded);
 }
 async function encryptBytes(key, data) {
-  let iv = window.crypto.getRandomValues(new Uint8Array(12));
-  let ivBase64 = arrayBufferToBase64(iv);
-  // Ensure IV uniqueness
-  while (usedIVs.has(ivBase64)) {
-    iv = window.crypto.getRandomValues(new Uint8Array(12));
-    ivBase64 = arrayBufferToBase64(iv);
-  }
-  usedIVs.add(ivBase64);
+  const iv = window.crypto.getRandomValues(new Uint8Array(12));
   const encrypted = await window.crypto.subtle.encrypt(
     { name: 'AES-GCM', iv },
     key,
     data
   );
-  return { encrypted: arrayBufferToBase64(encrypted), iv: ivBase64 };
+  return { encrypted: arrayBufferToBase64(encrypted), iv: arrayBufferToBase64(iv) };
 }
 async function decryptBytes(key, encrypted, iv) {
   return window.crypto.subtle.decrypt(
@@ -302,19 +306,12 @@ async function deriveSharedKey(privateKey, publicKey) {
   );
 }
 async function encryptRaw(key, data) {
-  let iv = window.crypto.getRandomValues(new Uint8Array(12));
-  let ivBase64 = arrayBufferToBase64(iv);
-  // Ensure IV uniqueness
-  while (usedIVs.has(ivBase64)) {
-    iv = window.crypto.getRandomValues(new Uint8Array(12));
-    ivBase64 = arrayBufferToBase64(iv);
-  }
-  usedIVs.add(ivBase64);
+  const iv = window.crypto.getRandomValues(new Uint8Array(12));
   const encoded = new TextEncoder().encode(data); // Encode string to bytes
   const encrypted = await window.crypto.subtle.encrypt(
     { name: 'AES-GCM', iv },
     key,
     encoded
   );
-  return { encrypted: arrayBufferToBase64(encrypted), iv: ivBase64 };
+  return { encrypted: arrayBufferToBase64(encrypted), iv: arrayBufferToBase64(iv) };
 }
