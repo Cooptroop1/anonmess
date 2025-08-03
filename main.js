@@ -1,15 +1,13 @@
 // Core logic: peer connections, message sending, handling offers, etc.
-
 // Global vars for dynamic TURN creds from server
 let turnUsername = '';
 let turnCredential = '';
-
 async function sendMedia(file, type) {
   const validTypes = {
     image: ['image/jpeg', 'image/png'],
     voice: ['audio/webm', 'audio/ogg']
   };
-  // New: Check if feature is enabled before proceeding
+  // Check if feature is enabled before proceeding
   if ((type === 'image' && !features.enableImages) || (type === 'voice' && !features.enableVoice)) {
     showStatusMessage(`Error: ${type.charAt(0).toUpperCase() + type.slice(1)} messages are disabled by admin.`);
     document.getElementById(`${type}Button`)?.focus();
@@ -25,7 +23,6 @@ async function sendMedia(file, type) {
     document.getElementById(`${type}Button`)?.focus();
     return;
   }
-
   // Rate limiting
   const rateLimits = type === 'image' ? imageRateLimits : voiceRateLimits;
   const now = performance.now();
@@ -41,7 +38,6 @@ async function sendMedia(file, type) {
     document.getElementById(`${type}Button`)?.focus();
     return;
   }
-
   let base64;
   if (type === 'image') {
     const maxWidth = 640;
@@ -57,7 +53,6 @@ async function sendMedia(file, type) {
     const img = new Image();
     img.src = URL.createObjectURL(file);
     await new Promise(resolve => img.onload = resolve);
-
     let width = img.width;
     let height = img.height;
     if (width > height) {
@@ -84,17 +79,20 @@ async function sendMedia(file, type) {
       reader.readAsDataURL(mp3Blob);
     });
   }
-
   const messageId = generateMessageId();
   const timestamp = Date.now();
-  let payload = { messageId, type, data: base64, username, timestamp };
+  const payload = { messageId, type, data: base64, username, timestamp };
+  const jsonString = JSON.stringify(payload);
   if (useRelay) {
-    const { encrypted, iv } = await encrypt(JSON.stringify(payload));
+    if (!roomKey) {
+      showStatusMessage('Error: Encryption key not available for relay mode.');
+      return;
+    }
+    const { encrypted, iv } = await encrypt(jsonString);
     if (socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({ type: `relay-${type}`, code, clientId, token, encryptedData: encrypted, iv }));
     }
   } else if (dataChannels.size > 0) {
-    const jsonString = JSON.stringify(payload);
     dataChannels.forEach((dataChannel) => {
       if (dataChannel.readyState === 'open') {
         dataChannel.send(jsonString);
@@ -104,7 +102,6 @@ async function sendMedia(file, type) {
     showStatusMessage('Error: No connections.');
     return;
   }
-
   // Display locally
   const messages = document.getElementById('messages');
   const messageDiv = document.createElement('div');
@@ -136,7 +133,6 @@ async function sendMedia(file, type) {
   processedMessageIds.add(messageId);
   document.getElementById(`${type}Button`)?.focus();
 }
-
 function startPeerConnection(targetId, isOfferer) {
   console.log(`Starting peer connection with ${targetId} for code: ${code}, offerer: ${isOfferer}`);
   if (peerConnections.has(targetId)) {
@@ -171,7 +167,6 @@ function startPeerConnection(targetId, isOfferer) {
   });
   peerConnections.set(targetId, peerConnection);
   candidatesQueues.set(targetId, []);
-
   let dataChannel;
   if (isOfferer) {
     dataChannel = peerConnection.createDataChannel('chat');
@@ -179,7 +174,6 @@ function startPeerConnection(targetId, isOfferer) {
     setupDataChannel(dataChannel, targetId);
     dataChannels.set(targetId, dataChannel);
   }
-
   peerConnection.onicecandidate = (event) => {
     if (event.candidate) {
       console.log(`Sending ICE candidate to ${targetId} for code: ${code}`);
@@ -188,7 +182,6 @@ function startPeerConnection(targetId, isOfferer) {
       }
     }
   };
-
   peerConnection.onicecandidateerror = (event) => {
     console.error(`ICE candidate error for ${targetId}: ${event.errorText}, code=${event.errorCode}`);
     if (event.errorCode !== 701) {
@@ -202,11 +195,9 @@ function startPeerConnection(targetId, isOfferer) {
       console.log(`Ignoring ICE 701 error for ${targetId}, continuing connection`);
     }
   };
-
   peerConnection.onicegatheringstatechange = () => {
     console.log(`ICE gathering state for ${targetId}: ${peerConnection.iceGatheringState}`);
   };
-
   peerConnection.onconnectionstatechange = () => {
     console.log(`Connection state for ${targetId}: ${peerConnection.connectionState}`);
     if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
@@ -232,7 +223,6 @@ function startPeerConnection(targetId, isOfferer) {
       }
     }
   };
-
   peerConnection.ondatachannel = (event) => {
     console.log(`Received data channel from ${targetId}`);
     if (dataChannels.has(targetId)) {
@@ -244,7 +234,6 @@ function startPeerConnection(targetId, isOfferer) {
     setupDataChannel(dataChannel, targetId);
     dataChannels.set(targetId, dataChannel);
   };
-
   if (isOfferer) {
     peerConnection.createOffer().then(offer => {
       return peerConnection.setLocalDescription(offer);
@@ -258,7 +247,6 @@ function startPeerConnection(targetId, isOfferer) {
       showStatusMessage('Failed to establish peer connection.');
     });
   }
-
   const timeout = setTimeout(() => {
     if (!dataChannels.get(targetId) || dataChannels.get(targetId).readyState !== 'open') {
       console.log(`P2P failed with ${targetId}, falling back to relay`);
@@ -267,14 +255,13 @@ function startPeerConnection(targetId, isOfferer) {
       cleanupPeerConnection(targetId);
       const privacyStatus = document.getElementById('privacyStatus');
       if (privacyStatus) {
-        privacyStatus.textContent = 'Relay Mode: Server-Encrypted';
+        privacyStatus.textContent = 'Relay Mode: E2E Encrypted';
         privacyStatus.classList.remove('hidden');
       }
     }
   }, 10000); // 10s timeout for fallback
   connectionTimeouts.set(targetId, timeout);
 }
-
 function setupDataChannel(dataChannel, targetId) {
   console.log('setupDataChannel initialized for targetId:', targetId);
   dataChannel.onopen = () => {
@@ -292,7 +279,6 @@ function setupDataChannel(dataChannel, targetId) {
     updateMaxClientsUI();
     document.getElementById('messageInput')?.focus();
   };
-
   dataChannel.onmessage = async (event) => {
     const now = performance.now();
     const rateLimit = messageRateLimits.get(targetId) || { count: 0, startTime: now };
@@ -307,7 +293,6 @@ function setupDataChannel(dataChannel, targetId) {
       showStatusMessage('Message rate limit reached, please slow down.');
       return;
     }
-
     let data;
     try {
       data = JSON.parse(event.data);
@@ -364,12 +349,10 @@ function setupDataChannel(dataChannel, targetId) {
       });
     }
   };
-
   dataChannel.onerror = (error) => {
     console.error(`Data channel error with ${targetId}:`, error);
     showStatusMessage('Error in peer connection.');
   };
-
   dataChannel.onclose = () => {
     console.log(`Data channel closed with ${targetId}`);
     showStatusMessage('Peer disconnected.');
@@ -383,7 +366,6 @@ function setupDataChannel(dataChannel, targetId) {
     }
   };
 }
-
 async function handleOffer(offer, targetId) {
   console.log(`Handling offer from ${targetId} for code: ${code}`);
   if (offer.type !== 'offer') {
@@ -412,7 +394,6 @@ async function handleOffer(offer, targetId) {
     showStatusMessage('Failed to connect to peer.');
   }
 }
-
 async function handleAnswer(answer, targetId) {
   console.log(`Handling answer from ${targetId} for code: ${code}`);
   if (!peerConnections.has(targetId)) {
@@ -450,7 +431,6 @@ async function handleAnswer(answer, targetId) {
     showStatusMessage('Error connecting to peer.');
   }
 }
-
 function handleCandidate(candidate, targetId) {
   console.log(`Handling ICE candidate from ${targetId} for code: ${code}`);
   const peerConnection = peerConnections.get(targetId);
@@ -465,20 +445,23 @@ function handleCandidate(candidate, targetId) {
     candidatesQueues.set(targetId, queue);
   }
 }
-
 async function sendMessage(content) {
   if (content && dataChannels.size > 0 && username) {
     const messageId = generateMessageId();
     const sanitizedContent = sanitizeMessage(content);
     const timestamp = Date.now();
-    let payload = { messageId, content: sanitizedContent, username, timestamp };
+    const payload = { messageId, content: sanitizedContent, username, timestamp };
+    const jsonString = JSON.stringify(payload);
     if (useRelay) {
-      const { encrypted, iv } = await encrypt(JSON.stringify(payload));
+      if (!roomKey) {
+        showStatusMessage('Error: Encryption key not available for relay mode.');
+        return;
+      }
+      const { encrypted, iv } = await encrypt(jsonString);
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: 'relay-message', code, clientId, token, encryptedContent: encrypted, iv }));
       }
     } else {
-      const jsonString = JSON.stringify(payload);
       dataChannels.forEach((dataChannel, targetId) => {
         if (dataChannel.readyState === 'open') {
           dataChannel.send(jsonString);
@@ -495,17 +478,16 @@ async function sendMessage(content) {
     messageDiv.appendChild(document.createTextNode(`${username}: ${sanitizedContent}`));
     messages.prepend(messageDiv);
     messages.scrollTop = 0;
+    processedMessageIds.add(messageId);
     const messageInput = document.getElementById('messageInput');
     messageInput.value = '';
     messageInput.style.height = '2.5rem';
-    processedMessageIds.add(messageId);
     messageInput?.focus();
   } else {
     showStatusMessage('Error: No connections or username not set.');
     document.getElementById('messageInput')?.focus();
   }
 }
-
 async function autoConnect(codeParam) {
   console.log('autoConnect running with code:', codeParam);
   code = codeParam;
@@ -581,24 +563,20 @@ async function autoConnect(codeParam) {
     document.getElementById('connectToggleButton')?.focus();
   }
 }
-
 // New: Function to update UI based on features
 function updateFeaturesUI() {
   const imageButton = document.getElementById('imageButton');
   const voiceButton = document.getElementById('voiceButton');
-
   if (imageButton) {
     imageButton.disabled = !features.enableImages;
     imageButton.style.opacity = features.enableImages ? 1 : 0.5; // Gray out visually
     imageButton.title = features.enableImages ? 'Send Image' : 'Images disabled by admin';
   }
-
   if (voiceButton) {
     voiceButton.disabled = !features.enableVoice;
     voiceButton.style.opacity = features.enableVoice ? 1 : 0.5; // Gray out visually
     voiceButton.title = features.enableVoice ? 'Record Voice' : 'Voice disabled by admin';
   }
-
   if (!features.enableService) {
     showStatusMessage('Service disabled by admin. Disconnecting...');
     socket.close();
