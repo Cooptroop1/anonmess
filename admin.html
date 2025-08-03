@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Anonomoose Admin Dashboard</title>
+  <link rel="icon" href="data:;base64,="> <!-- Suppress favicon 404 -->
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -51,7 +52,7 @@
     button:hover {
       background-color: #0056b3;
     }
-    #stats, #features {
+    #stats, #features, #error {
       margin-top: 20px;
       padding: 10px;
       border: 1px solid #ccc;
@@ -82,6 +83,7 @@
     <button onclick="getFeatures()">Get Features</button>
     <div id="stats"></div>
     <div id="features"></div>
+    <div id="error"></div>
     <div id="qrCode"></div>
   </div>
   <script>
@@ -102,17 +104,18 @@
             qrCodeDiv.innerHTML = `<p>Scan this QR code with your authenticator app:</p><img src="${data.qrCode}" alt="TOTP QR Code">`;
           } else {
             console.error('Failed to fetch TOTP QR code:', data.error);
-            alert('Failed to fetch TOTP QR code: ' + data.error);
+            document.getElementById('error').textContent = 'Failed to fetch TOTP QR code: ' + data.error;
           }
         })
         .catch(error => {
           console.error('Error fetching TOTP secret:', error);
-          alert('Error fetching TOTP secret: ' + error.message);
+          document.getElementById('error').textContent = 'Error fetching TOTP secret: ' + error.message;
         });
     };
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       console.log('Received:', data);
+      const errorDiv = document.getElementById('error');
       if (data.type === 'stats') {
         document.getElementById('stats').innerHTML = `
           <h2>Stats</h2>
@@ -122,6 +125,7 @@
           <p>Active Rooms: ${data.activeRooms}</p>
           <p>Total Clients: ${data.totalClients}</p>
         `;
+        errorDiv.textContent = '';
       } else if (data.type === 'features') {
         const featuresDiv = document.getElementById('features');
         featuresDiv.innerHTML = '<h2>Features</h2>';
@@ -131,44 +135,49 @@
           button.onclick = () => toggleFeature(key.replace('enable', '').toLowerCase());
           featuresDiv.appendChild(button);
         });
+        errorDiv.textContent = '';
       } else if (data.type === 'feature-toggled') {
         document.getElementById('features').innerHTML = `<p>Feature ${data.feature} set to ${data.enabled ? 'enabled' : 'disabled'}</p>`;
         getFeatures(); // Refresh features
+        errorDiv.textContent = '';
       } else if (data.type === 'error') {
-        alert(data.message);
+        errorDiv.textContent = data.message;
       }
     };
     ws.onerror = (error) => {
       console.error('WebSocket error:', error);
-      alert('WebSocket error occurred.');
+      document.getElementById('error').textContent = 'WebSocket error occurred.';
     };
     ws.onclose = () => {
       console.log('WebSocket closed');
-      alert('WebSocket connection closed.');
+      document.getElementById('error').textContent = 'WebSocket connection closed.';
     };
     function getStats() {
       const secret = document.getElementById('adminSecret').value;
-      const totp = document.getElementById('totpCode').value;
+      const totp = document.getElementById('totpCode').value.trim();
+      const errorDiv = document.getElementById('error');
       if (!secret || !totp) {
-        alert('Please enter both admin secret and TOTP code.');
+        errorDiv.textContent = 'Please enter both admin secret and TOTP code.';
         return;
       }
       ws.send(JSON.stringify({ type: 'get-stats', secret, totp }));
     }
     function getFeatures() {
       const secret = document.getElementById('adminSecret').value;
-      const totp = document.getElementById('totpCode').value;
+      const totp = document.getElementById('totpCode').value.trim();
+      const errorDiv = document.getElementById('error');
       if (!secret || !totp) {
-        alert('Please enter both admin secret and TOTP code.');
+        errorDiv.textContent = 'Please enter both admin secret and TOTP code.';
         return;
       }
       ws.send(JSON.stringify({ type: 'get-features', secret, totp }));
     }
     function toggleFeature(feature) {
       const secret = document.getElementById('adminSecret').value;
-      const totp = document.getElementById('totpCode').value;
+      const totp = document.getElementById('totpCode').value.trim();
+      const errorDiv = document.getElementById('error');
       if (!secret || !totp) {
-        alert('Please enter both admin secret and TOTP code.');
+        errorDiv.textContent = 'Please enter both admin secret and TOTP code.';
         return;
       }
       ws.send(JSON.stringify({ type: 'toggle-feature', feature, secret, totp }));
