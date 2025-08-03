@@ -20,12 +20,13 @@ let pendingCode = null;
 let pendingJoin = null;
 let mediaRecorder = null;
 let voiceTimerInterval = null;
+const maxReconnectAttempts = 5; // New: Limit reconnect attempts
 
 socket.onopen = () => {
   console.log('WebSocket opened');
   socket.send(JSON.stringify({ type: 'connect', clientId }));
   startKeepAlive();
-  reconnectAttempts = 0;
+  reconnectAttempts = 0; // Reset on successful connection
   const urlParams = new URLSearchParams(window.location.search);
   const codeParam = urlParams.get('code');
   if (codeParam && validateCode(codeParam)) {
@@ -54,6 +55,10 @@ socket.onclose = () => {
   console.error('WebSocket closed, attempting reconnect');
   stopKeepAlive();
   showStatusMessage('Lost connection, reconnecting...');
+  if (reconnectAttempts >= maxReconnectAttempts) {
+    showStatusMessage('Max reconnect attempts reached. Please refresh the page.', 10000);
+    return;
+  }
   const delay = Math.min(30000, 5000 * Math.pow(2, reconnectAttempts));
   reconnectAttempts++;
   setTimeout(() => {
@@ -131,13 +136,17 @@ socket.onmessage = async (event) => {
       } else if (message.message.includes('Token revoked') || message.message.includes('Invalid or expired refresh token')) {
         showStatusMessage('Session expired. Reconnecting...');
         stopKeepAlive();
+        token = ''; // Clear token to prevent reuse
+        refreshToken = ''; // Clear refresh token
         socket.close();
       } else if (message.message.includes('Rate limit exceeded')) {
         showStatusMessage('Rate limit exceeded. Waiting before retrying...');
         stopKeepAlive();
         setTimeout(() => {
-          socket.send(JSON.stringify({ type: 'connect', clientId }));
-          startKeepAlive();
+          if (reconnectAttempts < maxReconnectAttempts) {
+            socket.send(JSON.stringify({ type: 'connect', clientId }));
+            startKeepAlive();
+          }
         }, 60000);
       } else if (message.message.includes('Chat is full') || message.message.includes('Username already taken') || message.message.includes('Initiator offline')) {
         socket.send(JSON.stringify({ type: 'leave', code, clientId, token }));
@@ -154,6 +163,8 @@ socket.onmessage = async (event) => {
         codeSentToRandom = false;
         button2.disabled = false;
         stopKeepAlive();
+        token = ''; // Clear token
+        refreshToken = ''; // Clear refresh token
       }
       return;
     }
@@ -322,6 +333,8 @@ socket.onmessage = async (event) => {
       if (!features.enableService) {
         showStatusMessage('Service disabled by admin. Disconnecting...');
         stopKeepAlive();
+        token = ''; // Clear token
+        refreshToken = ''; // Clear refresh token
         socket.close();
       }
     }
@@ -633,6 +646,8 @@ document.getElementById('newSessionButton').onclick = () => {
   codeSentToRandom = false;
   button2.disabled = false;
   stopKeepAlive();
+  token = ''; // Clear token
+  refreshToken = ''; // Clear refresh token
   document.getElementById('startChatToggleButton')?.focus();
 };
 
