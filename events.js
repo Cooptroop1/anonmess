@@ -1,5 +1,3 @@
-// Keepalive timer ID
-let keepAliveTimer = null;
 // Reconnection attempt counter for exponential backoff
 let reconnectAttempts = 0;
 // Image rate limiting
