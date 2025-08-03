@@ -75,10 +75,6 @@ if (typeof window !== 'undefined') {
       ['deriveKey']
     );
   })();
-  document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM loaded, initializing maxClients UI');
-    initializeMaxClientsUI();
-  });
 }
 // Keepalive function to prevent WebSocket timeout
 function startKeepAlive() {
@@ -92,7 +88,7 @@ function startKeepAlive() {
 }
 function stopKeepAlive() {
   if (keepAliveTimer) {
-    clearInterval(keepLiveTimer);
+    clearInterval(keepAliveTimer);
     keepAliveTimer = null;
     log('info', 'Stopped keepalive');
   }
