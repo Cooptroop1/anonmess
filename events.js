@@ -1,6 +1,5 @@
-<!-- Keepalive timer ID -->
-<script>
-// let keepAliveTimer = null;
+// Keepalive timer ID
+let keepAliveTimer = null;
 // Reconnection attempt counter for exponential backoff
 let reconnectAttempts = 0;
 // Image rate limiting
@@ -39,7 +38,7 @@ let codeSentToRandom = false;
 let useRelay = false;
 let token = '';
 let refreshToken = '';
-let features = { enableService: true, enableImages: true, enableVoice: true }; // New: Global features state
+let features = { enableService: true, enableImages: true, enableVoice: true }; // Global features state
 let keyPair;
 let roomKey;
 // Declare UI variables globally
@@ -110,7 +109,7 @@ let pendingCode = null;
 let pendingJoin = null;
 let mediaRecorder = null;
 let voiceTimerInterval = null;
-const maxReconnectAttempts = 5; // New: Limit reconnect attempts
+const maxReconnectAttempts = 5; // Limit reconnect attempts
 socket.onopen = () => {
   console.log('WebSocket opened');
   socket.send(JSON.stringify({ type: 'connect', clientId }));
@@ -182,6 +181,8 @@ socket.onmessage = async (event) => {
       token = message.accessToken;
       refreshToken = message.refreshToken;
       console.log('Received authentication tokens:', { accessToken: token, refreshToken });
+      // Start token refresh timer (2.5 minutes, half of 5-minute expiry)
+      setTimeout(refreshAccessToken, 2.5 * 60 * 1000);
       if (pendingCode) {
         autoConnect(pendingCode);
         pendingCode = null;
@@ -197,6 +198,8 @@ socket.onmessage = async (event) => {
       refreshToken = message.refreshToken; // Update with new rotated refresh token
       console.log('Received new tokens:', { accessToken: token, refreshToken });
       showStatusMessage('Authentication tokens refreshed.');
+      // Restart token refresh timer
+      setTimeout(refreshAccessToken, 2.5 * 60 * 1000);
       if (pendingJoin) {
         socket.send(JSON.stringify({ type: 'join', ...pendingJoin, token }));
         pendingJoin = null;
@@ -412,6 +415,15 @@ socket.onmessage = async (event) => {
     console.error('Error parsing message:', error, 'Raw data:', event.data);
   }
 };
+// New: Function to refresh access token proactively
+function refreshAccessToken() {
+  if (socket.readyState === WebSocket.OPEN && refreshToken) {
+    console.log('Proactively refreshing access token');
+    socket.send(JSON.stringify({ type: 'refresh-token', clientId, refreshToken }));
+  } else {
+    console.log('Cannot refresh token: WebSocket not open or no refresh token');
+  }
+}
 document.getElementById('startChatToggleButton').onclick = () => {
   console.log('Start chat toggle clicked');
   initialContainer.classList.add('hidden');
@@ -747,4 +759,3 @@ document.getElementById('button2').onclick = () => {
   }
   document.getElementById('button2')?.focus();
 };
-</script>
