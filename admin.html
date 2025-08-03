@@ -8,18 +8,21 @@
     body {
       font-family: Arial, sans-serif;
       margin: 20px;
-      background-color: #f4f4f4;
+      background-color: #000000; /* Black background */
+      color: #ffffff; /* White text for contrast */
     }
     .container {
       max-width: 600px;
       margin: 0 auto;
-      background: white;
+      background: white; /* White box */
       padding: 20px;
       border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+      color: #000000; /* Black text inside container for readability */
     }
     h1 {
       text-align: center;
+      color: #000000; /* Black text for header inside white container */
     }
     .input-group {
       margin-bottom: 15px;
@@ -27,6 +30,7 @@
     label {
       display: block;
       margin-bottom: 5px;
+      color: #000000; /* Black text for labels */
     }
     input {
       width: 100%;
@@ -52,6 +56,7 @@
       padding: 10px;
       border: 1px solid #ccc;
       border-radius: 4px;
+      background-color: #f9f9f9; /* Light gray for contrast inside white container */
     }
     #qrCode {
       margin-top: 20px;
@@ -84,17 +89,26 @@
     ws.onopen = () => {
       console.log('WebSocket opened for admin');
       // Fetch TOTP secret QR code
-      fetch('/totp-secret')
-        .then(response => response.json())
+      fetch('https://signaling-server-zc6m.onrender.com/totp-secret')
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();
+        })
         .then(data => {
           if (data.qrCode) {
             const qrCodeDiv = document.getElementById('qrCode');
             qrCodeDiv.innerHTML = `<p>Scan this QR code with your authenticator app:</p><img src="${data.qrCode}" alt="TOTP QR Code">`;
           } else {
             console.error('Failed to fetch TOTP QR code:', data.error);
+            alert('Failed to fetch TOTP QR code: ' + data.error);
           }
         })
-        .catch(error => console.error('Error fetching TOTP secret:', error));
+        .catch(error => {
+          console.error('Error fetching TOTP secret:', error);
+          alert('Error fetching TOTP secret: ' + error.message);
+        });
     };
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
