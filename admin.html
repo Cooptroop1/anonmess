@@ -66,31 +66,44 @@
     #qrCode img {
       max-width: 200px;
     }
+    #instructions {
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #f9f9f9;
+      border-radius: 4px;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Anonomoose Admin Dashboard</h1>
+    <div id="instructions">
+      <p><strong>TOTP Setup Instructions:</strong></p>
+      <p>1. Scan the QR code below with an authenticator app (e.g., Google Authenticator, Authy).</p>
+      <p>2. The app will generate a 6-digit code every 30 seconds.</p>
+      <p>3. Enter your admin secret and the current TOTP code to authenticate.</p>
+      <p>4. You only need to scan the QR code once unless you reset your app or the server secret changes.</p>
+      <p><strong>Note:</strong> Ensure your device's clock is synced (enable automatic time in settings).</p>
+    </div>
     <div class="input-group">
       <label for="adminSecret">Admin Secret</label>
       <input type="password" id="adminSecret" placeholder="Enter admin secret">
     </div>
     <div class="input-group">
       <label for="totpCode">TOTP Code</label>
-      <input type="text" id="totpCode" placeholder="Enter TOTP code from authenticator app">
+      <input type="text" id="totpCode" placeholder="Enter 6-digit TOTP code">
     </div>
     <button onclick="getStats()">Get Stats</button>
     <button onclick="getFeatures()">Get Features</button>
+    <button onclick="refreshQRCode()">Refresh QR Code</button>
     <div id="stats"></div>
     <div id="features"></div>
     <div id="error"></div>
     <div id="qrCode"></div>
   </div>
   <script>
-    const ws = new WebSocket('wss://signaling-server-zc6m.onrender.com');
-    ws.onopen = () => {
-      console.log('WebSocket opened for admin');
-      // Fetch TOTP secret QR code
+    function fetchQRCode() {
+      const errorDiv = document.getElementById('error');
       fetch('https://signaling-server-zc6m.onrender.com/totp-secret')
         .then(response => {
           if (!response.ok) {
@@ -102,15 +115,22 @@
           if (data.qrCode) {
             const qrCodeDiv = document.getElementById('qrCode');
             qrCodeDiv.innerHTML = `<p>Scan this QR code with your authenticator app:</p><img src="${data.qrCode}" alt="TOTP QR Code">`;
+            errorDiv.textContent = '';
           } else {
             console.error('Failed to fetch TOTP QR code:', data.error);
-            document.getElementById('error').textContent = 'Failed to fetch TOTP QR code: ' + data.error;
+            errorDiv.textContent = 'Failed to fetch TOTP QR code: ' + data.error;
           }
         })
         .catch(error => {
           console.error('Error fetching TOTP secret:', error);
-          document.getElementById('error').textContent = 'Error fetching TOTP secret: ' + error.message;
+          errorDiv.textContent = 'Error fetching TOTP secret: ' + error.message;
         });
+    }
+
+    const ws = new WebSocket('wss://signaling-server-zc6m.onrender.com');
+    ws.onopen = () => {
+      console.log('WebSocket opened for admin');
+      fetchQRCode();
     };
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
@@ -181,6 +201,9 @@
         return;
       }
       ws.send(JSON.stringify({ type: 'toggle-feature', feature, secret, totp }));
+    }
+    function refreshQRCode() {
+      fetchQRCode();
     }
   </script>
 </body>
