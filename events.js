@@ -125,9 +125,21 @@ socket.onmessage = async (event) => {
           socket.send(JSON.stringify({ type: 'refresh-token', clientId, refreshToken }));
         } else {
           console.error('No refresh token available, forcing reconnect');
+          stopKeepAlive();
           socket.close();
         }
-      } else if (message.message.includes('Chat is full') || message.message.includes('Username already taken') || message.message.includes('Initiator offline') || message.message.includes('Token revoked')) {
+      } else if (message.message.includes('Token revoked') || message.message.includes('Invalid or expired refresh token')) {
+        showStatusMessage('Session expired. Reconnecting...');
+        stopKeepAlive();
+        socket.close();
+      } else if (message.message.includes('Rate limit exceeded')) {
+        showStatusMessage('Rate limit exceeded. Waiting before retrying...');
+        stopKeepAlive();
+        setTimeout(() => {
+          socket.send(JSON.stringify({ type: 'connect', clientId }));
+          startKeepAlive();
+        }, 60000);
+      } else if (message.message.includes('Chat is full') || message.message.includes('Username already taken') || message.message.includes('Initiator offline')) {
         socket.send(JSON.stringify({ type: 'leave', code, clientId, token }));
         initialContainer.classList.remove('hidden');
         usernameContainer.classList.add('hidden');
@@ -150,12 +162,12 @@ socket.onmessage = async (event) => {
       clientId = message.clientId;
       maxClients = Math.min(message.maxClients, 10);
       isInitiator = message.isInitiator;
-      features = message.features || features; // New: Handle features from init
+      features = message.features || features;
       totalClients = 1;
       console.log(`Initialized client ${clientId}, username: ${username}, maxClients: ${maxClients}, isInitiator: ${isInitiator}, features:`, features);
       usernames.set(clientId, username);
       initializeMaxClientsUI();
-      updateFeaturesUI(); // New: Update UI based on features
+      updateFeaturesUI();
       if (isInitiator) {
         isConnected = true;
         roomKey = await window.crypto.subtle.generateKey(
@@ -303,13 +315,13 @@ socket.onmessage = async (event) => {
       messages.scrollTop = 0;
     }
 
-    // New: Handle features-update broadcast
     if (message.type === 'features-update') {
       features = message;
       console.log('Received features update:', features);
       updateFeaturesUI();
       if (!features.enableService) {
         showStatusMessage('Service disabled by admin. Disconnecting...');
+        stopKeepAlive();
         socket.close();
       }
     }
