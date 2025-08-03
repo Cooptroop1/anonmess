@@ -247,4 +247,74 @@ const usedIVs = new Set();
 async function encrypt(text) {
   let iv = window.crypto.getRandomValues(new Uint8Array(12));
   let ivBase64 = arrayBufferToBase64(iv);
-  // Ensure IV uniqueness (reg
+  // Ensure IV uniqueness (regenerate if collision, though improbable)
+  while (usedIVs.has(ivBase64)) {
+    iv = window.crypto.getRandomValues(new Uint8Array(12));
+    ivBase64 = arrayBufferToBase64(iv);
+  }
+  usedIVs.add(ivBase64);
+  const encoded = new TextEncoder().encode(text);
+  const encrypted = await window.crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    roomKey,
+    encoded
+  );
+  return { encrypted: arrayBufferToBase64(encrypted), iv: ivBase64 };
+}
+async function decrypt(encrypted, iv) {
+  const decoded = await window.crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: base64ToArrayBuffer(iv) },
+    roomKey,
+    base64ToArrayBuffer(encrypted)
+  );
+  return new TextDecoder().decode(decoded);
+}
+async function encryptBytes(key, data) {
+  let iv = window.crypto.getRandomValues(new Uint8Array(12));
+  let ivBase64 = arrayBufferToBase64(iv);
+  // Ensure IV uniqueness
+  while (usedIVs.has(ivBase64)) {
+    iv = window.crypto.getRandomValues(new Uint8Array(12));
+    ivBase64 = arrayBufferToBase64(iv);
+  }
+  usedIVs.add(ivBase64);
+  const encrypted = await window.crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    data
+  );
+  return { encrypted: arrayBufferToBase64(encrypted), iv: ivBase64 };
+}
+async function decryptBytes(key, encrypted, iv) {
+  return window.crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: base64ToArrayBuffer(iv) },
+    key,
+    base64ToArrayBuffer(encrypted)
+  );
+}
+async function deriveSharedKey(privateKey, publicKey) {
+  return await window.crypto.subtle.deriveKey(
+    { name: 'ECDH', public: publicKey },
+    privateKey,
+    { name: 'AES-GCM', length: 256 },
+    true,
+    ['encrypt', 'decrypt']
+  );
+}
+async function encryptRaw(key, data) {
+  let iv = window.crypto.getRandomValues(new Uint8Array(12));
+  let ivBase64 = arrayBufferToBase64(iv);
+  // Ensure IV uniqueness
+  while (usedIVs.has(ivBase64)) {
+    iv = window.crypto.getRandomValues(new Uint8Array(12));
+    ivBase64 = arrayBufferToBase64(iv);
+  }
+  usedIVs.add(ivBase64);
+  const encoded = new TextEncoder().encode(data); // Encode string to bytes
+  const encrypted = await window.crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    encoded
+  );
+  return { encrypted: arrayBufferToBase64(encrypted), iv: ivBase64 };
+}
