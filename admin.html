@@ -79,29 +79,42 @@
     <h1>Anonomoose Admin Dashboard</h1>
     <div id="instructions">
       <p><strong>TOTP Setup Instructions:</strong></p>
-      <p>1. Scan the QR code below with an authenticator app (e.g., Google Authenticator, Authy).</p>
-      <p>2. The app will generate a 6-digit code every 30 seconds.</p>
-      <p>3. Enter your admin secret and the current TOTP code to authenticate.</p>
-      <p>4. You only need to scan the QR code once unless you reset your app or the server secret changes.</p>
-      <p><strong>Note:</strong> Ensure your device's clock is synced (enable automatic time in settings).</p>
+      <p>1. Scan the QR code or enter the manual secret in your authenticator app (e.g., Google Authenticator, Authy).</p>
+      <p>2. The app generates a 6-digit code every 30 seconds.</p>
+      <p>3. Enter your admin secret (HA5EEKBRONGT4WBQJJ3CUKJROMYECQ2N) and the current TOTP code to authenticate.</p>
+      <p>4. You only need to scan the QR code once unless the server secret changes (e.g., after redeploy).</p>
+      <p><strong>Note:</strong> Ensure your device's clock is synced to UTC (Settings > Date & Time > Automatic). Current UTC time: <span id="utcTime"></span></p>
     </div>
     <div class="input-group">
       <label for="adminSecret">Admin Secret</label>
-      <input type="password" id="adminSecret" placeholder="Enter admin secret">
+      <input type="password" id="adminSecret" value="HA5EEKBRONGT4WBQJJ3CUKJROMYECQ2N" placeholder="Enter admin secret">
     </div>
     <div class="input-group">
       <label for="totpCode">TOTP Code</label>
       <input type="text" id="totpCode" placeholder="Enter 6-digit TOTP code">
     </div>
+    <div class="input-group">
+      <label for="manualSecret">Manual TOTP Secret (Optional)</label>
+      <input type="text" id="manualSecret" placeholder="Enter base32 secret from server logs">
+    </div>
     <button onclick="getStats()">Get Stats</button>
     <button onclick="getFeatures()">Get Features</button>
-    <button onclick="refreshQRCode()">Refresh QR Code</button>
+    <button onclick="toggleQRCode()">Show/Hide QR Code & Secret</button>
     <div id="stats"></div>
     <div id="features"></div>
     <div id="error"></div>
-    <div id="qrCode"></div>
+    <div id="qrCode" style="display: none;"></div>
   </div>
   <script>
+    // Display current UTC time
+    function updateUTCTime() {
+      const now = new Date();
+      const utcTime = now.toUTCString();
+      document.getElementById('utcTime').textContent = utcTime;
+    }
+    updateUTCTime();
+    setInterval(updateUTCTime, 1000);
+
     function fetchQRCode() {
       const errorDiv = document.getElementById('error');
       fetch('https://signaling-server-zc6m.onrender.com/totp-secret')
@@ -112,9 +125,13 @@
           return response.json();
         })
         .then(data => {
-          if (data.qrCode) {
+          if (data.qrCode && data.base32) {
             const qrCodeDiv = document.getElementById('qrCode');
-            qrCodeDiv.innerHTML = `<p>Scan this QR code with your authenticator app:</p><img src="${data.qrCode}" alt="TOTP QR Code">`;
+            qrCodeDiv.innerHTML = `
+              <p>Scan this QR code with your authenticator app:</p>
+              <img src="${data.qrCode}" alt="TOTP QR Code">
+              <p>Or enter this secret manually: ${data.base32}</p>
+            `;
             errorDiv.textContent = '';
           } else {
             console.error('Failed to fetch TOTP QR code:', data.error);
@@ -127,10 +144,20 @@
         });
     }
 
+    function toggleQRCode() {
+      const qrCodeDiv = document.getElementById('qrCode');
+      if (qrCodeDiv.style.display === 'none') {
+        fetchQRCode();
+        qrCodeDiv.style.display = 'block';
+      } else {
+        qrCodeDiv.style.display = 'none';
+        qrCodeDiv.innerHTML = '';
+      }
+    }
+
     const ws = new WebSocket('wss://signaling-server-zc6m.onrender.com');
     ws.onopen = () => {
       console.log('WebSocket opened for admin');
-      fetchQRCode();
     };
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
@@ -202,9 +229,13 @@
       }
       ws.send(JSON.stringify({ type: 'toggle-feature', feature, secret, totp }));
     }
-    function refreshQRCode() {
-      fetchQRCode();
-    }
+    // Set up manual secret input
+    document.getElementById('manualSecret').addEventListener('change', (event) => {
+      const manualSecret = event.target.value.trim();
+      if (manualSecret) {
+        alert('Manual secret entered. Add this to your authenticator app under "Enter a setup key" and use the generated TOTP codes.');
+      }
+    });
   </script>
 </body>
 </html>
