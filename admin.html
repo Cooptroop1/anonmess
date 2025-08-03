@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -104,7 +103,7 @@
     let token = '';
     let reconnectAttempts = 0;
     const maxReconnectAttempts = 5;
-    let lastToggleTime = 0; // New: For debouncing toggles
+    let lastToggleTime = 0;
 
     if (localStorage.getItem('clientId')) {
       clientId = localStorage.getItem('clientId');
@@ -139,7 +138,7 @@
 
     function toggleFeature(feature) {
       const now = Date.now();
-      if (now - lastToggleTime < 1000) { // New: Debounce 1s
+      if (now - lastToggleTime < 1000) {
         showStatusMessage('Please wait before toggling again.', 2000);
         return;
       }
@@ -223,6 +222,11 @@
             statusElement.textContent = 'Service is disabled. Toggle to re-enable.';
           }
         } else if (data.type === 'error') {
+          // New: Ignore service disabled error for admins
+          if (data.message.includes('Service has been disabled by admin.')) {
+            statusElement.textContent = 'Service is disabled. Toggle to re-enable.';
+            return;
+          }
           statsDisplay.innerHTML = '';
           statsDisplay.classList.add('hidden');
           featuresContainer.classList.add('hidden');
@@ -245,7 +249,7 @@
               if (socket.readyState === WebSocket.OPEN && token) {
                 fetchStatsAndFeatures();
               }
-            }, 5000); // Retry after 5s instead of closing
+            }, 5000);
           }
         }
       } catch (error) {
