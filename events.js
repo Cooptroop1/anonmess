@@ -1,3 +1,5 @@
+// Keepalive timer ID
+let keepAliveTimer = null;
 // Reconnection attempt counter for exponential backoff
 let reconnectAttempts = 0;
 // Image rate limiting
@@ -73,20 +75,27 @@ if (typeof window !== 'undefined') {
       ['deriveKey']
     );
   })();
-  let cycleTimeout;
-  function triggerCycle() {
-    if (cycleTimeout) clearTimeout(cycleTimeout);
-    cornerLogo.classList.add('wink');
-    cycleTimeout = setTimeout(() => {
-      cornerLogo.classList.remove('wink');
-    }, 500);
-    setTimeout(() => triggerCycle(), 60000);
-  }
-  setTimeout(() => triggerCycle(), 60000);
   document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM loaded, initializing maxClients UI');
     initializeMaxClientsUI();
   });
+}
+// Keepalive function to prevent WebSocket timeout
+function startKeepAlive() {
+  if (keepAliveTimer) clearInterval(keepAliveTimer);
+  keepAliveTimer = setInterval(() => {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: 'ping', clientId, token }));
+      log('info', 'Sent keepalive ping');
+    }
+  }, 20000);
+}
+function stopKeepAlive() {
+  if (keepAliveTimer) {
+    clearInterval(keepLiveTimer);
+    keepAliveTimer = null;
+    log('info', 'Stopped keepalive');
+  }
 }
 // Event handlers and listeners
 helpText.addEventListener('click', () => {
@@ -365,34 +374,45 @@ socket.onmessage = async (event) => {
     if ((message.type === 'message' || message.type === 'image' || message.type === 'voice') && useRelay) {
       if (processedMessageIds.has(message.messageId)) return;
       processedMessageIds.add(message.messageId);
-      const senderUsername = message.username;
+      let payload;
+      try {
+        // Decrypt relay mode messages
+        const encryptedData = message.encryptedContent || message.encryptedData;
+        const decrypted = await decrypt(encryptedData, message.iv);
+        payload = JSON.parse(decrypted);
+      } catch (error) {
+        console.error('Error decrypting relay message:', error);
+        showStatusMessage('Failed to decrypt message.');
+        return;
+      }
+      const senderUsername = payload.username;
       const messages = document.getElementById('messages');
       const isSelf = senderUsername === username;
       const messageDiv = document.createElement('div');
       messageDiv.className = `message-bubble ${isSelf ? 'self' : 'other'}`;
       const timeSpan = document.createElement('span');
       timeSpan.className = 'timestamp';
-      timeSpan.textContent = new Date(message.timestamp).toLocaleTimeString();
+      timeSpan.textContent = new Date(payload.timestamp).toLocaleTimeString();
       messageDiv.appendChild(timeSpan);
       messageDiv.appendChild(document.createTextNode(`${senderUsername}: `));
-      if (message.type === 'image') {
+      if (payload.type === 'image') {
         const img = document.createElement('img');
-        img.src = message.data;
+        img.src = payload.data;
         img.style.maxWidth = '100%';
         img.style.borderRadius = '0.5rem';
         img.style.cursor = 'pointer';
         img.setAttribute('alt', 'Received image');
-        img.addEventListener('click', () => createImageModal(message.data, 'messageInput'));
+        img.addEventListener('click', () => createImageModal(payload.data, 'messageInput'));
         messageDiv.appendChild(img);
-      } else if (message.type === 'voice') {
+      } else if (payload.type === 'voice') {
         const audio = document.createElement('audio');
-        audio.src = message.data;
+        audio.src = payload.data;
         audio.controls = true;
         audio.setAttribute('alt', 'Received voice message');
-        audio.addEventListener('click', () => createAudioModal(message.data, 'messageInput'));
+        audio.addEventListener('click', () => createAudioModal(payload.data, 'messageInput'));
         messageDiv.appendChild(audio);
       } else {
-        messageDiv.appendChild(document.createTextNode(sanitizeMessage(message.content)));
+        messageDiv.appendChild(document.createTextNode(sanitizeMessage(payload.content)));
       }
       messages.prepend(messageDiv);
       messages.scrollTop = 0;
