@@ -39,6 +39,9 @@ let refreshToken = '';
 let features = { enableService: true, enableImages: true, enableVoice: true, enableVoiceCalls: true }; // Global features state
 let keyPair;
 let roomKey;
+let remoteAudios = new Map();
+let refreshingToken = false;
+let signalingQueue = new Map();
 // Declare UI variables globally
 let socket, statusElement, codeDisplayElement, copyCodeButton, initialContainer, usernameContainer, connectContainer, chatContainer, newSessionButton, maxClientsContainer, inputContainer, messages, cornerLogo, button2, helpText, helpModal;
 if (typeof window !== 'undefined') {
@@ -204,17 +207,19 @@ socket.onmessage = async (event) => {
                 pendingJoin = null;
             }
             processSignalingQueue();
+            refreshingToken = false;
             return;
         }
         if (message.type === 'error') {
             showStatusMessage(message.message);
             console.error('Server error:', message.message);
             if (message.message.includes('Invalid or expired token') || message.message.includes('Missing authentication token')) {
-                if (refreshToken) {
+                if (refreshToken && !refreshingToken) {
+                    refreshingToken = true;
                     console.log('Attempting to refresh token');
                     socket.send(JSON.stringify({ type: 'refresh-token', clientId, refreshToken }));
                 } else {
-                    console.error('No refresh token available, forcing reconnect');
+                    console.error('No refresh token available or refresh in progress, forcing reconnect');
                     stopKeepAlive();
                     socket.close();
                 }
@@ -428,11 +433,12 @@ socket.onmessage = async (event) => {
 };
 // New: Function to refresh access token proactively
 function refreshAccessToken() {
-    if (socket.readyState === WebSocket.OPEN && refreshToken) {
+    if (socket.readyState === WebSocket.OPEN && refreshToken && !refreshingToken) {
+        refreshingToken = true;
         console.log('Proactively refreshing access token');
         socket.send(JSON.stringify({ type: 'refresh-token', clientId, refreshToken }));
     } else {
-        console.log('Cannot refresh token: WebSocket not open or no refresh token');
+        console.log('Cannot refresh token: WebSocket not open, no refresh token, or refresh in progress');
     }
 }
 document.getElementById('startChatToggleButton').onclick = () => {
@@ -729,6 +735,7 @@ document.getElementById('newSessionButton').onclick = () => {
     remoteAudios.forEach(audio => audio.remove());
     remoteAudios.clear();
     signalingQueue.clear();
+    refreshingToken = false;
 };
 document.getElementById('usernameInput').addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {
