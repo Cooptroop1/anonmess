@@ -92,9 +92,7 @@ async function sendMedia(file, type) {
             return;
         }
         const { encrypted, iv } = await encrypt(jsonString);
-        if (socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify({ type: `relay-${type}`, code, clientId, token, encryptedData: encrypted, iv }));
-        }
+        sendRelayMessage(`relay-${type}`, { encryptedData: encrypted, iv, messageId });
     } else if (dataChannels.size > 0) {
         dataChannels.forEach((dataChannel) => {
             if (dataChannel.readyState === 'open') {
@@ -487,9 +485,7 @@ async function sendMessage(content) {
                 return;
             }
             const { encrypted, iv } = await encrypt(jsonString);
-            if (socket.readyState === WebSocket.OPEN) {
-                socket.send(JSON.stringify({ type: 'relay-message', code, clientId, token, encryptedContent: encrypted, iv }));
-            }
+            sendRelayMessage('relay-message', { encryptedContent: encrypted, iv, messageId });
         } else {
             dataChannels.forEach((dataChannel, targetId) => {
                 if (dataChannel.readyState === 'open') {
@@ -584,11 +580,11 @@ async function renegotiate(targetId) {
     }
 }
 function sendSignalingMessage(type, additionalData) {
-    if (!token) {
-        console.log('No token, refreshing and queuing signaling message');
-        refreshAccessToken();
+    if (!token || refreshingToken) {
+        console.log('Token missing or refresh in progress, queuing signaling message');
         if (!signalingQueue.has('global')) signalingQueue.set('global', []);
         signalingQueue.get('global').push({ type, additionalData });
+        if (!refreshingToken) refreshAccessToken();
         return;
     }
     const message = { type, ...additionalData, code, clientId, token };
@@ -607,11 +603,32 @@ function broadcastVoiceCallEvent(eventType) {
         }
     });
 }
+function sendRelayMessage(type, additionalData) {
+    if (!token || refreshingToken) {
+        console.log('Token missing or refresh in progress, queuing relay message');
+        if (!signalingQueue.has('global')) signalingQueue.set('global', []);
+        signalingQueue.get('global').push({ type, additionalData });
+        if (!refreshingToken) refreshAccessToken();
+        return;
+    }
+    const message = { type, ...additionalData, code, clientId, token };
+    if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify(message));
+    } else {
+        console.log('Socket not open, queuing relay message');
+        if (!signalingQueue.has('global')) signalingQueue.set('global', []);
+        signalingQueue.get('global').push({ type, additionalData });
+    }
+}
 function processSignalingQueue() {
     signalingQueue.forEach((queue, key) => {
         while (queue.length > 0) {
             const { type, additionalData } = queue.shift();
-            sendSignalingMessage(type, additionalData);
+            if (type.startsWith('relay-')) {
+                sendRelayMessage(type, additionalData);
+            } else {
+                sendSignalingMessage(type, additionalData);
+            }
         }
     });
     signalingQueue.clear();
