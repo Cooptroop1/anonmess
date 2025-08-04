@@ -39,7 +39,6 @@ let refreshToken = '';
 let features = { enableService: true, enableImages: true, enableVoice: true, enableVoiceCalls: true }; // Global features state
 let keyPair;
 let roomKey;
-let remoteAudios = new Map();
 // Declare UI variables globally
 let socket, statusElement, codeDisplayElement, copyCodeButton, initialContainer, usernameContainer, connectContainer, chatContainer, newSessionButton, maxClientsContainer, inputContainer, messages, cornerLogo, button2, helpText, helpModal;
 if (typeof window !== 'undefined') {
@@ -366,7 +365,7 @@ socket.onmessage = async (event) => {
                 roomKey = await window.crypto.subtle.importKey(
                     'raw',
                     roomKeyRaw,
-                    { name: 'AES-GCM'},
+                    { name: 'AES-GCM' },
                     true,
                     ['encrypt', 'decrypt']
                 );
