@@ -4,8 +4,6 @@ let turnUsername = '';
 let turnCredential = '';
 let localStream = null;
 let voiceCallActive = false;
-let remoteAudios = new Map();
-let signalingQueue = new Map(); // Map of targetId to array of pending messages
 
 async function sendMedia(file, type) {
     const validTypes = {
@@ -314,6 +312,18 @@ function setupDataChannel(dataChannel, targetId) {
             showStatusMessage('Invalid message received.');
             return;
         }
+        if (data.type === 'voice-call-start') {
+            if (!voiceCallActive) {
+                startVoiceCall();
+            }
+            return;
+        }
+        if (data.type === 'voice-call-end') {
+            if (voiceCallActive) {
+                stopVoiceCall();
+            }
+            return;
+        }
         if (!data.messageId || !data.username || (!data.content && !data.data)) {
             console.log(`Invalid message format from ${targetId}:`, data);
             return;
@@ -514,8 +524,10 @@ async function toggleVoiceCall() {
     }
     if (voiceCallActive) {
         stopVoiceCall();
+        broadcastVoiceCallEvent('voice-call-end');
     } else {
         startVoiceCall();
+        broadcastVoiceCallEvent('voice-call-start');
     }
 }
 async function startVoiceCall() {
@@ -587,6 +599,13 @@ function sendSignalingMessage(type, additionalData) {
         if (!signalingQueue.has('global')) signalingQueue.set('global', []);
         signalingQueue.get('global').push({ type, additionalData });
     }
+}
+function broadcastVoiceCallEvent(eventType) {
+    dataChannels.forEach((dataChannel) => {
+        if (dataChannel.readyState === 'open') {
+            dataChannel.send(JSON.stringify({ type: eventType }));
+        }
+    });
 }
 function processSignalingQueue() {
     signalingQueue.forEach((queue, key) => {
