@@ -228,10 +228,13 @@ function startPeerConnection(targetId, isOfferer) {
     };
     peerConnection.ontrack = (event) => {
         console.log(`Received remote track from ${targetId}`);
-        const remoteAudio = document.getElementById('remoteAudio');
-        if (remoteAudio) {
-            remoteAudio.srcObject = event.streams[0];
-            remoteAudio.play().catch(error => console.error('Error playing remote audio:', error));
+        if (!remoteAudios.has(targetId)) {
+            const audio = document.createElement('audio');
+            audio.srcObject = event.streams[0];
+            audio.autoplay = true;
+            audio.play().catch(error => console.error('Error playing remote audio:', error));
+            remoteAudios.set(targetId, audio);
+            document.getElementById('remoteAudioContainer').appendChild(audio);
             document.getElementById('remoteAudioContainer').classList.remove('hidden');
         }
     };
@@ -518,15 +521,15 @@ async function startVoiceCall() {
     }
     try {
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        peerConnections.forEach(peerConnection => {
+        peerConnections.forEach((peerConnection, targetId) => {
             localStream.getTracks().forEach(track => {
                 peerConnection.addTrack(track, localStream);
             });
+            renegotiate(targetId);
         });
         voiceCallActive = true;
         document.getElementById('voiceCallButton').classList.add('active');
         document.getElementById('voiceCallButton').title = 'End Voice Call';
-        document.getElementById('remoteAudioContainer').classList.remove('hidden');
         showStatusMessage('Voice call started.');
     } catch (error) {
         console.error('Error starting voice call:', error);
@@ -538,19 +541,33 @@ function stopVoiceCall() {
         localStream.getTracks().forEach(track => track.stop());
         localStream = null;
     }
-    peerConnections.forEach(peerConnection => {
+    peerConnections.forEach((peerConnection, targetId) => {
         peerConnection.getSenders().forEach(sender => {
             if (sender.track && sender.track.kind === 'audio') {
                 peerConnection.removeTrack(sender);
             }
         });
+        renegotiate(targetId);
     });
     voiceCallActive = false;
     document.getElementById('voiceCallButton').classList.remove('active');
     document.getElementById('voiceCallButton').title = 'Start Voice Call';
-    document.getElementById('remoteAudio').srcObject = null;
-    document.getElementById('remoteAudioContainer').classList.add('hidden');
     showStatusMessage('Voice call ended.');
+}
+async function renegotiate(targetId) {
+    const peerConnection = peerConnections.get(targetId);
+    if (peerConnection && peerConnection.signalingState === 'stable') {
+        try {
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            if (socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code, targetId, clientId, token }));
+            }
+        } catch (error) {
+            console.error(`Error renegotiating with ${targetId}:`, error);
+            showStatusMessage('Failed to renegotiate peer connection.');
+        }
+    }
 }
 async function autoConnect(codeParam) {
     console.log('autoConnect running with code:', codeParam);
