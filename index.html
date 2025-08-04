@@ -514,12 +514,14 @@
         }
         #remoteAudioContainer {
             display: none;
+            flex-wrap: wrap;
             justify-content: center;
             margin-top: 0.5rem;
         }
         #remoteAudioContainer audio {
             width: 100%;
             max-width: 300px;
+            margin: 0.5rem;
         }
     </style>
 </head>
@@ -561,9 +563,7 @@
                     <span id="voiceTimer" aria-live="assertive"></span>
                     <button id="sendButton" aria-label="Send message">📤</button>
                 </div>
-                <div id="remoteAudioContainer" class="hidden">
-                    <audio id="remoteAudio" autoplay></audio>
-                </div>
+                <div id="remoteAudioContainer" class="hidden"></div>
             </div>
             <div id="connectContainer" class="hidden">
                 <label for="usernameConnectInput" class="sr-only">Enter your username</label>
