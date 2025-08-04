@@ -67,6 +67,14 @@ function cleanupPeerConnection(targetId) {
     messageRateLimits.delete(targetId);
     imageRateLimits.delete(targetId);
     voiceRateLimits.delete(targetId);
+    if (remoteAudios.has(targetId)) {
+        const audio = remoteAudios.get(targetId);
+        audio.remove();
+        remoteAudios.delete(targetId);
+        if (remoteAudios.size === 0) {
+            document.getElementById('remoteAudioContainer').classList.add('hidden');
+        }
+    }
     isConnected = dataChannels.size > 0;
     updateMaxClientsUI();
     if (!isConnected) {
