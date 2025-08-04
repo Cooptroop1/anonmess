@@ -39,6 +39,7 @@ let refreshToken = '';
 let features = { enableService: true, enableImages: true, enableVoice: true, enableVoiceCalls: true }; // Global features state
 let keyPair;
 let roomKey;
+let remoteAudios = new Map();
 // Declare UI variables globally
 let socket, statusElement, codeDisplayElement, copyCodeButton, initialContainer, usernameContainer, connectContainer, chatContainer, newSessionButton, maxClientsContainer, inputContainer, messages, cornerLogo, button2, helpText, helpModal;
 if (typeof window !== 'undefined') {
@@ -293,6 +294,9 @@ socket.onmessage = async (event) => {
                 console.log(`Initiating peer connection with client ${message.clientId}`);
                 startPeerConnection(message.clientId, true);
             }
+            if (voiceCallActive) {
+                renegotiate(message.clientId);
+            }
         }
         if (message.type === 'client-disconnected') {
             totalClients = message.totalClients;
@@ -468,7 +472,7 @@ document.getElementById('joinWithUsernameButton').onclick = () => {
     statusElement.textContent = 'Waiting for connection...';
     if (socket.readyState === WebSocket.OPEN && token) {
         console.log('Sending join message for new chat');
-        socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
+        socket.send(JSON.stringify({ type: 'join', code, clientId, username, token}));
     } else {
         pendingJoin = { code, clientId, username };
         if (socket.readyState !== WebSocket.OPEN) {
@@ -711,6 +715,10 @@ document.getElementById('newSessionButton').onclick = () => {
     token = ''; // Clear token
     refreshToken = ''; // Clear refresh token
     document.getElementById('startChatToggleButton')?.focus();
+    // Clean up voice call
+    stopVoiceCall();
+    remoteAudios.forEach(audio => audio.remove());
+    remoteAudios.clear();
 };
 document.getElementById('usernameInput').addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {
