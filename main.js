@@ -4,6 +4,8 @@ let turnUsername = '';
 let turnCredential = '';
 let localStream = null;
 let voiceCallActive = false;
+let remoteAudios = new Map();
+let signalingQueue = new Map(); // Map of targetId to array of pending messages
 
 async function sendMedia(file, type) {
     const validTypes = {
@@ -180,9 +182,7 @@ function startPeerConnection(targetId, isOfferer) {
     peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
             console.log(`Sending ICE candidate to ${targetId} for code: ${code}`);
-            if (socket.readyState === WebSocket.OPEN) {
-                socket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate, code, targetId, clientId, token }));
-            }
+            sendSignalingMessage('candidate', { candidate: event.candidate, targetId });
         }
     };
     peerConnection.onicecandidateerror = (event) => {
@@ -254,9 +254,7 @@ function startPeerConnection(targetId, isOfferer) {
             return peerConnection.setLocalDescription(offer);
         }).then(() => {
             console.log(`Sending offer to ${targetId} for code: ${code}`);
-            if (socket.readyState === WebSocket.OPEN) {
-                socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code, targetId, clientId, token }));
-            }
+            sendSignalingMessage('offer', { offer: peerConnection.localDescription, targetId });
         }).catch(error => {
             console.error(`Error creating offer for ${targetId}:`, error);
             showStatusMessage('Failed to establish peer connection.');
@@ -375,6 +373,14 @@ function setupDataChannel(dataChannel, targetId) {
         messageRateLimits.delete(targetId);
         imageRateLimits.delete(targetId);
         voiceRateLimits.delete(targetId);
+        if (remoteAudios.has(targetId)) {
+            const audio = remoteAudios.get(targetId);
+            audio.remove();
+            remoteAudios.delete(targetId);
+            if (remoteAudios.size === 0) {
+                document.getElementById('remoteAudioContainer').classList.add('hidden');
+            }
+        }
         if (dataChannels.size === 0) {
             inputContainer.classList.add('hidden');
             messages.classList.add('waiting');
@@ -396,9 +402,7 @@ async function handleOffer(offer, targetId) {
         await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
-        if (socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify({ type: 'answer', answer: peerConnection.localDescription, code, targetId, clientId, token }));
-        }
+        sendSignalingMessage('answer', { answer: peerConnection.localDescription, targetId });
         const queue = candidatesQueues.get(targetId) || [];
         queue.forEach(candidate => {
             handleCandidate(candidate, targetId);
@@ -560,14 +564,38 @@ async function renegotiate(targetId) {
         try {
             const offer = await peerConnection.createOffer();
             await peerConnection.setLocalDescription(offer);
-            if (socket.readyState === WebSocket.OPEN) {
-                socket.send(JSON.stringify({ type: 'offer', offer: peerConnection.localDescription, code, targetId, clientId, token }));
-            }
+            sendSignalingMessage('offer', { offer: peerConnection.localDescription, targetId });
         } catch (error) {
             console.error(`Error renegotiating with ${targetId}:`, error);
             showStatusMessage('Failed to renegotiate peer connection.');
         }
     }
+}
+function sendSignalingMessage(type, additionalData) {
+    if (!token) {
+        console.log('No token, refreshing and queuing signaling message');
+        refreshAccessToken();
+        if (!signalingQueue.has('global')) signalingQueue.set('global', []);
+        signalingQueue.get('global').push({ type, additionalData });
+        return;
+    }
+    const message = { type, ...additionalData, code, clientId, token };
+    if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify(message));
+    } else {
+        console.log('Socket not open, queuing signaling message');
+        if (!signalingQueue.has('global')) signalingQueue.set('global', []);
+        signalingQueue.get('global').push({ type, additionalData });
+    }
+}
+function processSignalingQueue() {
+    signalingQueue.forEach((queue, key) => {
+        while (queue.length > 0) {
+            const { type, additionalData } = queue.shift();
+            sendSignalingMessage(type, additionalData);
+        }
+    });
+    signalingQueue.clear();
 }
 async function autoConnect(codeParam) {
     console.log('autoConnect running with code:', codeParam);
