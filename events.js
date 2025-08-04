@@ -190,6 +190,7 @@ socket.onmessage = async (event) => {
                 socket.send(JSON.stringify({ type: 'join', ...pendingJoin, token }));
                 pendingJoin = null;
             }
+            processSignalingQueue();
             return;
         }
         if (message.type === 'token-refreshed') {
@@ -203,12 +204,13 @@ socket.onmessage = async (event) => {
                 socket.send(JSON.stringify({ type: 'join', ...pendingJoin, token }));
                 pendingJoin = null;
             }
+            processSignalingQueue();
             return;
         }
         if (message.type === 'error') {
             showStatusMessage(message.message);
             console.error('Server error:', message.message);
-            if (message.message.includes('Invalid or expired token')) {
+            if (message.message.includes('Invalid or expired token') || message.message.includes('Missing authentication token')) {
                 if (refreshToken) {
                     console.log('Attempting to refresh token');
                     socket.send(JSON.stringify({ type: 'refresh-token', clientId, refreshToken }));
@@ -303,6 +305,14 @@ socket.onmessage = async (event) => {
             console.log(`Client ${message.clientId} disconnected from code: ${code}, total: ${totalClients}`);
             usernames.delete(message.clientId);
             cleanupPeerConnection(message.clientId);
+            if (remoteAudios.has(message.clientId)) {
+                const audio = remoteAudios.get(message.clientId);
+                audio.remove();
+                remoteAudios.delete(message.clientId);
+                if (remoteAudios.size === 0) {
+                    document.getElementById('remoteAudioContainer').classList.add('hidden');
+                }
+            }
             updateMaxClientsUI();
             if (totalClients <= 1) {
                 inputContainer.classList.add('hidden');
@@ -356,7 +366,7 @@ socket.onmessage = async (event) => {
                 roomKey = await window.crypto.subtle.importKey(
                     'raw',
                     roomKeyRaw,
-                    { name: 'AES-GCM' },
+                    { name: 'AES-GCM'},
                     true,
                     ['encrypt', 'decrypt']
                 );
@@ -472,7 +482,7 @@ document.getElementById('joinWithUsernameButton').onclick = () => {
     statusElement.textContent = 'Waiting for connection...';
     if (socket.readyState === WebSocket.OPEN && token) {
         console.log('Sending join message for new chat');
-        socket.send(JSON.stringify({ type: 'join', code, clientId, username, token}));
+        socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
     } else {
         pendingJoin = { code, clientId, username };
         if (socket.readyState !== WebSocket.OPEN) {
@@ -719,6 +729,7 @@ document.getElementById('newSessionButton').onclick = () => {
     stopVoiceCall();
     remoteAudios.forEach(audio => audio.remove());
     remoteAudios.clear();
+    signalingQueue.clear();
 };
 document.getElementById('usernameInput').addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {
