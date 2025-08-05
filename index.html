@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -421,19 +422,21 @@
             }
             #maxClientsContainer {
                 min-height: calc(100% + 37.8px);
-                margin-top: -50px;
+                margin-top: -50px; /* Adjusted from 145px to 50px */
             }
         }
+
         @media (min-width: 641px) and (max-width: 1024px) {
             .bg-white {
                 margin-top: -165px;
             }
             #maxClientsContainer {
-                margin-top: -50px;
+                margin-top: -50px; /* Adjusted from 145px to 50px */
             }
         }
         #maxClientsContainer {
             margin-top: 145px;
+        }
         }
         @media (max-width: 640px) {
             .button-group {
@@ -480,6 +483,7 @@
             display: block !important;
             visibility: visible !important;
         }
+        /* Desktop-specific styles for maxClientsRadios */
         @media (min-width: 641px) {
             #maxClientsRadios {
                 display: flex;
@@ -595,6 +599,7 @@
     </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js" integrity="sha512-jB0TkTBeQC9ZSkBqDhdmfTv1qdfbWpGE72yJ/01Srq6hEzZIz2xkz1e57p9ai7IeHMwEG7HpzG6NdptChif5Pg==" crossorigin="anonymous"></script>
     <script src="utils.js"></script>
+    <script src="init.js"></script>
     <script src="main.js"></script>
     <script src="events.js"></script>
 </body>
