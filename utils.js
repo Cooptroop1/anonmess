@@ -52,11 +52,14 @@ function cleanupPeerConnection(targetId) {
     log('info', `Skipping cleanup for ${targetId}: data channel is open`);
     return;
   }
+  log('info', `Cleanup called for ${targetId} from: ${new Error().stack.split('\n')[2].trim()}`); // Log caller for tracing
   if (peerConnection) {
     peerConnection.close();
     peerConnections.delete(targetId);
   }
-  if (dataChannel && dataChannel.readyState !== 'closed' && dataChannel.readyState !== 'closing') {
+  if (dataChannel && dataChannel.readyState === 'open') {
+    log('info', `Skipping close for ${targetId}: state is ${dataChannel.readyState}`);
+  } else if (dataChannel && dataChannel.readyState !== 'closed') {
     dataChannel.close();
   }
   dataChannels.delete(targetId);
