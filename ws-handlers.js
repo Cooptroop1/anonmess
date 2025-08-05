@@ -7,8 +7,8 @@ import {
   roomKey, remoteAudios, refreshingToken, signalingQueue, reconnectAttempts,
   imageRateLimits, voiceRateLimits, globalMessageRate, pendingCode, pendingJoin
 } from './state.js';
-import { showStatusMessage, startKeepAlive, stopKeepAlive, cleanupPeerConnection, initializeMaxClientsUI, updateMaxClientsUI, updateFeaturesUI, createImageModal, createAudioModal, sanitizeMessage, importPublicKey, exportPublicKey, deriveSharedKey, encryptRaw, decryptBytes } from './utils.js';
-import { startPeerConnection, handleOffer, handleAnswer, handleCandidate, renegotiate, sendMessage, stopVoiceCall, processSignalingQueue, autoConnect } from './main.js';
+import { showStatusMessage, startKeepAlive, stopKeepAlive, cleanupPeerConnection, initializeMaxClientsUI, createImageModal, createAudioModal, sanitizeMessage, importPublicKey, exportPublicKey, deriveSharedKey, encryptRaw, decryptBytes } from './utils.js';
+import { startPeerConnection, handleOffer, handleAnswer, handleCandidate, renegotiate, sendMessage, stopVoiceCall, processSignalingQueue, autoConnect, updateFeaturesUI } from './main.js';
 import { refreshAccessToken } from './ui-events.js';
 
 export let socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
@@ -134,7 +134,7 @@ socket.onmessage = async (event) => {
             startKeepAlive();
           }
         }, 60000);
-      } else if (message.message.includes('Chat is full') || message.message.includes('Username already taken') || message.message.includes('Initiator offline')) {
+      } else if (message.message.includes('Chat is full') || message.message.message.includes('Username already taken') || message.message.includes('Initiator offline')) {
         socket.send(JSON.stringify({ type: 'leave', code, clientId, token }));
         initialContainer.classList.remove('hidden');
         usernameContainer.classList.add('hidden');
