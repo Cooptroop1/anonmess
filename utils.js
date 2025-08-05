@@ -9,23 +9,28 @@ function showStatusMessage(message, duration = 3000) {
         }, duration);
     }
 }
+
 // Sanitize message content to prevent XSS
 function sanitizeMessage(content) {
     const div = document.createElement('div');
     div.textContent = content;
     return div.innerHTML.replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
+
 function generateMessageId() {
     return Math.random().toString(36).substr(2, 9);
 }
+
 function validateUsername(username) {
     const regex = /^[a-zA-Z0-9]{1,16}$/;
     return username && regex.test(username);
 }
+
 function validateCode(code) {
     const regex = /^[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}$/;
     return code && regex.test(code);
 }
+
 // Keepalive timer ID
 let keepAliveTimer = null; // Moved from events.js to utils.js
 // Keepalive function to prevent WebSocket timeout
@@ -38,6 +43,7 @@ function startKeepAlive() {
         }
     }, 20000);
 }
+
 function stopKeepAlive() {
     if (keepAliveTimer) {
         clearInterval(keepAliveTimer);
@@ -45,6 +51,7 @@ function stopKeepAlive() {
         log('info', 'Stopped keepalive');
     }
 }
+
 function cleanupPeerConnection(targetId) {
     const peerConnection = peerConnections.get(targetId);
     const dataChannel = dataChannels.get(targetId);
@@ -82,6 +89,7 @@ function cleanupPeerConnection(targetId) {
         if (messages) messages.classList.add('waiting');
     }
 }
+
 function initializeMaxClientsUI() {
     log('info', 'initializeMaxClientsUI called, isInitiator:', isInitiator);
     if (!maxClientsContainer) {
@@ -115,6 +123,7 @@ function initializeMaxClientsUI() {
         maxClientsContainer.classList.add('hidden');
     }
 }
+
 function updateMaxClientsUI() {
     log('info', 'updateMaxClientsUI called, maxClients:', maxClients, 'isInitiator:', isInitiator);
     if (statusElement) {
@@ -138,6 +147,7 @@ function updateMaxClientsUI() {
         }
     }
 }
+
 function setMaxClients(n) {
     if (isInitiator && clientId && socket.readyState === WebSocket.OPEN && token) {
         maxClients = Math.min(n, 10);
@@ -148,6 +158,7 @@ function setMaxClients(n) {
         log('warn', 'setMaxClients failed: not initiator, no token, or socket not open');
     }
 }
+
 function log(level, ...msg) {
     const timestamp = new Date().toISOString();
     const fullMsg = `[${timestamp}] ${msg.join(' ')}`;
@@ -159,6 +170,7 @@ function log(level, ...msg) {
         console.log(fullMsg);
     }
 }
+
 function createImageModal(base64, focusId) {
     let modal = document.getElementById('imageModal');
     if (!modal) {
@@ -188,6 +200,7 @@ function createImageModal(base64, focusId) {
         }
     });
 }
+
 function createAudioModal(base64, focusId) {
     let modal = document.getElementById('audioModal');
     if (!modal) {
@@ -218,9 +231,11 @@ function createAudioModal(base64, focusId) {
         }
     });
 }
+
 function arrayBufferToBase64(buffer) {
     return btoa(String.fromCharCode(...new Uint8Array(buffer)));
 }
+
 function base64ToArrayBuffer(base64) {
     const binary = atob(base64);
     const bytes = new Uint8Array(binary.length);
@@ -229,6 +244,7 @@ function base64ToArrayBuffer(base64) {
     }
     return bytes.buffer;
 }
+
 async function encodeAudioToMp3(audioBlob) {
     const arrayBuffer = await audioBlob.arrayBuffer();
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -256,10 +272,12 @@ async function encodeAudioToMp3(audioBlob) {
     const mp3Blob = new Blob(mp3Data, { type: 'audio/mp3' });
     return mp3Blob;
 }
+
 async function exportPublicKey(key) {
     const exported = await window.crypto.subtle.exportKey('raw', key);
     return arrayBufferToBase64(exported);
 }
+
 async function importPublicKey(base64) {
     return window.crypto.subtle.importKey(
         'raw',
@@ -269,24 +287,56 @@ async function importPublicKey(base64) {
         []
     );
 }
-async function encrypt(text) {
+
+async function encrypt(text, master) {
+    const salt = window.crypto.getRandomValues(new Uint8Array(16));
+    const hkdfKey = await window.crypto.subtle.importKey(
+        'raw',
+        master,
+        { name: 'HKDF' },
+        false,
+        ['deriveKey']
+    );
+    const derivedKey = await window.crypto.subtle.deriveKey(
+        { name: 'HKDF', salt, info: new Uint8Array(0), hash: 'SHA-256' },
+        hkdfKey,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['encrypt', 'decrypt']
+    );
     const iv = window.crypto.getRandomValues(new Uint8Array(12));
     const encoded = new TextEncoder().encode(text);
     const encrypted = await window.crypto.subtle.encrypt(
         { name: 'AES-GCM', iv },
-        roomKey,
+        derivedKey,
         encoded
     );
-    return { encrypted: arrayBufferToBase64(encrypted), iv: arrayBufferToBase64(iv) };
+    return { encrypted: arrayBufferToBase64(encrypted), iv: arrayBufferToBase64(iv), salt: arrayBufferToBase64(salt) };
 }
-async function decrypt(encrypted, iv) {
+
+async function decrypt(encrypted, iv, salt, master) {
+    const hkdfKey = await window.crypto.subtle.importKey(
+        'raw',
+        master,
+        { name: 'HKDF' },
+        false,
+        ['deriveKey']
+    );
+    const derivedKey = await window.crypto.subtle.deriveKey(
+        { name: 'HKDF', salt: base64ToArrayBuffer(salt), info: new Uint8Array(0), hash: 'SHA-256' },
+        hkdfKey,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['encrypt', 'decrypt']
+    );
     const decoded = await window.crypto.subtle.decrypt(
         { name: 'AES-GCM', iv: base64ToArrayBuffer(iv) },
-        roomKey,
+        derivedKey,
         base64ToArrayBuffer(encrypted)
     );
     return new TextDecoder().decode(decoded);
 }
+
 async function encryptBytes(key, data) {
     const iv = window.crypto.getRandomValues(new Uint8Array(12));
     const encrypted = await window.crypto.subtle.encrypt(
@@ -296,6 +346,7 @@ async function encryptBytes(key, data) {
     );
     return { encrypted: arrayBufferToBase64(encrypted), iv: arrayBufferToBase64(iv) };
 }
+
 async function decryptBytes(key, encrypted, iv) {
     return window.crypto.subtle.decrypt(
         { name: 'AES-GCM', iv: base64ToArrayBuffer(iv) },
@@ -303,15 +354,15 @@ async function decryptBytes(key, encrypted, iv) {
         base64ToArrayBuffer(encrypted)
     );
 }
+
 async function deriveSharedKey(privateKey, publicKey) {
-    return await window.crypto.subtle.deriveKey(
+    return await window.crypto.subtle.deriveBits(
         { name: 'ECDH', public: publicKey },
         privateKey,
-        { name: 'AES-GCM', length: 256 },
-        true,
-        ['encrypt', 'decrypt']
+        256
     );
 }
+
 async function encryptRaw(key, data) {
     const iv = window.crypto.getRandomValues(new Uint8Array(12));
     const encoded = new TextEncoder().encode(data); // Encode string to bytes
