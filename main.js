@@ -729,18 +729,15 @@ function updateFeaturesUI() {
     const voiceButton = document.getElementById('voiceButton');
     const voiceCallButton = document.getElementById('voiceCallButton');
     if (imageButton) {
-        imageButton.disabled = !features.enableImages;
-        imageButton.style.opacity = features.enableImages ? 1 : 0.5; // Gray out visually
+        imageButton.classList.toggle('hidden', !features.enableImages);
         imageButton.title = features.enableImages ? 'Send Image' : 'Images disabled by admin';
     }
     if (voiceButton) {
-        voiceButton.disabled = !features.enableVoice;
-        voiceButton.style.opacity = features.enableVoice ? 1 : 0.5; // Gray out visually
+        voiceButton.classList.toggle('hidden', !features.enableVoice);
         voiceButton.title = features.enableVoice ? 'Record Voice' : 'Voice disabled by admin';
     }
     if (voiceCallButton) {
-        voiceCallButton.disabled = !features.enableVoiceCalls;
-        voiceCallButton.style.opacity = features.enableVoiceCalls ? 1 : 0.5;
+        voiceCallButton.classList.toggle('hidden', !features.enableVoiceCalls);
         voiceCallButton.title = features.enableVoiceCalls ? 'Start Voice Call' : 'Voice calls disabled by admin';
     }
     if (!features.enableService) {
