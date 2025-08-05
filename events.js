@@ -417,7 +417,7 @@ socket.onmessage = async (event) => {
         if (message.type === 'features-update') {
             features = message;
             console.log('Received features update:', features);
-            updateFeaturesUI();
+            setTimeout(updateFeaturesUI, 0);
             if (!features.enableService) {
                 showStatusMessage('Service disabled by admin. Disconnecting...');
                 stopKeepAlive();
