@@ -3,12 +3,13 @@
 import {
   code, clientId, username, isInitiator, isConnected, maxClients, totalClients,
   peerConnections, dataChannels, connectionTimeouts, retryCounts, candidatesQueues,
-  processedMessageIds, usernames, useRelay, token, refreshToken, features, keyPair,
-  roomKey, remoteAudios, refreshingToken, signalingQueue, reconnectAttempts,
-  imageRateLimits, voiceRateLimits, globalMessageRate, pendingCode, pendingJoin
+  processedMessageIds, usernames, useRelay, features, keyPair,
+  roomKey, remoteAudios, refreshingToken, signalingQueue, pendingCode, pendingJoin,
+  imageRateLimits, voiceRateLimits, globalMessageRate, getToken, setToken,
+  getRefreshToken, setRefreshToken, getReconnectAttempts, setReconnectAttempts
 } from './state.js';
-import { showStatusMessage, startKeepAlive, stopKeepAlive, cleanupPeerConnection, initializeMaxClientsUI, createImageModal, createAudioModal, sanitizeMessage, importPublicKey, exportPublicKey, deriveSharedKey, encryptRaw, decryptBytes } from './utils.js';
-import { startPeerConnection, handleOffer, handleAnswer, handleCandidate, renegotiate, sendMessage, stopVoiceCall, processSignalingQueue, autoConnect, updateFeaturesUI } from './main.js';
+import { showStatusMessage, startKeepAlive, stopKeepAlive, cleanupPeerConnection, initializeMaxClientsUI, updateMaxClientsUI, updateFeaturesUI, createImageModal, createAudioModal, sanitizeMessage, importPublicKey, exportPublicKey, deriveSharedKey, encryptRaw, decryptBytes } from './utils.js';
+import { startPeerConnection, handleOffer, handleAnswer, handleCandidate, renegotiate, sendMessage, stopVoiceCall, processSignalingQueue, autoConnect } from './main.js';
 import { refreshAccessToken } from './ui-events.js';
 
 export let socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
@@ -20,7 +21,7 @@ socket.onopen = () => {
   console.log('WebSocket opened');
   socket.send(JSON.stringify({ type: 'connect', clientId }));
   startKeepAlive();
-  reconnectAttempts = 0;
+  setReconnectAttempts(0);
   const urlParams = new URLSearchParams(window.location.search);
   const codeParam = urlParams.get('code');
   if (codeParam && validateCode(codeParam)) {
@@ -48,12 +49,12 @@ socket.onclose = () => {
   console.error('WebSocket closed, attempting reconnect');
   stopKeepAlive();
   showStatusMessage('Lost connection, reconnecting...');
-  if (reconnectAttempts >= maxReconnectAttempts) {
+  if (getReconnectAttempts() >= maxReconnectAttempts) {
     showStatusMessage('Max reconnect attempts reached. Please refresh the page.', 10000);
     return;
   }
-  const delay = Math.min(30000, 5000 * Math.pow(2, reconnectAttempts));
-  reconnectAttempts++;
+  const delay = Math.min(30000, 5000 * Math.pow(2, getReconnectAttempts()));
+  setReconnectAttempts(getReconnectAttempts() + 1);
   setTimeout(() => {
     socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
     socket.onopen = socket.onopen;
@@ -78,29 +79,29 @@ socket.onmessage = async (event) => {
       return;
     }
     if (message.type === 'connected') {
-      token = message.accessToken;
-      refreshToken = message.refreshToken;
-      console.log('Received authentication tokens:', { accessToken: token, refreshToken });
+      setToken(message.accessToken);
+      setRefreshToken(message.refreshToken);
+      console.log('Received authentication tokens:', { accessToken: getToken(), refreshToken: getRefreshToken() });
       setTimeout(refreshAccessToken, 5 * 60 * 1000);
       if (pendingCode) {
         autoConnect(pendingCode);
         pendingCode = null;
       }
       if (pendingJoin) {
-        socket.send(JSON.stringify({ type: 'join', ...pendingJoin, token }));
+        socket.send(JSON.stringify({ type: 'join', ...pendingJoin, token: getToken() }));
         pendingJoin = null;
       }
       processSignalingQueue();
       return;
     }
     if (message.type === 'token-refreshed') {
-      token = message.accessToken;
-      refreshToken = message.refreshToken;
-      console.log('Received new tokens:', { accessToken: token, refreshToken });
+      setToken(message.accessToken);
+      setRefreshToken(message.refreshToken);
+      console.log('Received new tokens:', { accessToken: getToken(), refreshToken: getRefreshToken() });
       showStatusMessage('Authentication tokens refreshed.');
       setTimeout(refreshAccessToken, 5 * 60 * 1000);
       if (pendingJoin) {
-        socket.send(JSON.stringify({ type: 'join', ...pendingJoin, token }));
+        socket.send(JSON.stringify({ type: 'join', ...pendingJoin, token: getToken() }));
         pendingJoin = null;
       }
       processSignalingQueue();
@@ -110,10 +111,10 @@ socket.onmessage = async (event) => {
     if (message.type === 'error') {
       console.error('Server error:', message.message);
       if (message.message.includes('Invalid or expired token') || message.message.includes('Missing authentication token')) {
-        if (refreshToken && !refreshingToken) {
+        if (getRefreshToken() && !refreshingToken) {
           refreshingToken = true;
           console.log('Attempting to refresh token');
-          socket.send(JSON.stringify({ type: 'refresh-token', clientId, refreshToken }));
+          socket.send(JSON.stringify({ type: 'refresh-token', clientId, refreshToken: getRefreshToken() }));
         } else {
           console.error('No refresh token available or refresh in progress, forcing reconnect');
           stopKeepAlive();
@@ -122,20 +123,20 @@ socket.onmessage = async (event) => {
       } else if (message.message.includes('Token revoked') || message.message.includes('Invalid or expired refresh token')) {
         showStatusMessage('Session expired. Reconnecting...');
         stopKeepAlive();
-        token = '';
-        refreshToken = '';
+        setToken('');
+        setRefreshToken('');
         socket.close();
       } else if (message.message.includes('Rate limit exceeded')) {
         showStatusMessage('Rate limit exceeded. Waiting before retrying...');
         stopKeepAlive();
         setTimeout(() => {
-          if (reconnectAttempts < maxReconnectAttempts) {
+          if (getReconnectAttempts() < maxReconnectAttempts) {
             socket.send(JSON.stringify({ type: 'connect', clientId }));
             startKeepAlive();
           }
         }, 60000);
-      } else if (message.message.includes('Chat is full') || message.message.message.includes('Username already taken') || message.message.includes('Initiator offline')) {
-        socket.send(JSON.stringify({ type: 'leave', code, clientId, token }));
+      } else if (message.message.includes('Chat is full') || message.message.includes('Username already taken') || message.message.includes('Initiator offline')) {
+        socket.send(JSON.stringify({ type: 'leave', code, clientId, token: getToken() }));
         initialContainer.classList.remove('hidden');
         usernameContainer.classList.add('hidden');
         connectContainer.classList.add('hidden');
@@ -149,8 +150,8 @@ socket.onmessage = async (event) => {
         codeSentToRandom = false;
         button2.disabled = false;
         stopKeepAlive();
-        token = '';
-        refreshToken = '';
+        setToken('');
+        setRefreshToken('');
         showStatusMessage(message.message);
       } else {
         showStatusMessage(message.message);
@@ -176,7 +177,7 @@ socket.onmessage = async (event) => {
         );
       } else {
         const publicKey = await exportPublicKey(keyPair.publicKey);
-        socket.send(JSON.stringify({ type: 'public-key', publicKey, clientId, code, token }));
+        socket.send(JSON.stringify({ type: 'public-key', publicKey, clientId, code, token: getToken() }));
       }
       updateMaxClientsUI();
       turnUsername = message.turnUsername;
@@ -254,7 +255,7 @@ socket.onmessage = async (event) => {
           targetId: message.clientId,
           code,
           clientId,
-          token
+          token: getToken()
         }));
       } catch (error) {
         console.error('Error handling public-key:', error);
@@ -321,8 +322,8 @@ socket.onmessage = async (event) => {
       if (!features.enableService) {
         showStatusMessage('Service disabled by admin. Disconnecting...');
         stopKeepAlive();
-        token = '';
-        refreshToken = '';
+        setToken('');
+        setRefreshToken('');
         socket.close();
       }
     }
