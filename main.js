@@ -693,3 +693,23 @@ async function autoConnect(codeParam) {
                 chatContainer.classList.remove('hidden');
                 codeDisplayElement.textContent = `Using code: ${code}`;
                 codeDisplayElement.classList.remove('hidden');
+                copyCodeButton.classList.remove('hidden');
+                messages.classList.add('waiting');
+                statusElement.textContent = 'Waiting for connection...';
+                if (socket.readyState === WebSocket.OPEN) {
+                    log('info', 'WebSocket open, sending join after username input');
+                    socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
+                } else {
+                    log('info', 'WebSocket not open, waiting for open event after username');
+                    socket.addEventListener('open', () => {
+                        log('info', 'WebSocket opened in autoConnect join, sending join');
+                        socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
+                    }, { once: true });
+                }
+                document.getElementById('messageInput')?.focus();
+            };
+        }
+    } else {
+        log('info', 'Invalid code, showing initial container');
+        initialContainer.classList.remove('hidden');
+        usernameContainer.classList.add
