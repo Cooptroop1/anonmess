@@ -5,11 +5,11 @@ import {
   peerConnections, dataChannels, connectionTimeouts, retryCounts, candidatesQueues,
   processedMessageIds, usernames, useRelay, token, refreshToken, features, keyPair,
   roomKey, remoteAudios, refreshingToken, signalingQueue, reconnectAttempts,
-  imageRateLimits, voiceRateLimits, globalMessageRate
+  imageRateLimits, voiceRateLimits, globalMessageRate, pendingCode, pendingJoin
 } from './state.js';
-import { showStatusMessage, startKeepAlive, stopKeepAlive, cleanupPeerConnection, initializeMaxClientsUI, updateMaxClientsUI, updateFeaturesUI, createImageModal, createAudioModal, sanitizeMessage } from './utils.js';
-import { sendMedia, startPeerConnection, handleOffer, handleAnswer, handleCandidate, renegotiate, sendMessage, stopVoiceCall, processSignalingQueue, autoConnect } from './main.js';
-import { refreshAccessToken } from './ui-events.js'; // If needed, but looks like it's in main or utils
+import { showStatusMessage, startKeepAlive, stopKeepAlive, cleanupPeerConnection, initializeMaxClientsUI, updateMaxClientsUI, updateFeaturesUI, createImageModal, createAudioModal, sanitizeMessage, importPublicKey, exportPublicKey, deriveSharedKey, encryptRaw, decryptBytes } from './utils.js';
+import { startPeerConnection, handleOffer, handleAnswer, handleCandidate, renegotiate, sendMessage, stopVoiceCall, processSignalingQueue, autoConnect } from './main.js';
+import { refreshAccessToken } from './ui-events.js';
 
 export let socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
 console.log('WebSocket created');
@@ -326,5 +326,8 @@ socket.onmessage = async (event) => {
         socket.close();
       }
     }
+  } catch (error) {
+    console.error('Error parsing message:', error, 'Raw data:', event.data);
+    showStatusMessage('Error processing server message.');
   }
 };
