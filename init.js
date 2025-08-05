@@ -1,8 +1,10 @@
-// Initialize UI components on DOM load
+// init.js - Initialize UI components on DOM load
+
+import { initializeMaxClientsUI } from './utils.js';
+
 document.addEventListener('DOMContentLoaded', () => {
   console.log('DOM loaded, initializing maxClients UI');
   initializeMaxClientsUI();
-
   // UI element references
   const statusElement = document.getElementById('status');
   const codeDisplayElement = document.getElementById('codeDisplay');
@@ -19,7 +21,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const button2 = document.getElementById('button2');
   const helpText = document.getElementById('helpText');
   const helpModal = document.getElementById('helpModal');
-
   // Set initial UI state
   if (statusElement) {
     statusElement.textContent = 'Start a new chat or connect to an existing one';
@@ -54,7 +55,6 @@ document.addEventListener('DOMContentLoaded', () => {
   if (messages) {
     messages.classList.remove('waiting');
   }
-
   // Corner logo animation
   let cycleTimeout;
   function triggerCycle() {
@@ -68,7 +68,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
   setTimeout(triggerCycle, 60000);
-
   // Focus on initial button
   document.getElementById('startChatToggleButton')?.focus();
 });
