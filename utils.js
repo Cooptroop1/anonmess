@@ -56,10 +56,10 @@ function cleanupPeerConnection(targetId) {
     peerConnection.close();
     peerConnections.delete(targetId);
   }
-  if (dataChannel) {
+  if (dataChannel && dataChannel.readyState !== 'closed' && dataChannel.readyState !== 'closing') {
     dataChannel.close();
-    dataChannels.delete(targetId);
   }
+  dataChannels.delete(targetId);
   candidatesQueues.delete(targetId);
   clearTimeout(connectionTimeouts.get(targetId));
   connectionTimeouts.delete(targetId);
