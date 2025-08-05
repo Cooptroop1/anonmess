@@ -55,7 +55,7 @@
         }
         .corner-logo {
             position: absolute;
-            top: -5px;
+            top: -5px; /* Moved down ~1.5cm to show full logo */
             right: 10px;
             width: 256px;
             height: 256px;
@@ -149,8 +149,20 @@
                 cursor: not-allowed;
             }
             .button-group {
+                display: flex;
+                flex-direction: row;
+                gap: 0.3rem;
                 margin: 0.5rem 0.3rem;
                 width: calc(100% - 0.6rem);
+                justify-content: space-between;
+                flex-wrap: nowrap;
+            }
+            .button-group button {
+                flex: 1;
+                max-width: 33%;
+                margin: 0;
+                padding: 0.6rem 0.4rem;
+                font-size: 0.8rem;
             }
             #messages {
                 width: 100%;
@@ -161,7 +173,12 @@
                 margin-bottom: 0.75rem;
                 padding: 0.25rem 0;
             }
-            #status, #privacyStatus {
+            #status {
+                font-size: 0.875rem;
+                margin-bottom: 0.5rem;
+                padding: 0.25rem 0;
+            }
+            #privacyStatus {
                 font-size: 0.875rem;
                 margin-bottom: 0.5rem;
                 padding: 0.25rem 0;
@@ -181,7 +198,8 @@
         .message-bubble img, .message-bubble audio {
             max-width: 100%;
             border-radius: 0.5rem;
-            margin: 0.15rem 0 0.5rem;
+            margin-top: 0.15rem;
+            margin-bottom: 0.5rem;
         }
         .message-bubble.self {
             background-color: #3b82f6;
@@ -257,8 +275,10 @@
             display: flex;
             align-items: flex-start;
             gap: 0.75rem;
-            margin: 0.5rem 0.8rem;
-            width: calc(100% - 1.6rem);
+            padding: 0 0.8rem;
+            position: relative;
+            margin-top: 0.15rem;
+            width: 100%;
             box-sizing: border-box;
             z-index: 10;
         }
@@ -281,10 +301,13 @@
             box-sizing: border-box;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             transition: all 0.2s ease;
+            margin-left: -3mm;
         }
-        #imageButton, #voiceButton, #voiceCallButton, #sendButton {
+        #imageButton, #voiceButton, #voiceCallButton {
             width: 2.5rem;
             height: 2.5rem;
+            background-color: #10b981;
+            color: white;
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -292,11 +315,6 @@
             font-size: 1.2rem;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             transition: all 0.2s ease;
-            flex-shrink: 0;
-        }
-        #imageButton, #voiceButton, #voiceCallButton {
-            background-color: #10b981;
-            color: white;
         }
         #imageButton:hover, #voiceButton:hover, #voiceCallButton:hover {
             background-color: #059669;
@@ -315,12 +333,11 @@
             justify-content: center;
         }
         @media (max-width: 640px) {
-            .input-container {
-                margin: 0.5rem 0.3rem;
-                width: calc(100% - 0.6rem);
-            }
             #messageInput {
                 padding: 0.5rem 0.75rem;
+            }
+            .input-container {
+                padding: 0 0.3rem;
             }
         }
         #messageInput::-webkit-scrollbar {
@@ -331,8 +348,17 @@
             scrollbar-width: none;
         }
         #sendButton {
+            width: 2.5rem;
+            height: 2.5rem;
             background-color: #2563eb;
             color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s ease;
         }
         #sendButton:hover {
             background-color: #1d4ed8;
@@ -395,7 +421,7 @@
             }
             #maxClientsContainer {
                 min-height: calc(100% + 37.8px);
-                margin-top: -50px;
+                margin-top: -50px; /* Adjusted from 145px to 50px */
             }
         }
         @media (min-width: 641px) and (max-width: 1024px) {
@@ -403,12 +429,59 @@
                 margin-top: -165px;
             }
             #maxClientsContainer {
-                margin-top: -50px;
+                margin-top: -50px; /* Adjusted from 145px to 50px */
             }
         }
         #maxClientsContainer {
             margin-top: 145px;
         }
+        }
+        @media (max-width: 640px) {
+            .button-group {
+                display: flex;
+                flex-direction: row;
+                gap: 0.3rem;
+                margin: 0.5rem 0.3rem;
+                width: calc(100% - 0.6rem);
+                justify-content: space-between;
+                flex-wrap: nowrap;
+            }
+            .button-group button {
+                flex: 1;
+                max-width: 33%;
+                margin: 0;
+                padding: 0.6rem 0.4rem;
+                font-size: 0.8rem;
+            }
+            h1.text-3xl {
+                font-size: 1.5rem;
+                margin-bottom: 0.75rem;
+                padding: 0.25rem 0;
+            }
+            #status {
+                font-size: 0.875rem;
+                margin-bottom: 0.5rem;
+                padding: 0.25rem 0;
+            }
+            #privacyStatus {
+                font-size: 0.875rem;
+                margin-bottom: 0.5rem;
+                padding: 0.25rem 0;
+            }
+            #messages {
+                width: 100%;
+                max-width: none;
+            }
+        }
+        #privacyStatus {
+            text-align: center;
+            font-size: 0.875rem;
+            color: #10b981;
+            margin-bottom: 0.5rem;
+            display: block !important;
+            visibility: visible !important;
+        }
+        /* Desktop-specific styles for maxClientsRadios */
         @media (min-width: 641px) {
             #maxClientsRadios {
                 display: flex;
@@ -469,6 +542,7 @@
                 <label for="usernameInput" class="sr-only">Enter your username</label>
                 <input id="usernameInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)" aria-describedby="usernameHelp" maxlength="16">
                 <div id="usernameHelp" class="text-sm text-gray-600 mb-2">Username must be 1-16 alphanumeric characters</div>
+                <label><input type="checkbox" id="anonymousCheckbox"> Anonymous Mode</label>
                 <button id="joinWithUsernameButton" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600 transition-colors" aria-label="Join chat with username">Join Chat</button>
                 <button id="backButton" class="bg-gray-500 text-white px-4 py-2 rounded w-full mt-2 hover:bg-gray-600 transition-colors" aria-label="Back to main menu">Back</button>
             </div>
@@ -497,6 +571,7 @@
                 <label for="usernameConnectInput" class="sr-only">Enter your username</label>
                 <input id="usernameConnectInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter your username (1-16 chars)" aria-describedby="usernameConnectHelp" maxlength="16">
                 <div id="usernameConnectHelp" class="text-sm text-gray-600 mb-2">Username must be 1-16 alphanumeric characters</div>
+                <label><input type="checkbox" id="anonymousConnectCheckbox"> Anonymous Mode</label>
                 <label for="codeInput" class="sr-only">Enter chat code</label>
                 <input id="codeInput" type="text" class="border border-gray-300 p-2 w-full mb-2 rounded" placeholder="Enter code (xxxx-xxxx-xxxx-xxxx)" aria-describedby="codeHelp" maxlength="19">
                 <div id="codeHelp" class="text-sm text-gray-600 mb-2">Code format: xxxx-xxxx-xxxx-xxxx</div>
