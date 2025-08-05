@@ -14,6 +14,31 @@ let turnCredential = '';
 let localStream = null;
 let voiceCallActive = false;
 
+export function updateFeaturesUI() {
+  const imageButton = document.getElementById('imageButton');
+  const voiceButton = document.getElementById('voiceButton');
+  const voiceCallButton = document.getElementById('voiceCallButton');
+  if (imageButton) {
+    imageButton.disabled = !features.enableImages;
+    imageButton.style.opacity = features.enableImages ? 1 : 0.5;
+    imageButton.title = features.enableImages ? 'Send Image' : 'Images disabled by admin';
+  }
+  if (voiceButton) {
+    voiceButton.disabled = !features.enableVoice;
+    voiceButton.style.opacity = features.enableVoice ? 1 : 0.5;
+    voiceButton.title = features.enableVoice ? 'Record Voice' : 'Voice disabled by admin';
+  }
+  if (voiceCallButton) {
+    voiceCallButton.disabled = !features.enableVoiceCalls;
+    voiceCallButton.style.opacity = features.enableVoiceCalls ? 1 : 0.5;
+    voiceCallButton.title = features.enableVoiceCalls ? 'Start Voice Call' : 'Voice calls disabled by admin';
+  }
+  if (!features.enableService) {
+    showStatusMessage('Service disabled by admin. Disconnecting...');
+    socket.close();
+  }
+}
+
 export async function sendMedia(file, type) {
   const validTypes = {
     image: ['image/jpeg', 'image/png'],
