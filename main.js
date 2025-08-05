@@ -1,3 +1,6 @@
+
+// Core logic: peer connections, message sending, handling offers, etc.
+// Global vars for dynamic TURN creds from server
 let turnUsername = '';
 let turnCredential = '';
 let localStream = null;
@@ -8,6 +11,7 @@ async function sendMedia(file, type) {
         image: ['image/jpeg', 'image/png'],
         voice: ['audio/webm', 'audio/ogg']
     };
+    // Check if feature is enabled before proceeding
     if ((type === 'image' && !features.enableImages) || (type === 'voice' && !features.enableVoice)) {
         showStatusMessage(`Error: ${type.charAt(0).toUpperCase() + type.slice(1)} messages are disabled by admin.`);
         document.getElementById(`${type}Button`)?.focus();
@@ -23,6 +27,7 @@ async function sendMedia(file, type) {
         document.getElementById(`${type}Button`)?.focus();
         return;
     }
+    // Rate limiting
     const rateLimits = type === 'image' ? imageRateLimits : voiceRateLimits;
     const now = performance.now();
     const rateLimit = rateLimits.get(clientId) || { count: 0, startTime: now };
@@ -99,6 +104,7 @@ async function sendMedia(file, type) {
         showStatusMessage('Error: No connections.');
         return;
     }
+    // Display locally
     const messages = document.getElementById('messages');
     const messageDiv = document.createElement('div');
     messageDiv.className = 'message-bubble self';
@@ -129,11 +135,10 @@ async function sendMedia(file, type) {
     processedMessageIds.add(messageId);
     document.getElementById(`${type}Button`)?.focus();
 }
-
 function startPeerConnection(targetId, isOfferer) {
-    log('info', `Starting peer connection with ${targetId} for code: ${code}, offerer: ${isOfferer}`);
+    console.log(`Starting peer connection with ${targetId} for code: ${code}, offerer: ${isOfferer}`);
     if (peerConnections.has(targetId)) {
-        log('info', `Cleaning up existing connection with ${targetId}`);
+        console.log(`Cleaning up existing connection with ${targetId}`);
         cleanupPeerConnection(targetId);
     }
     const peerConnection = new RTCPeerConnection({
@@ -167,46 +172,46 @@ function startPeerConnection(targetId, isOfferer) {
     let dataChannel;
     if (isOfferer) {
         dataChannel = peerConnection.createDataChannel('chat');
-        log('info', `Created data channel for ${targetId}`);
+        console.log(`Created data channel for ${targetId}`);
         setupDataChannel(dataChannel, targetId);
         dataChannels.set(targetId, dataChannel);
     }
     peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
-            log('info', `Sending ICE candidate to ${targetId} for code: ${code}`);
+            console.log(`Sending ICE candidate to ${targetId} for code: ${code}`);
             sendSignalingMessage('candidate', { candidate: event.candidate, targetId });
         }
     };
     peerConnection.onicecandidateerror = (event) => {
-        log('error', `ICE candidate error for ${targetId}: ${event.errorText}, code=${event.errorCode}`);
+        console.error(`ICE candidate error for ${targetId}: ${event.errorText}, code=${event.errorCode}`);
         if (event.errorCode !== 701) {
             const retryCount = retryCounts.get(targetId) || 0;
             if (retryCount < maxRetries) {
                 retryCounts.set(targetId, retryCount + 1);
-                log('info', `Retrying connection with ${targetId}, attempt ${retryCount + 1}`);
+                console.log(`Retrying connection with ${targetId}, attempt ${retryCount + 1}`);
                 startPeerConnection(targetId, isOfferer);
             }
         } else {
-            log('info', `Ignoring ICE 701 error for ${targetId}, continuing connection`);
+            console.log(`Ignoring ICE 701 error for ${targetId}, continuing connection`);
         }
     };
     peerConnection.onicegatheringstatechange = () => {
-        log('info', `ICE gathering state for ${targetId}: ${peerConnection.iceGatheringState}`);
+        console.log(`ICE gathering state for ${targetId}: ${peerConnection.iceGatheringState}`);
     };
     peerConnection.onconnectionstatechange = () => {
-        log('info', `Connection state for ${targetId}: ${peerConnection.connectionState}`);
+        console.log(`Connection state for ${targetId}: ${peerConnection.connectionState}`);
         if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
-            log('error', `Connection failed with ${targetId}`);
+            console.log(`Connection failed with ${targetId}`);
             showStatusMessage('Peer connection failed, attempting to reconnect...');
             cleanupPeerConnection(targetId);
             const retryCount = retryCounts.get(targetId) || 0;
             if (retryCount < maxRetries) {
                 retryCounts.set(targetId, retryCount + 1);
-                log('info', `Retrying connection attempt ${retryCount + 1} with ${targetId}`);
+                console.log(`Retrying connection attempt ${retryCount + 1} with ${targetId}`);
                 startPeerConnection(targetId, isOfferer);
             }
         } else if (peerConnection.connectionState === 'connected') {
-            log('info', `WebRTC connection established with ${targetId} for code: ${code}`);
+            console.log(`WebRTC connection established with ${targetId} for code: ${code}`);
             isConnected = true;
             retryCounts.delete(targetId);
             clearTimeout(connectionTimeouts.get(targetId));
@@ -219,21 +224,21 @@ function startPeerConnection(targetId, isOfferer) {
         }
     };
     peerConnection.ontrack = (event) => {
-        log('info', `Received remote track from ${targetId}`);
+        console.log(`Received remote track from ${targetId}`);
         if (!remoteAudios.has(targetId)) {
             const audio = document.createElement('audio');
             audio.srcObject = event.streams[0];
             audio.autoplay = true;
-            audio.play().catch(error => log('error', 'Error playing remote audio:', error));
+            audio.play().catch(error => console.error('Error playing remote audio:', error));
             remoteAudios.set(targetId, audio);
             document.getElementById('remoteAudioContainer').appendChild(audio);
             document.getElementById('remoteAudioContainer').classList.remove('hidden');
         }
     };
     peerConnection.ondatachannel = (event) => {
-        log('info', `Received data channel from ${targetId}`);
+        console.log(`Received data channel from ${targetId}`);
         if (dataChannels.has(targetId)) {
-            log('info', `Closing existing data channel for ${targetId}`);
+            console.log(`Closing existing data channel for ${targetId}`);
             const existingChannel = dataChannels.get(targetId);
             existingChannel.close();
         }
@@ -245,16 +250,16 @@ function startPeerConnection(targetId, isOfferer) {
         peerConnection.createOffer().then(offer => {
             return peerConnection.setLocalDescription(offer);
         }).then(() => {
-            log('info', `Sending offer to ${targetId} for code: ${code}`);
+            console.log(`Sending offer to ${targetId} for code: ${code}`);
             sendSignalingMessage('offer', { offer: peerConnection.localDescription, targetId });
         }).catch(error => {
-            log('error', `Error creating offer for ${targetId}:`, error);
+            console.error(`Error creating offer for ${targetId}:`, error);
             showStatusMessage('Failed to establish peer connection.');
         });
     }
     const timeout = setTimeout(() => {
         if (!dataChannels.get(targetId) || dataChannels.get(targetId).readyState !== 'open') {
-            log('warn', `P2P failed with ${targetId}, falling back to relay`);
+            console.log(`P2P failed with ${targetId}, falling back to relay`);
             useRelay = true;
             showStatusMessage('P2P connection failed, switching to server relay mode.');
             cleanupPeerConnection(targetId);
@@ -264,14 +269,13 @@ function startPeerConnection(targetId, isOfferer) {
                 privacyStatus.classList.remove('hidden');
             }
         }
-    }, 10000);
+    }, 10000); // 10s timeout for fallback
     connectionTimeouts.set(targetId, timeout);
 }
-
 function setupDataChannel(dataChannel, targetId) {
-    log('info', 'setupDataChannel initialized for targetId:', targetId);
+    console.log('setupDataChannel initialized for targetId:', targetId);
     dataChannel.onopen = () => {
-        log('info', `Data channel opened with ${targetId} for code: ${code}, state: ${dataChannel.readyState}`);
+        console.log(`Data channel opened with ${targetId} for code: ${code}, state: ${dataChannel.readyState}`);
         isConnected = true;
         initialContainer.classList.add('hidden');
         usernameContainer.classList.add('hidden');
@@ -295,7 +299,7 @@ function setupDataChannel(dataChannel, targetId) {
         rateLimit.count += 1;
         messageRateLimits.set(targetId, rateLimit);
         if (rateLimit.count > 10) {
-            log('warn', `Rate limit exceeded for ${targetId}: ${rateLimit.count} messages in 1s`);
+            console.warn(`Rate limit exceeded for ${targetId}: ${rateLimit.count} messages in 1s`);
             showStatusMessage('Message rate limit reached, please slow down.');
             return;
         }
@@ -303,7 +307,7 @@ function setupDataChannel(dataChannel, targetId) {
         try {
             data = JSON.parse(event.data);
         } catch (e) {
-            log('error', `Invalid message from ${targetId}:`, e);
+            console.error(`Invalid message from ${targetId}:`, e);
             showStatusMessage('Invalid message received.');
             return;
         }
@@ -320,11 +324,11 @@ function setupDataChannel(dataChannel, targetId) {
             return;
         }
         if (!data.messageId || !data.username || (!data.content && !data.data)) {
-            log('warn', `Invalid message format from ${targetId}:`, data);
+            console.log(`Invalid message format from ${targetId}:`, data);
             return;
         }
         if (processedMessageIds.has(data.messageId)) {
-            log('info', `Duplicate message ${data.messageId} from ${targetId}`);
+            console.log(`Duplicate message ${data.messageId} from ${targetId}`);
             return;
         }
         processedMessageIds.add(data.messageId);
@@ -362,17 +366,17 @@ function setupDataChannel(dataChannel, targetId) {
         if (isInitiator) {
             dataChannels.forEach((dc, id) => {
                 if (id !== targetId && dc.readyState === 'open') {
-                    dc.send(event.data);
+                    dc.send(event.data); // Forward the original data (unencrypted in P2P)
                 }
             });
         }
     };
     dataChannel.onerror = (error) => {
-        log('error', `Data channel error with ${targetId}:`, error);
+        console.error(`Data channel error with ${targetId}:`, error);
         showStatusMessage('Error in peer connection.');
     };
     dataChannel.onclose = () => {
-        log('info', `Data channel closed with ${targetId}`);
+        console.log(`Data channel closed with ${targetId}`);
         showStatusMessage('Peer disconnected.');
         cleanupPeerConnection(targetId);
         messageRateLimits.delete(targetId);
@@ -392,15 +396,14 @@ function setupDataChannel(dataChannel, targetId) {
         }
     };
 }
-
 async function handleOffer(offer, targetId) {
-    log('info', `Handling offer from ${targetId} for code: ${code}`);
+    console.log(`Handling offer from ${targetId} for code: ${code}`);
     if (offer.type !== 'offer') {
-        log('error', `Invalid offer type from ${targetId}:`, offer.type);
+        console.error(`Invalid offer type from ${targetId}:`, offer.type);
         return;
     }
     if (!peerConnections.has(targetId)) {
-        log('info', `No existing peer connection for ${targetId}, starting new one`);
+        console.log(`No existing peer connection for ${targetId}, starting new one`);
         startPeerConnection(targetId, false);
     }
     const peerConnection = peerConnections.get(targetId);
@@ -415,26 +418,25 @@ async function handleOffer(offer, targetId) {
         });
         candidatesQueues.set(targetId, []);
     } catch (error) {
-        log('error', `Error handling offer from ${targetId}:`, error);
+        console.error(`Error handling offer from ${targetId}:`, error);
         showStatusMessage('Failed to connect to peer.');
     }
 }
-
 async function handleAnswer(answer, targetId) {
-    log('info', `Handling answer from ${targetId} for code: ${code}`);
+    console.log(`Handling answer from ${targetId} for code: ${code}`);
     if (!peerConnections.has(targetId)) {
-        log('info', `No peer connection for ${targetId}, starting new one and queuing answer`);
+        console.log(`No peer connection for ${targetId}, starting new one and queuing answer`);
         startPeerConnection(targetId, false);
         candidatesQueues.get(targetId).push({ type: 'answer', answer });
         return;
     }
     const peerConnection = peerConnections.get(targetId);
     if (answer.type !== 'answer') {
-        log('error', `Invalid answer type from ${targetId}:`, answer.type);
+        console.error(`Invalid answer type from ${targetId}:`, answer.type);
         return;
     }
     if (peerConnection.signalingState !== 'have-local-offer') {
-        log('info', `Queuing answer from ${targetId}`);
+        console.log(`Queuing answer from ${targetId}`);
         candidatesQueues.get(targetId).push({ type: 'answer', answer });
         return;
     }
@@ -444,7 +446,7 @@ async function handleAnswer(answer, targetId) {
         queue.forEach(item => {
             if (item.type === 'answer') {
                 peerConnection.setRemoteDescription(new RTCSessionDescription(item.answer)).catch(error => {
-                    log('error', `Error applying queued answer from ${targetId}:`, error);
+                    console.error(`Error applying queued answer from ${targetId}:`, error);
                     showStatusMessage('Error processing peer response.');
                 });
             } else if (item.type === 'candidate') {
@@ -453,17 +455,16 @@ async function handleAnswer(answer, targetId) {
         });
         candidatesQueues.set(targetId, []);
     } catch (error) {
-        log('error', `Error handling answer from ${targetId}:`, error);
+        console.error(`Error handling answer from ${targetId}:`, error);
         showStatusMessage('Error connecting to peer.');
     }
 }
-
 function handleCandidate(candidate, targetId) {
-    log('info', `Handling ICE candidate from ${targetId} for code: ${code}`);
+    console.log(`Handling ICE candidate from ${targetId} for code: ${code}`);
     const peerConnection = peerConnections.get(targetId);
     if (peerConnection && peerConnection.remoteDescription) {
         peerConnection.addIceCandidate(new RTCIceCandidate(candidate)).catch(error => {
-            log('error', `Error adding ICE candidate from ${targetId}:`, error);
+            console.error(`Error adding ICE candidate from ${targetId}:`, error);
             showStatusMessage('Error establishing peer connection.');
         });
     } else {
@@ -472,7 +473,6 @@ function handleCandidate(candidate, targetId) {
         candidatesQueues.set(targetId, queue);
     }
 }
-
 async function sendMessage(content) {
     if (content && dataChannels.size > 0 && username) {
         const messageId = generateMessageId();
@@ -514,7 +514,6 @@ async function sendMessage(content) {
         document.getElementById('messageInput')?.focus();
     }
 }
-
 async function toggleVoiceCall() {
     if (!features.enableVoiceCalls) {
         showStatusMessage('Voice calls are disabled by admin.');
@@ -528,7 +527,6 @@ async function toggleVoiceCall() {
         broadcastVoiceCallEvent('voice-call-start');
     }
 }
-
 async function startVoiceCall() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         showStatusMessage('Microphone not supported.');
@@ -547,11 +545,10 @@ async function startVoiceCall() {
         document.getElementById('voiceCallButton').title = 'End Voice Call';
         showStatusMessage('Voice call started.');
     } catch (error) {
-        log('error', 'Error starting voice call:', error);
+        console.error('Error starting voice call:', error);
         showStatusMessage('Failed to access microphone for voice call.');
     }
 }
-
 function stopVoiceCall() {
     if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
@@ -570,7 +567,6 @@ function stopVoiceCall() {
     document.getElementById('voiceCallButton').title = 'Start Voice Call';
     showStatusMessage('Voice call ended.');
 }
-
 async function renegotiate(targetId) {
     const peerConnection = peerConnections.get(targetId);
     if (peerConnection && peerConnection.signalingState === 'stable') {
@@ -579,15 +575,14 @@ async function renegotiate(targetId) {
             await peerConnection.setLocalDescription(offer);
             sendSignalingMessage('offer', { offer: peerConnection.localDescription, targetId });
         } catch (error) {
-            log('error', `Error renegotiate with ${targetId}:`, error);
+            console.error(`Error renegotiating with ${targetId}:`, error);
             showStatusMessage('Failed to renegotiate peer connection.');
         }
     }
 }
-
 function sendSignalingMessage(type, additionalData) {
     if (!token || refreshingToken) {
-        log('info', 'Token missing or refresh in progress, queuing signaling message');
+        console.log('Token missing or refresh in progress, queuing signaling message');
         if (!signalingQueue.has('global')) signalingQueue.set('global', []);
         signalingQueue.get('global').push({ type, additionalData });
         if (!refreshingToken) refreshAccessToken();
@@ -597,12 +592,11 @@ function sendSignalingMessage(type, additionalData) {
     if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify(message));
     } else {
-        log('info', 'Socket not open, queuing signaling message');
+        console.log('Socket not open, queuing signaling message');
         if (!signalingQueue.has('global')) signalingQueue.set('global', []);
         signalingQueue.get('global').push({ type, additionalData });
     }
 }
-
 function broadcastVoiceCallEvent(eventType) {
     dataChannels.forEach((dataChannel) => {
         if (dataChannel.readyState === 'open') {
@@ -610,10 +604,9 @@ function broadcastVoiceCallEvent(eventType) {
         }
     });
 }
-
 function sendRelayMessage(type, additionalData) {
     if (!token || refreshingToken) {
-        log('info', 'Token missing or refresh in progress, queuing relay message');
+        console.log('Token missing or refresh in progress, queuing relay message');
         if (!signalingQueue.has('global')) signalingQueue.set('global', []);
         signalingQueue.get('global').push({ type, additionalData });
         if (!refreshingToken) refreshAccessToken();
@@ -623,12 +616,11 @@ function sendRelayMessage(type, additionalData) {
     if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify(message));
     } else {
-        log('info', 'Socket not open, queuing relay message');
+        console.log('Socket not open, queuing relay message');
         if (!signalingQueue.has('global')) signalingQueue.set('global', []);
         signalingQueue.get('global').push({ type, additionalData });
     }
 }
-
 function processSignalingQueue() {
     signalingQueue.forEach((queue, key) => {
         while (queue.length > 0) {
@@ -642,9 +634,8 @@ function processSignalingQueue() {
     });
     signalingQueue.clear();
 }
-
 async function autoConnect(codeParam) {
-    log('info', 'autoConnect running with code:', codeParam);
+    console.log('autoConnect running with code:', codeParam);
     code = codeParam;
     initialContainer.classList.add('hidden');
     connectContainer.classList.add('hidden');
@@ -652,28 +643,28 @@ async function autoConnect(codeParam) {
     chatContainer.classList.remove('hidden');
     codeDisplayElement.classList.add('hidden');
     copyCodeButton.classList.add('hidden');
-    log('info', 'Loaded username from localStorage:', username);
+    console.log('Loaded username from localStorage:', username);
     if (validateCode(codeParam)) {
         if (validateUsername(username)) {
-            log('info', 'Valid username and code, joining chat');
+            console.log('Valid username and code, joining chat');
             codeDisplayElement.textContent = `Using code: ${code}`;
             codeDisplayElement.classList.remove('hidden');
             copyCodeButton.classList.remove('hidden');
             messages.classList.add('waiting');
             statusElement.textContent = 'Waiting for connection...';
             if (socket.readyState === WebSocket.OPEN) {
-                log('info', 'WebSocket open, sending join');
+                console.log('WebSocket open, sending join');
                 socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
             } else {
-                log('info', 'WebSocket not open, waiting for open event');
+                console.log('WebSocket not open, waiting for open event');
                 socket.addEventListener('open', () => {
-                    log('info', 'WebSocket opened in autoConnect, sending join');
+                    console.log('WebSocket opened in autoConnect, sending join');
                     socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
                 }, { once: true });
             }
             document.getElementById('messageInput')?.focus();
         } else {
-            log('info', 'No valid username, prompting for username');
+            console.log('No valid username, prompting for username');
             usernameContainer.classList.remove('hidden');
             chatContainer.classList.add('hidden');
             statusElement.textContent = 'Please enter a username to join the chat';
@@ -688,7 +679,7 @@ async function autoConnect(codeParam) {
                 }
                 username = usernameInput;
                 localStorage.setItem('username', username);
-                log('info', 'Username set in localStorage during autoConnect:', username);
+                console.log('Username set in localStorage during autoConnect:', username);
                 usernameContainer.classList.add('hidden');
                 chatContainer.classList.remove('hidden');
                 codeDisplayElement.textContent = `Using code: ${code}`;
@@ -697,12 +688,12 @@ async function autoConnect(codeParam) {
                 messages.classList.add('waiting');
                 statusElement.textContent = 'Waiting for connection...';
                 if (socket.readyState === WebSocket.OPEN) {
-                    log('info', 'WebSocket open, sending join after username input');
+                    console.log('WebSocket open, sending join after username input');
                     socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
                 } else {
-                    log('info', 'WebSocket not open, waiting for open event after username');
+                    console.log('WebSocket not open, waiting for open event after username');
                     socket.addEventListener('open', () => {
-                        log('info', 'WebSocket opened in autoConnect join, sending join');
+                        console.log('WebSocket opened in autoConnect join, sending join');
                         socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
                     }, { once: true });
                 }
@@ -710,7 +701,7 @@ async function autoConnect(codeParam) {
             };
         }
     } else {
-        log('info', 'Invalid code, showing initial container');
+        console.log('Invalid code, showing initial container');
         initialContainer.classList.remove('hidden');
         usernameContainer.classList.add('hidden');
         chatContainer.classList.add('hidden');
@@ -718,7 +709,6 @@ async function autoConnect(codeParam) {
         document.getElementById('connectToggleButton')?.focus();
     }
 }
-
 // New: Function to update UI based on features
 function updateFeaturesUI() {
     const imageButton = document.getElementById('imageButton');
