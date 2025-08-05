@@ -9,9 +9,10 @@ let globalMessageRate = { count: 0, startTime: Date.now() };
 // Define generateCode locally
 function generateCode() {
     const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const randomBytes = window.crypto.getRandomValues(new Uint8Array(16));
     let result = '';
     for (let i = 0; i < 16; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
+        result += chars[randomBytes[i] % chars.length];
         if (i % 4 === 3 && i < 15) result += '-';
     }
     return result;
@@ -86,10 +87,6 @@ if (typeof window !== 'undefined') {
         setTimeout(() => triggerCycle(), 60000);
     }
     setTimeout(() => triggerCycle(), 60000);
-    document.addEventListener('DOMContentLoaded', () => {
-        console.log('DOM loaded, initializing maxClients UI');
-        initializeMaxClientsUI();
-    });
 }
 // Event handlers and listeners
 helpText.addEventListener('click', () => {
