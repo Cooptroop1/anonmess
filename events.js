@@ -73,7 +73,7 @@ if (typeof window !== 'undefined') {
         keyPair = await window.crypto.subtle.generateKey(
             { name: 'ECDH', namedCurve: 'P-256' },
             true,
-            ['deriveKey']
+            ['deriveKey', 'deriveBits']
         );
     })();
     let cycleTimeout;
@@ -344,10 +344,12 @@ socket.onmessage = async (event) => {
                 const joinerPublic = await importPublicKey(message.publicKey);
                 const sharedKey = await deriveSharedKey(keyPair.privateKey, joinerPublic);
                 const { encrypted, iv } = await encryptBytes(sharedKey, roomMaster);
+                const myPublic = await exportPublicKey(keyPair.publicKey);
                 socket.send(JSON.stringify({
                     type: 'encrypted-room-key',
                     encryptedKey: encrypted,
                     iv,
+                    publicKey: myPublic,
                     targetId: message.clientId,
                     code,
                     clientId,
