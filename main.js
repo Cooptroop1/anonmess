@@ -16,7 +16,7 @@ async function sendMedia(file, type) {
         document.getElementById(`${type}Button`)?.focus();
         return;
     }
-    if (!file || !validTypes[type].includes(file.type) || !username || dataChannels.size === 0) {
+    if (!file || !validTypes[type].includes(file.type) || dataChannels.size === 0) {
         showStatusMessage(`Error: Select a ${type === 'image' ? 'JPEG/PNG image' : 'valid audio format'} and ensure you are connected.`);
         document.getElementById(`${type}Button`)?.focus();
         return;
@@ -111,7 +111,7 @@ async function sendMedia(file, type) {
     timeSpan.className = 'timestamp';
     timeSpan.textContent = new Date(timestamp).toLocaleTimeString();
     messageDiv.appendChild(timeSpan);
-    messageDiv.appendChild(document.createTextNode(`${username}: `));
+    messageDiv.appendChild(document.createTextNode(`${username || 'Anon-' + clientId.substr(0, 4)}: `));
     if (type === 'image') {
         const imgElement = document.createElement('img');
         imgElement.src = base64;
@@ -333,7 +333,7 @@ function setupDataChannel(dataChannel, targetId) {
             return;
         }
         processedMessageIds.add(data.messageId);
-        const senderUsername = usernames.get(targetId) || data.username;
+        const senderUsername = usernames.get(targetId) || data.username || 'Anon-' + targetId.substr(0, 4);
         const messages = document.getElementById('messages');
         const isSelf = senderUsername === username;
         const messageDiv = document.createElement('div');
@@ -479,7 +479,7 @@ function handleCandidate(candidate, targetId) {
 }
 
 async function sendMessage(content) {
-    if (content && dataChannels.size > 0 && username) {
+    if (content && dataChannels.size > 0) {
         const messageId = generateMessageId();
         const sanitizedContent = sanitizeMessage(content);
         const timestamp = Date.now();
@@ -506,7 +506,7 @@ async function sendMessage(content) {
         timeSpan.className = 'timestamp';
         timeSpan.textContent = new Date(timestamp).toLocaleTimeString();
         messageDiv.appendChild(timeSpan);
-        messageDiv.appendChild(document.createTextNode(`${username}: ${sanitizedContent}`));
+        messageDiv.appendChild(document.createTextNode(`${username || 'Anon-' + clientId.substr(0, 4)}: ${sanitizedContent}`));
         messages.prepend(messageDiv);
         messages.scrollTop = 0;
         processedMessageIds.add(messageId);
@@ -515,7 +515,7 @@ async function sendMessage(content) {
         messageInput.style.height = '2.5rem';
         messageInput?.focus();
     } else {
-        showStatusMessage('Error: No connections or username not set.');
+        showStatusMessage('Error: No connections.');
         document.getElementById('messageInput')?.focus();
     }
 }
@@ -658,7 +658,7 @@ async function autoConnect(codeParam) {
     codeDisplayElement.classList.add('hidden');
     console.log('Loaded username from localStorage:', username);
     if (validateCode(codeParam)) {
-        if (validateUsername(username)) {
+        if (validateUsername(username) || username === '') {
             console.log('Valid username and code, joining chat');
             codeDisplayElement.textContent = `Using code: ${code}`;
             codeDisplayElement.classList.remove('hidden');
@@ -676,7 +676,6 @@ async function autoConnect(codeParam) {
                 }, { once: true });
             }
             document.getElementById('messageInput')?.focus();
-            updateFeaturesUI();  // Ensure features UI is updated after showing chat
         } else {
             console.log('No valid username, prompting for username');
             usernameContainer.classList.remove('hidden');
@@ -712,7 +711,6 @@ async function autoConnect(codeParam) {
                     }, { once: true });
                 }
                 document.getElementById('messageInput')?.focus();
-                updateFeaturesUI();  // Ensure features UI is updated after showing chat
             };
         }
     } else {
