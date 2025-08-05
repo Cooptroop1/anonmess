@@ -39,7 +39,7 @@ let refreshToken = '';
 let features = { enableService: true, enableImages: true, enableVoice: true, enableVoiceCalls: true, enableVideoCalls: true }; // Global features state
 let keyPair;
 let roomKey;
-let remoteAudios = new Map();
+let remoteMedias = new Map();
 let refreshingToken = false;
 let signalingQueue = new Map();
 // Declare UI variables globally
@@ -312,11 +312,11 @@ socket.onmessage = async (event) => {
             console.log(`Client ${message.clientId} disconnected from code: ${code}, total: ${totalClients}`);
             usernames.delete(message.clientId);
             cleanupPeerConnection(message.clientId);
-            if (remoteAudios.has(message.clientId)) {
-                const media = remoteAudios.get(message.clientId);
+            if (remoteMedias.has(message.clientId)) {
+                const media = remoteMedias.get(message.clientId);
                 media.remove();
-                remoteAudios.delete(message.clientId);
-                if (remoteAudios.size === 0) {
+                remoteMedias.delete(message.clientId);
+                if (remoteMedias.size === 0) {
                     document.getElementById('remoteMediaContainer').classList.add('hidden');
                 }
             }
@@ -738,9 +738,10 @@ document.getElementById('newSessionButton').onclick = () => {
     document.getElementById('startChatToggleButton')?.focus();
     // Clean up call
     stopCall();
-    remoteAudios.forEach(media => media.remove());
-    remoteAudios.clear();
+    remoteMedias.forEach(media => media.remove());
+    remoteMedias.clear();
     signalingQueue.clear();
+    refreshingToken = false;
 };
 document.getElementById('usernameInput').addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {
