@@ -3,8 +3,8 @@
 import {
   code, clientId, username, isInitiator, isConnected, maxClients, totalClients,
   peerConnections, dataChannels, connectionTimeouts, retryCounts, processedMessageIds,
-  usernames, codeSentToRandom, token, refreshToken, refreshingToken, signalingQueue,
-  imageRateLimits, voiceRateLimits, reconnectAttempts
+  usernames, codeSentToRandom, getToken, features, imageRateLimits, voiceRateLimits,
+  getReconnectAttempts, setReconnectAttempts
 } from './state.js';
 import { socket } from './ws-handlers.js';
 import { showStatusMessage, validateUsername, validateCode, startKeepAlive, stopKeepAlive, cleanupPeerConnection } from './utils.js';
@@ -109,16 +109,16 @@ document.getElementById('joinWithUsernameButton').onclick = () => {
   chatContainer.classList.remove('hidden');
   messages.classList.add('waiting');
   statusElement.textContent = 'Waiting for connection...';
-  if (socket.readyState === WebSocket.OPEN && token) {
+  if (socket.readyState === WebSocket.OPEN && getToken()) {
     console.log('Sending join message for new chat');
-    socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
+    socket.send(JSON.stringify({ type: 'join', code, clientId, username, token: getToken() }));
   } else {
     pendingJoin = { code, clientId, username };
     if (socket.readyState !== WebSocket.OPEN) {
       socket.addEventListener('open', () => {
         console.log('WebSocket opened, sending join for new chat');
-        if (token) {
-          socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
+        if (getToken()) {
+          socket.send(JSON.stringify({ type: 'join', code, clientId, username, token: getToken() }));
           pendingJoin = null;
         }
       }, { once: true });
@@ -153,16 +153,16 @@ document.getElementById('connectButton').onclick = () => {
   chatContainer.classList.remove('hidden');
   messages.classList.add('waiting');
   statusElement.textContent = 'Waiting for connection...';
-  if (socket.readyState === WebSocket.OPEN && token) {
+  if (socket.readyState === WebSocket.OPEN && getToken()) {
     console.log('Sending join message for existing chat');
-    socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
+    socket.send(JSON.stringify({ type: 'join', code, clientId, username, token: getToken() }));
   } else {
     pendingJoin = { code, clientId, username };
     if (socket.readyState !== WebSocket.OPEN) {
       socket.addEventListener('open', () => {
         console.log('WebSocket opened, sending join for existing chat');
-        if (token) {
-          socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
+        if (getToken()) {
+          socket.send(JSON.stringify({ type: 'join', code, clientId, username, token: getToken() }));
           pendingJoin = null;
         }
       }, { once: true });
@@ -249,7 +249,7 @@ messageInput.addEventListener('keydown', (event) => {
 
 document.getElementById('newSessionButton').onclick = () => {
   console.log('New session button clicked');
-  socket.send(JSON.stringify({ type: 'leave', code, clientId, token }));
+  socket.send(JSON.stringify({ type: 'leave', code, clientId, token: getToken() }));
   peerConnections.forEach((pc) => pc.close());
   dataChannels.forEach((dc) => dc.close());
   peerConnections.clear();
@@ -289,8 +289,8 @@ document.getElementById('newSessionButton').onclick = () => {
   codeSentToRandom = false;
   button2.disabled = false;
   stopKeepAlive();
-  token = '';
-  refreshToken = '';
+  setToken('');
+  setRefreshToken('');
   stopVoiceCall();
   remoteAudios.forEach(audio => audio.remove());
   remoteAudios.clear();
@@ -335,8 +335,8 @@ document.getElementById('copyCodeButton').onclick = () => {
 };
 
 document.getElementById('button1').onclick = () => {
-  if (isInitiator && socket.readyState === WebSocket.OPEN && code && totalClients < maxClients && token) {
-    socket.send(JSON.stringify({ type: 'submit-random', code, clientId, token }));
+  if (isInitiator && socket.readyState === WebSocket.OPEN && code && totalClients < maxClients && getToken()) {
+    socket.send(JSON.stringify({ type: 'submit-random', code, clientId, token: getToken() }));
     showStatusMessage(`Sent code ${code} to random board.`);
     codeSentToRandom = true;
     button2.disabled = true;
@@ -355,10 +355,10 @@ document.getElementById('button2').onclick = () => {
 
 // Function to refresh access token (moved here if UI-related, but could be in ws-handlers)
 export function refreshAccessToken() {
-  if (socket.readyState === WebSocket.OPEN && refreshToken && !refreshingToken) {
+  if (socket.readyState === WebSocket.OPEN && getRefreshToken() && !refreshingToken) {
     refreshingToken = true;
     console.log('Proactively refreshing access token');
-    socket.send(JSON.stringify({ type: 'refresh-token', clientId, refreshToken }));
+    socket.send(JSON.stringify({ type: 'refresh-token', clientId, refreshToken: getRefreshToken() }));
   } else {
     console.log('Cannot refresh token: WebSocket not open, no refresh token, or refresh in progress');
   }
