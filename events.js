@@ -1,4 +1,3 @@
-
 // Reconnection attempt counter for exponential backoff
 let reconnectAttempts = 0;
 // Image rate limiting
@@ -183,8 +182,8 @@ socket.onmessage = async (event) => {
             token = message.accessToken;
             refreshToken = message.refreshToken;
             console.log('Received authentication tokens:', { accessToken: token, refreshToken });
-            // Start token refresh timer (2.5 minutes, half of 5-minute expiry)
-            setTimeout(refreshAccessToken, 2.5 * 60 * 1000);
+            // Start token refresh timer (5 minutes for 10-minute expiry)
+            setTimeout(refreshAccessToken, 5 * 60 * 1000);
             if (pendingCode) {
                 autoConnect(pendingCode);
                 pendingCode = null;
@@ -202,7 +201,7 @@ socket.onmessage = async (event) => {
             console.log('Received new tokens:', { accessToken: token, refreshToken });
             showStatusMessage('Authentication tokens refreshed.');
             // Restart token refresh timer
-            setTimeout(refreshAccessToken, 2.5 * 60 * 1000);
+            setTimeout(refreshAccessToken, 5 * 60 * 1000);
             if (pendingJoin) {
                 socket.send(JSON.stringify({ type: 'join', ...pendingJoin, token }));
                 pendingJoin = null;
@@ -212,9 +211,9 @@ socket.onmessage = async (event) => {
             return;
         }
         if (message.type === 'error') {
-            showStatusMessage(message.message);
             console.error('Server error:', message.message);
             if (message.message.includes('Invalid or expired token') || message.message.includes('Missing authentication token')) {
+                // Silently handle token refresh without showing message
                 if (refreshToken && !refreshingToken) {
                     refreshingToken = true;
                     console.log('Attempting to refresh token');
@@ -227,8 +226,8 @@ socket.onmessage = async (event) => {
             } else if (message.message.includes('Token revoked') || message.message.includes('Invalid or expired refresh token')) {
                 showStatusMessage('Session expired. Reconnecting...');
                 stopKeepAlive();
-                token = ''; // Clear token to prevent reuse
-                refreshToken = ''; // Clear refresh token
+                token = '';
+                refreshToken = '';
                 socket.close();
             } else if (message.message.includes('Rate limit exceeded')) {
                 showStatusMessage('Rate limit exceeded. Waiting before retrying...');
@@ -256,6 +255,9 @@ socket.onmessage = async (event) => {
                 stopKeepAlive();
                 token = ''; // Clear token
                 refreshToken = ''; // Clear refresh token
+                showStatusMessage(message.message);
+            } else {
+                showStatusMessage(message.message);
             }
             return;
         }
