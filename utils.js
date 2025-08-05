@@ -67,12 +67,12 @@ function cleanupPeerConnection(targetId) {
     messageRateLimits.delete(targetId);
     imageRateLimits.delete(targetId);
     voiceRateLimits.delete(targetId);
-    if (remoteMedias.has(targetId)) {
-        const media = remoteMedias.get(targetId);
-        media.remove();
-        remoteMedias.delete(targetId);
-        if (remoteMedias.size === 0) {
-            document.getElementById('remoteMediaContainer').classList.add('hidden');
+    if (remoteAudios.has(targetId)) {
+        const audio = remoteAudios.get(targetId);
+        audio.remove();
+        remoteAudios.delete(targetId);
+        if (remoteAudios.size === 0) {
+            document.getElementById('remoteAudioContainer').classList.add('hidden');
         }
     }
     isConnected = dataChannels.size > 0;
@@ -217,6 +217,17 @@ function createAudioModal(base64, focusId) {
             document.getElementById(focusId)?.focus();
         }
     });
+}
+function arrayBufferToBase64(buffer) {
+    return btoa(String.fromCharCode(...new Uint8Array(buffer)));
+}
+function base64ToArrayBuffer(base64) {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes.buffer;
 }
 async function encodeAudioToMp3(audioBlob) {
     const arrayBuffer = await audioBlob.arrayBuffer();
