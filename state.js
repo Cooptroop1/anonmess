@@ -18,8 +18,12 @@ export let usernames = new Map();
 export const messageRateLimits = new Map();
 export let codeSentToRandom = false;
 export let useRelay = false;
-export let token = '';
-export let refreshToken = '';
+let _token = '';
+export function getToken() { return _token; }
+export function setToken(newValue) { _token = newValue; }
+let _refreshToken = '';
+export function getRefreshToken() { return _refreshToken; }
+export function setRefreshToken(newValue) { _refreshToken = newValue; }
 export let features = { enableService: true, enableImages: true, enableVoice: true, enableVoiceCalls: true };
 export let keyPair;
 export let roomKey;
@@ -67,4 +71,6 @@ export const voiceRateLimits = new Map();
 export let globalMessageRate = { count: 0, startTime: Date.now() };
 
 // Reconnection attempts
-export let reconnectAttempts = 0;
+let _reconnectAttempts = 0;
+export function getReconnectAttempts() { return _reconnectAttempts; }
+export function setReconnectAttempts(newValue) { _reconnectAttempts = newValue; }
