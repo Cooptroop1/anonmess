@@ -1,3 +1,4 @@
+
 // Reconnection attempt counter for exponential backoff
 let reconnectAttempts = 0;
 // Image rate limiting
@@ -36,10 +37,10 @@ let codeSentToRandom = false;
 let useRelay = false;
 let token = '';
 let refreshToken = '';
-let features = { enableService: true, enableImages: true, enableVoice: true, enableVoiceCalls: true, enableVideoCalls: true }; // Global features state
+let features = { enableService: true, enableImages: true, enableVoice: true, enableVoiceCalls: true }; // Global features state
 let keyPair;
 let roomKey;
-let remoteMedias = new Map();
+let remoteAudios = new Map();
 let refreshingToken = false;
 let signalingQueue = new Map();
 // Declare UI variables globally
@@ -303,7 +304,7 @@ socket.onmessage = async (event) => {
                 console.log(`Initiating peer connection with client ${message.clientId}`);
                 startPeerConnection(message.clientId, true);
             }
-            if (callActive) {
+            if (voiceCallActive) {
                 renegotiate(message.clientId);
             }
         }
@@ -312,12 +313,12 @@ socket.onmessage = async (event) => {
             console.log(`Client ${message.clientId} disconnected from code: ${code}, total: ${totalClients}`);
             usernames.delete(message.clientId);
             cleanupPeerConnection(message.clientId);
-            if (remoteMedias.has(message.clientId)) {
-                const media = remoteMedias.get(message.clientId);
-                media.remove();
-                remoteMedias.delete(message.clientId);
-                if (remoteMedias.size === 0) {
-                    document.getElementById('remoteMediaContainer').classList.add('hidden');
+            if (remoteAudios.has(message.clientId)) {
+                const audio = remoteAudios.get(message.clientId);
+                audio.remove();
+                remoteAudios.delete(message.clientId);
+                if (remoteAudios.size === 0) {
+                    document.getElementById('remoteAudioContainer').classList.add('hidden');
                 }
             }
             updateMaxClientsUI();
@@ -601,9 +602,6 @@ document.getElementById('voiceButton').onclick = () => {
 document.getElementById('voiceCallButton').onclick = () => {
     toggleVoiceCall();
 };
-document.getElementById('videoCallButton').onclick = () => {
-    toggleVideoCall();
-};
 function startVoiceRecording() {
     if (window.location.protocol !== 'https:') {
         console.error('Insecure context: HTTPS required for microphone access');
@@ -736,10 +734,10 @@ document.getElementById('newSessionButton').onclick = () => {
     token = ''; // Clear token
     refreshToken = ''; // Clear refresh token
     document.getElementById('startChatToggleButton')?.focus();
-    // Clean up call
-    stopCall();
-    remoteMedias.forEach(media => media.remove());
-    remoteMedias.clear();
+    // Clean up voice call
+    stopVoiceCall();
+    remoteAudios.forEach(audio => audio.remove());
+    remoteAudios.clear();
     signalingQueue.clear();
     refreshingToken = false;
 };
