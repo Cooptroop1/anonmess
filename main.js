@@ -226,22 +226,29 @@ function startPeerConnection(targetId, isOfferer) {
         console.log(`Received remote track from ${targetId}`);
         const track = event.track;
         const stream = event.streams[0];
-        if (!remoteAudios.has(targetId)) {
+        if (!remoteMedias.has(targetId)) {
             let mediaElement;
             if (track.kind === 'audio') {
                 mediaElement = document.createElement('audio');
-                mediaElement.srcObject = stream;
-                mediaElement.autoplay = true;
-                mediaElement.play().catch(error => console.error('Error playing remote audio:', error));
             } else if (track.kind === 'video') {
                 mediaElement = document.createElement('video');
-                mediaElement.srcObject = stream;
-                mediaElement.autoplay = true;
-                mediaElement.playsinline = true;
-                mediaElement.play().catch(error => console.error('Error playing remote video:', error));
+                mediaElement.playsInline = true;
             }
             if (mediaElement) {
-                remoteAudios.set(targetId, mediaElement);
+                mediaElement.srcObject = stream;
+                mediaElement.autoplay = true;
+                if (track.kind === 'video') mediaElement.playsinline = true;
+                mediaElement.play().catch(error => console.error('Error playing remote media:', error));
+                stream.getTracks().forEach(t => {
+                    t.onended = () => {
+                        if (stream.getTracks().every(tr => tr.readyState === 'ended')) {
+                            mediaElement.remove();
+                            remoteMedias.delete(targetId);
+                            if (remoteMedias.size === 0) document.getElementById('remoteMediaContainer').classList.add('hidden');
+                        }
+                    };
+                });
+                remoteMedias.set(targetId, mediaElement);
                 document.getElementById('remoteMediaContainer').appendChild(mediaElement);
                 document.getElementById('remoteMediaContainer').classList.remove('hidden');
             }
@@ -400,11 +407,11 @@ function setupDataChannel(dataChannel, targetId) {
         messageRateLimits.delete(targetId);
         imageRateLimits.delete(targetId);
         voiceRateLimits.delete(targetId);
-        if (remoteAudios.has(targetId)) {
-            const media = remoteAudios.get(targetId);
+        if (remoteMedias.has(targetId)) {
+            const media = remoteMedias.get(targetId);
             media.remove();
-            remoteAudios.delete(targetId);
-            if (remoteAudios.size === 0) {
+            remoteMedias.delete(targetId);
+            if (remoteMedias.size === 0) {
                 document.getElementById('remoteMediaContainer').classList.add('hidden');
             }
         }
@@ -582,11 +589,21 @@ async function startCall(video) {
         showStatusMessage(`${video ? 'Video' : 'Voice'} call started.`);
     } catch (error) {
         console.error(`Error starting ${video ? 'video' : 'voice'} call:`, error);
-        if (video && (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError')) {
-            showStatusMessage('No camera found, starting audio-only call.');
-            startCall(false); // Fallback to audio
+        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+            showStatusMessage('Permission denied for camera/microphone. Please allow in settings.');
+        } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+            if (video) {
+                showStatusMessage('No camera found, starting audio-only call.');
+                startCall(false);
+            } else {
+                showStatusMessage('No microphone found.');
+            }
+        } else if (error.name === 'NotReadableError') {
+            showStatusMessage('Media device in use or hardware error.');
+        } else if (error.name === 'OverconstrainedError') {
+            showStatusMessage('Device does not support required constraints.');
         } else {
-            showStatusMessage('Failed to access media devices for call.');
+            showStatusMessage('Failed to access media devices for call. Check permissions.');
         }
     }
 }
@@ -607,6 +624,12 @@ function stopCall() {
         });
         renegotiate(targetId);
     });
+    remoteMedias.forEach((media, id) => {
+        media.srcObject = null;
+        media.remove();
+    });
+    remoteMedias.clear();
+    document.getElementById('remoteMediaContainer').classList.add('hidden');
     callActive = false;
     isVideoCall = false;
     document.getElementById('voiceCallButton').classList.remove('active');
