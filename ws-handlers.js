@@ -1,334 +1,731 @@
-// ws-handlers.js - WebSocket creation and event handlers
+// main.js - Core logic for peer connections, message sending, and WebRTC signaling
 
 import {
   code, clientId, username, isInitiator, isConnected, maxClients, totalClients,
   peerConnections, dataChannels, connectionTimeouts, retryCounts, candidatesQueues,
-  processedMessageIds, usernames, useRelay, features, keyPair,
-  roomKey, remoteAudios, refreshingToken, signalingQueue, pendingCode, pendingJoin,
-  imageRateLimits, voiceRateLimits, globalMessageRate, getToken, setToken,
-  getRefreshToken, setRefreshToken, getReconnectAttempts, setReconnectAttempts
+  processedMessageIds, usernames, useRelay, roomKey, remoteAudios,
+  imageRateLimits, voiceRateLimits, features, getToken
 } from './state.js';
-import { showStatusMessage, startKeepAlive, stopKeepAlive, cleanupPeerConnection, initializeMaxClientsUI, updateMaxClientsUI, updateFeaturesUI, createImageModal, createAudioModal, sanitizeMessage, importPublicKey, exportPublicKey, deriveSharedKey, encryptRaw, decryptBytes } from './utils.js';
-import { startPeerConnection, handleOffer, handleAnswer, handleCandidate, renegotiate, sendMessage, stopVoiceCall, processSignalingQueue, autoConnect } from './main.js';
-import { refreshAccessToken } from './ui-events.js';
+import { showStatusMessage, sanitizeMessage, createImageModal, createAudioModal, encodeAudioToMp3, encrypt } from './utils.js';
 
-export let socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
-console.log('WebSocket created');
+// Global vars for dynamic TURN creds from server
+let turnUsername = '';
+let turnCredential = '';
+let localStream = null;
+let voiceCallActive = false;
 
-const maxReconnectAttempts = 5;
-
-socket.onopen = () => {
-  console.log('WebSocket opened');
-  socket.send(JSON.stringify({ type: 'connect', clientId }));
-  startKeepAlive();
-  setReconnectAttempts(0);
-  const urlParams = new URLSearchParams(window.location.search);
-  const codeParam = urlParams.get('code');
-  if (codeParam && validateCode(codeParam)) {
-    console.log('Detected code in URL, setting pendingCode for autoConnect after token');
-    pendingCode = codeParam;
-  } else {
-    console.log('No valid code in URL, showing initial container');
-    initialContainer.classList.remove('hidden');
-    usernameContainer.classList.add('hidden');
-    connectContainer.classList.add('hidden');
-    chatContainer.classList.add('hidden');
-    codeDisplayElement.classList.add('hidden');
-    copyCodeButton.classList.add('hidden');
-  }
-};
-
-socket.onerror = (error) => {
-  console.error('WebSocket error:', error);
-  showStatusMessage('Connection error, please try again later.');
-  stopKeepAlive();
-  connectionTimeouts.forEach((timeout) => clearTimeout(timeout));
-};
-
-socket.onclose = () => {
-  console.error('WebSocket closed, attempting reconnect');
-  stopKeepAlive();
-  showStatusMessage('Lost connection, reconnecting...');
-  if (getReconnectAttempts() >= maxReconnectAttempts) {
-    showStatusMessage('Max reconnect attempts reached. Please refresh the page.', 10000);
+export async function sendMedia(file, type) {
+  const validTypes = {
+    image: ['image/jpeg', 'image/png'],
+    voice: ['audio/webm', 'audio/ogg']
+  };
+  if ((type === 'image' && !features.enableImages) || (type === 'voice' && !features.enableVoice)) {
+    showStatusMessage(`Error: ${type.charAt(0).toUpperCase() + type.slice(1)} messages are disabled by admin.`);
+    document.getElementById(`${type}Button`)?.focus();
     return;
   }
-  const delay = Math.min(30000, 5000 * Math.pow(2, getReconnectAttempts()));
-  setReconnectAttempts(getReconnectAttempts() + 1);
-  setTimeout(() => {
-    socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
-    socket.onopen = socket.onopen;
-    socket.onerror = socket.onerror;
-    socket.onclose = socket.onclose;
-    socket.onmessage = socket.onmessage;
-  }, delay);
-};
-
-socket.onmessage = async (event) => {
-  console.log('Received WebSocket message:', event.data);
-  try {
-    const message = JSON.parse(event.data);
-    console.log('Parsed message:', message);
-    if (!message.type) {
-      console.error('Invalid message: missing type');
-      showStatusMessage('Invalid server message received.');
-      return;
-    }
-    if (message.type === 'pong') {
-      console.log('Received keepalive pong');
-      return;
-    }
-    if (message.type === 'connected') {
-      setToken(message.accessToken);
-      setRefreshToken(message.refreshToken);
-      console.log('Received authentication tokens:', { accessToken: getToken(), refreshToken: getRefreshToken() });
-      setTimeout(refreshAccessToken, 5 * 60 * 1000);
-      if (pendingCode) {
-        autoConnect(pendingCode);
-        pendingCode = null;
-      }
-      if (pendingJoin) {
-        socket.send(JSON.stringify({ type: 'join', ...pendingJoin, token: getToken() }));
-        pendingJoin = null;
-      }
-      processSignalingQueue();
-      return;
-    }
-    if (message.type === 'token-refreshed') {
-      setToken(message.accessToken);
-      setRefreshToken(message.refreshToken);
-      console.log('Received new tokens:', { accessToken: getToken(), refreshToken: getRefreshToken() });
-      showStatusMessage('Authentication tokens refreshed.');
-      setTimeout(refreshAccessToken, 5 * 60 * 1000);
-      if (pendingJoin) {
-        socket.send(JSON.stringify({ type: 'join', ...pendingJoin, token: getToken() }));
-        pendingJoin = null;
-      }
-      processSignalingQueue();
-      refreshingToken = false;
-      return;
-    }
-    if (message.type === 'error') {
-      console.error('Server error:', message.message);
-      if (message.message.includes('Invalid or expired token') || message.message.includes('Missing authentication token')) {
-        if (getRefreshToken() && !refreshingToken) {
-          refreshingToken = true;
-          console.log('Attempting to refresh token');
-          socket.send(JSON.stringify({ type: 'refresh-token', clientId, refreshToken: getRefreshToken() }));
-        } else {
-          console.error('No refresh token available or refresh in progress, forcing reconnect');
-          stopKeepAlive();
-          socket.close();
-        }
-      } else if (message.message.includes('Token revoked') || message.message.includes('Invalid or expired refresh token')) {
-        showStatusMessage('Session expired. Reconnecting...');
-        stopKeepAlive();
-        setToken('');
-        setRefreshToken('');
-        socket.close();
-      } else if (message.message.includes('Rate limit exceeded')) {
-        showStatusMessage('Rate limit exceeded. Waiting before retrying...');
-        stopKeepAlive();
-        setTimeout(() => {
-          if (getReconnectAttempts() < maxReconnectAttempts) {
-            socket.send(JSON.stringify({ type: 'connect', clientId }));
-            startKeepAlive();
-          }
-        }, 60000);
-      } else if (message.message.includes('Chat is full') || message.message.includes('Username already taken') || message.message.includes('Initiator offline')) {
-        socket.send(JSON.stringify({ type: 'leave', code, clientId, token: getToken() }));
-        initialContainer.classList.remove('hidden');
-        usernameContainer.classList.add('hidden');
-        connectContainer.classList.add('hidden');
-        codeDisplayElement.classList.add('hidden');
-        copyCodeButton.classList.add('hidden');
-        chatContainer.classList.add('hidden');
-        newSessionButton.classList.add('hidden');
-        maxClientsContainer.classList.add('hidden');
-        inputContainer.classList.add('hidden');
-        messages.classList.remove('waiting');
-        codeSentToRandom = false;
-        button2.disabled = false;
-        stopKeepAlive();
-        setToken('');
-        setRefreshToken('');
-        showStatusMessage(message.message);
-      } else {
-        showStatusMessage(message.message);
-      }
-      return;
-    }
-    if (message.type === 'init') {
-      clientId = message.clientId;
-      maxClients = Math.min(message.maxClients, 10);
-      isInitiator = message.isInitiator;
-      features = message.features || features;
-      totalClients = 1;
-      console.log(`Initialized client ${clientId}, username: ${username}, maxClients: ${maxClients}, isInitiator: ${isInitiator}, features:`, features);
-      usernames.set(clientId, username);
-      initializeMaxClientsUI();
-      updateFeaturesUI();
-      if (isInitiator) {
-        isConnected = true;
-        roomKey = await window.crypto.subtle.generateKey(
-          { name: 'AES-GCM', length: 256 },
-          true,
-          ['encrypt', 'decrypt']
-        );
-      } else {
-        const publicKey = await exportPublicKey(keyPair.publicKey);
-        socket.send(JSON.stringify({ type: 'public-key', publicKey, clientId, code, token: getToken() }));
-      }
-      updateMaxClientsUI();
-      turnUsername = message.turnUsername;
-      turnCredential = message.turnCredential;
-    }
-    if (message.type === 'initiator-changed') {
-      console.log(`Initiator changed to ${message.newInitiator} for code: ${code}`);
-      isInitiator = message.newInitiator === clientId;
-      initializeMaxClientsUI();
-      updateMaxClientsUI();
-    }
-    if (message.type === 'join-notify' && message.code === code) {
-      totalClients = message.totalClients;
-      console.log(`Join-notify received for code: ${code}, client: ${message.clientId}, total: ${totalClients}, username: ${message.username}`);
-      if (message.username) {
-        usernames.set(message.clientId, message.username);
-      }
-      updateMaxClientsUI();
-      if (isInitiator && message.clientId !== clientId && !peerConnections.has(message.clientId)) {
-        console.log(`Initiating peer connection with client ${message.clientId}`);
-        startPeerConnection(message.clientId, true);
-      }
-      if (voiceCallActive) {
-        renegotiate(message.clientId);
-      }
-    }
-    if (message.type === 'client-disconnected') {
-      totalClients = message.totalClients;
-      console.log(`Client ${message.clientId} disconnected from code: ${code}, total: ${totalClients}`);
-      usernames.delete(message.clientId);
-      cleanupPeerConnection(message.clientId);
-      if (remoteAudios.has(message.clientId)) {
-        const audio = remoteAudios.get(message.clientId);
-        audio.remove();
-        remoteAudios.delete(message.clientId);
-        if (remoteAudios.size === 0) {
-          document.getElementById('remoteAudioContainer').classList.add('hidden');
-        }
-      }
-      updateMaxClientsUI();
-      if (totalClients <= 1) {
-        inputContainer.classList.add('hidden');
-        messages.classList.add('waiting');
-      }
-    }
-    if (message.type === 'max-clients') {
-      maxClients = Math.min(message.maxClients, 10);
-      console.log(`Max clients updated to ${maxClients} for code: ${code}`);
-      updateMaxClientsUI();
-    }
-    if (message.type === 'offer' && message.clientId !== clientId) {
-      console.log(`Received offer from ${message.clientId} for code: ${code}`);
-      handleOffer(message.offer, message.clientId);
-    }
-    if (message.type === 'answer' && message.clientId !== clientId) {
-      console.log(`Received answer from ${message.clientId} for code: ${code}`);
-      handleAnswer(message.answer, message.clientId);
-    }
-    if (message.type === 'candidate' && message.clientId !== clientId) {
-      console.log(`Received ICE candidate from ${message.clientId} for code: ${code}`);
-      handleCandidate(message.candidate, message.clientId);
-    }
-    if (message.type === 'public-key' && isInitiator) {
-      try {
-        const joinerPublic = await importPublicKey(message.publicKey);
-        const sharedKey = await deriveSharedKey(keyPair.privateKey, joinerPublic);
-        const roomKeyRaw = await window.crypto.subtle.exportKey('raw', roomKey);
-        const { encrypted, iv } = await encryptRaw(sharedKey, roomKeyRaw);
-        const myPublic = await exportPublicKey(keyPair.publicKey);
-        socket.send(JSON.stringify({
-          type: 'encrypted-room-key',
-          encryptedKey: encrypted,
-          iv,
-          publicKey: myPublic,
-          targetId: message.clientId,
-          code,
-          clientId,
-          token: getToken()
-        }));
-      } catch (error) {
-        console.error('Error handling public-key:', error);
-        showStatusMessage('Key exchange failed.');
-      }
-    }
-    if (message.type === 'encrypted-room-key') {
-      try {
-        const initiatorPublic = await importPublicKey(message.publicKey);
-        const sharedKey = await deriveSharedKey(keyPair.privateKey, initiatorPublic);
-        const roomKeyRaw = await decryptBytes(sharedKey, message.encryptedKey, message.iv);
-        roomKey = await window.crypto.subtle.importKey(
-          'raw',
-          roomKeyRaw,
-          { name: 'AES-GCM' },
-          true,
-          ['encrypt', 'decrypt']
-        );
-        console.log('Room key successfully imported.');
-      } catch (error) {
-        console.error('Error handling encrypted-room-key:', error);
-        showStatusMessage('Failed to receive encryption key.');
-      }
-    }
-    if ((message.type === 'message' || message.type === 'image' || message.type === 'voice') && useRelay) {
-      if (processedMessageIds.has(message.messageId)) return;
-      processedMessageIds.add(message.messageId);
-      const senderUsername = message.username;
-      const messages = document.getElementById('messages');
-      const isSelf = senderUsername === username;
-      const messageDiv = document.createElement('div');
-      messageDiv.className = `message-bubble ${isSelf ? 'self' : 'other'}`;
-      const timeSpan = document.createElement('span');
-      timeSpan.className = 'timestamp';
-      timeSpan.textContent = new Date(message.timestamp).toLocaleTimeString();
-      messageDiv.appendChild(timeSpan);
-      messageDiv.appendChild(document.createTextNode(`${senderUsername}: `));
-      if (message.type === 'image') {
-        const img = document.createElement('img');
-        img.src = message.data;
-        img.style.maxWidth = '100%';
-        img.style.borderRadius = '0.5rem';
-        img.style.cursor = 'pointer';
-        img.setAttribute('alt', 'Received image');
-        img.addEventListener('click', () => createImageModal(message.data, 'messageInput'));
-        messageDiv.appendChild(img);
-      } else if (message.type === 'voice') {
-        const audio = document.createElement('audio');
-        audio.src = message.data;
-        audio.controls = true;
-        audio.setAttribute('alt', 'Received voice message');
-        audio.addEventListener('click', () => createAudioModal(message.data, 'messageInput'));
-        messageDiv.appendChild(audio);
-      } else {
-        messageDiv.appendChild(document.createTextNode(sanitizeMessage(message.content)));
-      }
-      messages.prepend(messageDiv);
-      messages.scrollTop = 0;
-    }
-    if (message.type === 'features-update') {
-      features = message;
-      console.log('Received features update:', features);
-      updateFeaturesUI();
-      if (!features.enableService) {
-        showStatusMessage('Service disabled by admin. Disconnecting...');
-        stopKeepAlive();
-        setToken('');
-        setRefreshToken('');
-        socket.close();
-      }
-    }
-  } catch (error) {
-    console.error('Error parsing message:', error, 'Raw data:', event.data);
-    showStatusMessage('Error processing server message.');
+  if (!file || !validTypes[type].includes(file.type) || !username || dataChannels.size === 0) {
+    showStatusMessage(`Error: Select a ${type === 'image' ? 'JPEG/PNG image' : 'valid audio format'} and ensure you are connected.`);
+    document.getElementById(`${type}Button`)?.focus();
+    return;
   }
-};
+  if (file.size > 5 * 1024 * 1024) {
+    showStatusMessage(`Error: ${type === 'image' ? 'Image' : 'Audio'} size exceeds 5MB limit.`);
+    document.getElementById(`${type}Button`)?.focus();
+    return;
+  }
+  const rateLimits = type === 'image' ? imageRateLimits : voiceRateLimits;
+  const now = performance.now();
+  const rateLimit = rateLimits.get(clientId) || { count: 0, startTime: now };
+  if (now - rateLimit.startTime >= 60000) {
+    rateLimit.count = 0;
+    rateLimit.startTime = now;
+  }
+  rateLimit.count += 1;
+  rateLimits.set(clientId, rateLimit);
+  if (rateLimit.count > 5) {
+    showStatusMessage(`${type === 'image' ? 'Image' : 'Voice'} rate limit reached (5/min). Please wait.`);
+    document.getElementById(`${type}Button`)?.focus();
+    return;
+  }
+  let base64;
+  if (type === 'image') {
+    const maxWidth = 640;
+    const maxHeight = 360;
+    let quality = 0.4;
+    if (file.size > 3 * 1024 * 1024) {
+      quality = 0.3;
+    } else if (file.size > 1 * 1024 * 1024) {
+      quality = 0.35;
+    }
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    img.src = URL.createObjectURL(file);
+    await new Promise(resolve => img.onload = resolve);
+    let width = img.width;
+    let height = img.height;
+    if (width > height) {
+      if (width > maxWidth) {
+        height = Math.round((height * maxWidth) / width);
+        width = maxWidth;
+      }
+    } else {
+      if (height > maxHeight) {
+        width = Math.round((width * maxHeight) / height);
+        height = maxHeight;
+      }
+    }
+    canvas.width = width;
+    canvas.height = height;
+    ctx.drawImage(img, 0, 0, width, height);
+    base64 = canvas.toDataURL('image/jpeg', quality);
+    URL.revokeObjectURL(img.src);
+  } else {
+    const mp3Blob = await encodeAudioToMp3(file);
+    base64 = await new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.readAsDataURL(mp3Blob);
+    });
+  }
+  const messageId = generateMessageId();
+  const timestamp = Date.now();
+  const payload = { messageId, type, data: base64, username, timestamp };
+  const jsonString = JSON.stringify(payload);
+  if (useRelay) {
+    if (!roomKey) {
+      showStatusMessage('Error: Encryption key not available for relay mode.');
+      return;
+    }
+    const { encrypted, iv } = await encrypt(jsonString);
+    sendRelayMessage(`relay-${type}`, { encryptedData: encrypted, iv, messageId });
+  } else if (dataChannels.size > 0) {
+    dataChannels.forEach((dataChannel) => {
+      if (dataChannel.readyState === 'open') {
+        dataChannel.send(jsonString);
+      }
+    });
+  } else {
+    showStatusMessage('Error: No connections.');
+    return;
+  }
+  const messages = document.getElementById('messages');
+  const messageDiv = document.createElement('div');
+  messageDiv.className = 'message-bubble self';
+  const timeSpan = document.createElement('span');
+  timeSpan.className = 'timestamp';
+  timeSpan.textContent = new Date(timestamp).toLocaleTimeString();
+  messageDiv.appendChild(timeSpan);
+  messageDiv.appendChild(document.createTextNode(`${username}: `));
+  if (type === 'image') {
+    const imgElement = document.createElement('img');
+    imgElement.src = base64;
+    imgElement.style.maxWidth = '100%';
+    imgElement.style.borderRadius = '0.5rem';
+    imgElement.style.cursor = 'pointer';
+    imgElement.setAttribute('alt', 'Sent image');
+    imgElement.addEventListener('click', () => createImageModal(base64, `${type}Button`));
+    messageDiv.appendChild(imgElement);
+  } else {
+    const audioElement = document.createElement('audio');
+    audioElement.src = base64;
+    audioElement.controls = true;
+    audioElement.setAttribute('alt', 'Sent voice message');
+    audioElement.addEventListener('click', () => createAudioModal(base64, `${type}Button`));
+    messageDiv.appendChild(audioElement);
+  }
+  messages.prepend(messageDiv);
+  messages.scrollTop = 0;
+  processedMessageIds.add(messageId);
+  document.getElementById(`${type}Button`)?.focus();
+}
+
+export function startPeerConnection(targetId, isOfferer) {
+  console.log(`Starting peer connection with ${targetId} for code: ${code}, offerer: ${isOfferer}`);
+  if (peerConnections.has(targetId)) {
+    console.log(`Cleaning up existing connection with ${targetId}`);
+    cleanupPeerConnection(targetId);
+  }
+  const peerConnection = new RTCPeerConnection({
+    iceServers: [
+      { urls: "stun:stun.relay.metered.ca:80" },
+      {
+        urls: "turn:global.relay.metered.ca:80",
+        username: turnUsername,
+        credential: turnCredential
+      },
+      {
+        urls: "turn:global.relay.metered.ca:80?transport=tcp",
+        username: turnUsername,
+        credential: turnCredential
+      },
+      {
+        urls: "turn:global.relay.metered.ca:443",
+        username: turnUsername,
+        credential: turnCredential
+      },
+      {
+        urls: "turns:global.relay.metered.ca:443?transport=tcp",
+        username: turnUsername,
+        credential: turnCredential
+      }
+    ],
+    iceTransportPolicy: 'all'
+  });
+  peerConnections.set(targetId, peerConnection);
+  candidatesQueues.set(targetId, []);
+  let dataChannel;
+  if (isOfferer) {
+    dataChannel = peerConnection.createDataChannel('chat');
+    console.log(`Created data channel for ${targetId}`);
+    setupDataChannel(dataChannel, targetId);
+    dataChannels.set(targetId, dataChannel);
+  }
+  peerConnection.onicecandidate = (event) => {
+    if (event.candidate) {
+      console.log(`Sending ICE candidate to ${targetId} for code: ${code}`);
+      sendSignalingMessage('candidate', { candidate: event.candidate, targetId });
+    }
+  };
+  peerConnection.onicecandidateerror = (event) => {
+    console.error(`ICE candidate error for ${targetId}: ${event.errorText}, code=${event.errorCode}`);
+    if (event.errorCode !== 701) {
+      const retryCount = retryCounts.get(targetId) || 0;
+      if (retryCount < maxRetries) {
+        retryCounts.set(targetId, retryCount + 1);
+        console.log(`Retrying connection with ${targetId}, attempt ${retryCount + 1}`);
+        startPeerConnection(targetId, isOfferer);
+      }
+    } else {
+      console.log(`Ignoring ICE 701 error for ${targetId}, continuing connection`);
+    }
+  };
+  peerConnection.onicegatheringstatechange = () => {
+    console.log(`ICE gathering state for ${targetId}: ${peerConnection.iceGatheringState}`);
+  };
+  peerConnection.onconnectionstatechange = () => {
+    console.log(`Connection state for ${targetId}: ${peerConnection.connectionState}`);
+    if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
+      console.log(`Connection failed with ${targetId}`);
+      showStatusMessage('Peer connection failed, attempting to reconnect...');
+      cleanupPeerConnection(targetId);
+      const retryCount = retryCounts.get(targetId) || 0;
+      if (retryCount < maxRetries) {
+        retryCounts.set(targetId, retryCount + 1);
+        console.log(`Retrying connection attempt ${retryCount + 1} with ${targetId}`);
+        startPeerConnection(targetId, isOfferer);
+      }
+    } else if (peerConnection.connectionState === 'connected') {
+      console.log(`WebRTC connection established with ${targetId} for code: ${code}`);
+      isConnected = true;
+      retryCounts.delete(targetId);
+      clearTimeout(connectionTimeouts.get(targetId));
+      updateMaxClientsUI();
+      const privacyStatus = document.getElementById('privacyStatus');
+      if (privacyStatus) {
+        privacyStatus.textContent = 'E2E Encrypted (P2P)';
+        privacyStatus.classList.remove('hidden');
+      }
+    }
+  };
+  peerConnection.ontrack = (event) => {
+    console.log(`Received remote track from ${targetId}`);
+    if (!remoteAudios.has(targetId)) {
+      const audio = document.createElement('audio');
+      audio.srcObject = event.streams[0];
+      audio.autoplay = true;
+      audio.play().catch(error => console.error('Error playing remote audio:', error));
+      remoteAudios.set(targetId, audio);
+      document.getElementById('remoteAudioContainer').appendChild(audio);
+      document.getElementById('remoteAudioContainer').classList.remove('hidden');
+    }
+  };
+  peerConnection.ondatachannel = (event) => {
+    console.log(`Received data channel from ${targetId}`);
+    if (dataChannels.has(targetId)) {
+      console.log(`Closing existing data channel for ${targetId}`);
+      const existingChannel = dataChannels.get(targetId);
+      existingChannel.close();
+    }
+    dataChannel = event.channel;
+    setupDataChannel(dataChannel, targetId);
+    dataChannels.set(targetId, dataChannel);
+  };
+  if (isOfferer) {
+    peerConnection.createOffer().then(offer => {
+      return peerConnection.setLocalDescription(offer);
+    }).then(() => {
+      console.log(`Sending offer to ${targetId} for code: ${code}`);
+      sendSignalingMessage('offer', { offer: peerConnection.localDescription, targetId });
+    }).catch(error => {
+      console.error(`Error creating offer for ${targetId}:`, error);
+      showStatusMessage('Failed to establish peer connection.');
+    });
+  }
+  const timeout = setTimeout(() => {
+    if (!dataChannels.get(targetId) || dataChannels.get(targetId).readyState !== 'open') {
+      console.log(`P2P failed with ${targetId}, falling back to relay`);
+      useRelay = true;
+      showStatusMessage('P2P connection failed, switching to server relay mode.');
+      cleanupPeerConnection(targetId);
+      const privacyStatus = document.getElementById('privacyStatus');
+      if (privacyStatus) {
+        privacyStatus.textContent = 'Relay Mode: E2E Encrypted';
+        privacyStatus.classList.remove('hidden');
+      }
+    }
+  }, 10000); // 10s timeout for fallback
+  connectionTimeouts.set(targetId, timeout);
+}
+
+function setupDataChannel(dataChannel, targetId) {
+  console.log('setupDataChannel initialized for targetId:', targetId);
+  dataChannel.onopen = () => {
+    console.log(`Data channel opened with ${targetId} for code: ${code}, state: ${dataChannel.readyState}`);
+    isConnected = true;
+    initialContainer.classList.add('hidden');
+    usernameContainer.classList.add('hidden');
+    connectContainer.classList.add('hidden');
+    chatContainer.classList.remove('hidden');
+    newSessionButton.classList.remove('hidden');
+    inputContainer.classList.remove('hidden');
+    messages.classList.remove('waiting');
+    clearTimeout(connectionTimeouts.get(targetId));
+    retryCounts.delete(targetId);
+    updateMaxClientsUI();
+    document.getElementById('messageInput')?.focus();
+  };
+  dataChannel.onmessage = async (event) => {
+    const now = performance.now();
+    const rateLimit = messageRateLimits.get(targetId) || { count: 0, startTime: now };
+    if (now - rateLimit.startTime >= 1000) {
+      rateLimit.count = 0;
+      rateLimit.startTime = now;
+    }
+    rateLimit.count += 1;
+    messageRateLimits.set(targetId, rateLimit);
+    if (rateLimit.count > 10) {
+      console.warn(`Rate limit exceeded for ${targetId}: ${rateLimit.count} messages in 1s`);
+      showStatusMessage('Message rate limit reached, please slow down.');
+      return;
+    }
+    let data;
+    try {
+      data = JSON.parse(event.data);
+    } catch (e) {
+      console.error(`Invalid message from ${targetId}:`, e);
+      showStatusMessage('Invalid message received.');
+      return;
+    }
+    if (data.type === 'voice-call-start') {
+      if (!voiceCallActive) {
+        startVoiceCall();
+      }
+      return;
+    }
+    if (data.type === 'voice-call-end') {
+      if (voiceCallActive) {
+        stopVoiceCall();
+      }
+      return;
+    }
+    if (!data.messageId || !data.username || (!data.content && !data.data)) {
+      console.log(`Invalid message format from ${targetId}:`, data);
+      return;
+    }
+    if (processedMessageIds.has(data.messageId)) {
+      console.log(`Duplicate message ${data.messageId} from ${targetId}`);
+      return;
+    }
+    processedMessageIds.add(data.messageId);
+    const senderUsername = usernames.get(targetId) || data.username;
+    const messages = document.getElementById('messages');
+    const isSelf = senderUsername === username;
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message-bubble ${isSelf ? 'self' : 'other'}`;
+    const timeSpan = document.createElement('span');
+    timeSpan.className = 'timestamp';
+    timeSpan.textContent = new Date(data.timestamp).toLocaleTimeString();
+    messageDiv.appendChild(timeSpan);
+    messageDiv.appendChild(document.createTextNode(`${senderUsername}: `));
+    if (data.type === 'image') {
+      const img = document.createElement('img');
+      img.src = data.data;
+      img.style.maxWidth = '100%';
+      img.style.borderRadius = '0.5rem';
+      img.style.cursor = 'pointer';
+      img.setAttribute('alt', 'Received image');
+      img.addEventListener('click', () => createImageModal(data.data, 'messageInput'));
+      messageDiv.appendChild(img);
+    } else if (data.type === 'voice') {
+      const audio = document.createElement('audio');
+      audio.src = data.data;
+      audio.controls = true;
+      audio.setAttribute('alt', 'Received voice message');
+      audio.addEventListener('click', () => createAudioModal(data.data, 'messageInput'));
+      messageDiv.appendChild(audio);
+    } else {
+      messageDiv.appendChild(document.createTextNode(sanitizeMessage(data.content)));
+    }
+    messages.prepend(messageDiv);
+    messages.scrollTop = 0;
+    if (isInitiator) {
+      dataChannels.forEach((dc, id) => {
+        if (id !== targetId && dc.readyState === 'open') {
+          dc.send(event.data); // Forward the original data (unencrypted in P2P)
+        }
+      });
+    }
+  };
+  dataChannel.onerror = (error) => {
+    console.error(`Data channel error with ${targetId}:`, error);
+    showStatusMessage('Error in peer connection.');
+  };
+  dataChannel.onclose = () => {
+    console.log(`Data channel closed with ${targetId}`);
+    showStatusMessage('Peer disconnected.');
+    cleanupPeerConnection(targetId);
+    messageRateLimits.delete(targetId);
+    imageRateLimits.delete(targetId);
+    voiceRateLimits.delete(targetId);
+    if (remoteAudios.has(targetId)) {
+      const audio = remoteAudios.get(targetId);
+      audio.remove();
+      remoteAudios.delete(targetId);
+      if (remoteAudios.size === 0) {
+        document.getElementById('remoteAudioContainer').classList.add('hidden');
+      }
+    }
+    if (dataChannels.size === 0) {
+      inputContainer.classList.add('hidden');
+      messages.classList.add('waiting');
+    }
+  };
+}
+
+export async function handleOffer(offer, targetId) {
+  console.log(`Handling offer from ${targetId} for code: ${code}`);
+  if (offer.type !== 'offer') {
+    console.error(`Invalid offer type from ${targetId}:`, offer.type);
+    return;
+  }
+  if (!peerConnections.has(targetId)) {
+    console.log(`No existing peer connection for ${targetId}, starting new one`);
+    startPeerConnection(targetId, false);
+  }
+  const peerConnection = peerConnections.get(targetId);
+  try {
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+    sendSignalingMessage('answer', { answer: peerConnection.localDescription, targetId });
+    const queue = candidatesQueues.get(targetId) || [];
+    queue.forEach(candidate => {
+      handleCandidate(candidate, targetId);
+    });
+    candidatesQueues.set(targetId, []);
+  } catch (error) {
+    console.error(`Error handling offer from ${targetId}:`, error);
+    showStatusMessage('Failed to connect to peer.');
+  }
+}
+
+export async function handleAnswer(answer, targetId) {
+  console.log(`Handling answer from ${targetId} for code: ${code}`);
+  if (!peerConnections.has(targetId)) {
+    console.log(`No peer connection for ${targetId}, starting new one and queuing answer`);
+    startPeerConnection(targetId, false);
+    candidatesQueues.get(targetId).push({ type: 'answer', answer });
+    return;
+  }
+  const peerConnection = peerConnections.get(targetId);
+  if (answer.type !== 'answer') {
+    console.error(`Invalid answer type from ${targetId}:`, answer.type);
+    return;
+  }
+  if (peerConnection.signalingState !== 'have-local-offer') {
+    console.log(`Queuing answer from ${targetId}`);
+    candidatesQueues.get(targetId).push({ type: 'answer', answer });
+    return;
+  }
+  try {
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+    const queue = candidatesQueues.get(targetId) || [];
+    queue.forEach(item => {
+      if (item.type === 'answer') {
+        peerConnection.setRemoteDescription(new RTCSessionDescription(item.answer)).catch(error => {
+          console.error(`Error applying queued answer from ${targetId}:`, error);
+          showStatusMessage('Error processing peer response.');
+        });
+      } else if (item.type === 'candidate') {
+        handleCandidate(item.candidate, targetId);
+      }
+    });
+    candidatesQueues.set(targetId, []);
+  } catch (error) {
+    console.error(`Error handling answer from ${targetId}:`, error);
+    showStatusMessage('Error connecting to peer.');
+  }
+}
+
+export function handleCandidate(candidate, targetId) {
+  console.log(`Handling ICE candidate from ${targetId} for code: ${code}`);
+  const peerConnection = peerConnections.get(targetId);
+  if (peerConnection && peerConnection.remoteDescription) {
+    peerConnection.addIceCandidate(new RTCIceCandidate(candidate)).catch(error => {
+      console.error(`Error adding ICE candidate from ${targetId}:`, error);
+      showStatusMessage('Error establishing peer connection.');
+    });
+  } else {
+    const queue = candidatesQueues.get(targetId) || [];
+    queue.push({ type: 'candidate', candidate });
+    candidatesQueues.set(targetId, queue);
+  }
+}
+
+export async function sendMessage(content) {
+  if (content && dataChannels.size > 0 && username) {
+    const messageId = generateMessageId();
+    const sanitizedContent = sanitizeMessage(content);
+    const timestamp = Date.now();
+    const payload = { messageId, content: sanitizedContent, username, timestamp };
+    const jsonString = JSON.stringify(payload);
+    if (useRelay) {
+      if (!roomKey) {
+        showStatusMessage('Error: Encryption key not available for relay mode.');
+        return;
+      }
+      const { encrypted, iv } = await encrypt(jsonString);
+      sendRelayMessage('relay-message', { encryptedContent: encrypted, iv, messageId });
+    } else {
+      dataChannels.forEach((dataChannel, targetId) => {
+        if (dataChannel.readyState === 'open') {
+          dataChannel.send(jsonString);
+        }
+      });
+    }
+    const messages = document.getElementById('messages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message-bubble self';
+    const timeSpan = document.createElement('span');
+    timeSpan.className = 'timestamp';
+    timeSpan.textContent = new Date(timestamp).toLocaleTimeString();
+    messageDiv.appendChild(timeSpan);
+    messageDiv.appendChild(document.createTextNode(`${username}: ${sanitizedContent}`));
+    messages.prepend(messageDiv);
+    messages.scrollTop = 0;
+    processedMessageIds.add(messageId);
+    const messageInput = document.getElementById('messageInput');
+    messageInput.value = '';
+    messageInput.style.height = '2.5rem';
+    messageInput?.focus();
+  } else {
+    showStatusMessage('Error: No connections or username not set.');
+    document.getElementById('messageInput')?.focus();
+  }
+}
+
+export async function toggleVoiceCall() {
+  if (!features.enableVoiceCalls) {
+    showStatusMessage('Voice calls are disabled by admin.');
+    return;
+  }
+  if (voiceCallActive) {
+    stopVoiceCall();
+    broadcastVoiceCallEvent('voice-call-end');
+  } else {
+    startVoiceCall();
+    broadcastVoiceCallEvent('voice-call-start');
+  }
+}
+
+export async function startVoiceCall() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showStatusMessage('Microphone not supported.');
+    return;
+  }
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    peerConnections.forEach((peerConnection, targetId) => {
+      localStream.getTracks().forEach(track => {
+        peerConnection.addTrack(track, localStream);
+      });
+      renegotiate(targetId);
+    });
+    voiceCallActive = true;
+    document.getElementById('voiceCallButton').classList.add('active');
+    document.getElementById('voiceCallButton').title = 'End Voice Call';
+    showStatusMessage('Voice call started.');
+  } catch (error) {
+    console.error('Error starting voice call:', error);
+    showStatusMessage('Failed to access microphone for voice call.');
+  }
+}
+
+export function stopVoiceCall() {
+  if (localStream) {
+    localStream.getTracks().forEach(track => track.stop());
+    localStream = null;
+  }
+  peerConnections.forEach((peerConnection, targetId) => {
+    peerConnection.getSenders().forEach(sender => {
+      if (sender.track && sender.track.kind === 'audio') {
+        peerConnection.removeTrack(sender);
+      }
+    });
+    renegotiate(targetId);
+  });
+  voiceCallActive = false;
+  document.getElementById('voiceCallButton').classList.remove('active');
+  document.getElementById('voiceCallButton').title = 'Start Voice Call';
+  showStatusMessage('Voice call ended.');
+}
+
+export async function renegotiate(targetId) {
+  const peerConnection = peerConnections.get(targetId);
+  if (peerConnection && peerConnection.signalingState === 'stable') {
+    try {
+      const offer = await peerConnection.createOffer();
+      await peerConnection.setLocalDescription(offer);
+      sendSignalingMessage('offer', { offer: peerConnection.localDescription, targetId });
+    } catch (error) {
+      console.error(`Error renegotiating with ${targetId}:`, error);
+      showStatusMessage('Failed to renegotiate peer connection.');
+    }
+  }
+}
+
+export function sendSignalingMessage(type, additionalData) {
+  if (!getToken() || refreshingToken) {
+    console.log('Token missing or refresh in progress, queuing signaling message');
+    if (!signalingQueue.has('global')) signalingQueue.set('global', []);
+    signalingQueue.get('global').push({ type, additionalData });
+    if (!refreshingToken) refreshAccessToken();
+    return;
+  }
+  const message = { type, ...additionalData, code, clientId, token: getToken() };
+  if (socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify(message));
+  } else {
+    console.log('Socket not open, queuing signaling message');
+    if (!signalingQueue.has('global')) signalingQueue.set('global', []);
+    signalingQueue.get('global').push({ type, additionalData });
+  }
+}
+
+export function broadcastVoiceCallEvent(eventType) {
+  dataChannels.forEach((dataChannel) => {
+    if (dataChannel.readyState === 'open') {
+      dataChannel.send(JSON.stringify({ type: eventType }));
+    }
+  });
+}
+
+export function sendRelayMessage(type, additionalData) {
+  if (!getToken() || refreshingToken) {
+    console.log('Token missing or refresh in progress, queuing relay message');
+    if (!signalingQueue.has('global')) signalingQueue.set('global', []);
+    signalingQueue.get('global').push({ type, additionalData });
+    if (!refreshingToken) refreshAccessToken();
+    return;
+  }
+  const message = { type, ...additionalData, code, clientId, token: getToken() };
+  if (socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify(message));
+  } else {
+    console.log('Socket not open, queuing relay message');
+    if (!signalingQueue.has('global')) signalingQueue.set('global', []);
+    signalingQueue.get('global').push({ type, additionalData });
+  }
+}
+
+export function processSignalingQueue() {
+  signalingQueue.forEach((queue, key) => {
+    while (queue.length > 0) {
+      const { type, additionalData } = queue.shift();
+      if (type.startsWith('relay-')) {
+        sendRelayMessage(type, additionalData);
+      } else {
+        sendSignalingMessage(type, additionalData);
+      }
+    }
+  });
+  signalingQueue.clear();
+}
+
+export async function autoConnect(codeParam) {
+  console.log('autoConnect running with code:', codeParam);
+  code = codeParam;
+  initialContainer.classList.add('hidden');
+  connectContainer.classList.add('hidden');
+  usernameContainer.classList.add('hidden');
+  chatContainer.classList.remove('hidden');
+  codeDisplayElement.classList.add('hidden');
+  copyCodeButton.classList.add('hidden');
+  console.log('Loaded username from localStorage:', username);
+  if (validateCode(codeParam)) {
+    if (validateUsername(username)) {
+      console.log('Valid username and code, joining chat');
+      codeDisplayElement.textContent = `Using code: ${code}`;
+      codeDisplayElement.classList.remove('hidden');
+      copyCodeButton.classList.remove('hidden');
+      messages.classList.add('waiting');
+      statusElement.textContent = 'Waiting for connection...';
+      if (socket.readyState === WebSocket.OPEN) {
+        console.log('WebSocket open, sending join');
+        socket.send(JSON.stringify({ type: 'join', code, clientId, username, token: getToken() }));
+      } else {
+        console.log('WebSocket not open, waiting for open event');
+        socket.addEventListener('open', () => {
+          console.log('WebSocket opened in autoConnect, sending join');
+          socket.send(JSON.stringify({ type: 'join', code, clientId, username, token: getToken() }));
+        }, { once: true });
+      }
+      document.getElementById('messageInput')?.focus();
+    } else {
+      console.log('No valid username, prompting for username');
+      usernameContainer.classList.remove('hidden');
+      chatContainer.classList.add('hidden');
+      statusElement.textContent = 'Please enter a username to join the chat';
+      document.getElementById('usernameInput').value = username || '';
+      document.getElementById('usernameInput')?.focus();
+      document.getElementById('joinWithUsernameButton').onclick = () => {
+        const usernameInput = document.getElementById('usernameInput').value.trim();
+        if (!validateUsername(usernameInput)) {
+          showStatusMessage('Invalid username: 1-16 alphanumeric characters.');
+          document.getElementById('usernameInput')?.focus();
+          return;
+        }
+        username = usernameInput;
+        localStorage.setItem('username', username);
+        console.log('Username set in localStorage during autoConnect:', username);
+        usernameContainer.classList.add('hidden');
+        chatContainer.classList.remove('hidden');
+        codeDisplayElement.textContent = `Using code: ${code}`;
+        codeDisplayElement.classList.remove('hidden');
+        copyCodeButton.classList.remove('hidden');
+        messages.classList.add('waiting');
+        statusElement.textContent = 'Waiting for connection...';
+        if (socket.readyState === WebSocket.OPEN) {
+          console.log('WebSocket open, sending join after username input');
+          socket.send(JSON.stringify({ type: 'join', code, clientId, username, token: getToken() }));
+        } else {
+          console.log('WebSocket not open, waiting for open event after username');
+          socket.addEventListener('open', () => {
+            console.log('WebSocket opened in autoConnect join, sending join');
+            socket.send(JSON.stringify({ type: 'join', code, clientId, username, token: getToken() }));
+          }, { once: true });
+        }
+        document.getElementById('messageInput')?.focus();
+      };
+    }
+  } else {
+    console.log('Invalid code, showing initial container');
+    initialContainer.classList.remove('hidden');
+    usernameContainer.classList.add('hidden');
+    chatContainer.classList.add('hidden');
+    showStatusMessage('Invalid code format. Please enter a valid code.');
+    document.getElementById('connectToggleButton')?.focus();
+  }
+}
