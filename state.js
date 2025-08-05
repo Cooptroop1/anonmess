@@ -1,5 +1,4 @@
 // state.js - Shared state variables
-
 export let code = generateCode();
 export let clientId = Math.random().toString(36).substr(2, 9);
 export let username = '';
