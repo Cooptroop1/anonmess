@@ -356,10 +356,17 @@ async function decryptBytes(key, encrypted, iv) {
 }
 
 async function deriveSharedKey(privateKey, publicKey) {
-    return await window.crypto.subtle.deriveBits(
+    const sharedBits = await window.crypto.subtle.deriveBits(
         { name: 'ECDH', public: publicKey },
         privateKey,
         256
+    );
+    return await window.crypto.subtle.importKey(
+        "raw",
+        sharedBits,
+        "AES-GCM",
+        false,
+        ["encrypt", "decrypt"]
     );
 }
 
