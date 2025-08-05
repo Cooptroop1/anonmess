@@ -29,7 +29,7 @@ export let signalingQueue = new Map();
 export let pendingCode = null;
 export let pendingJoin = null;
 
-// Function to generate code
+// Function to generate code (moved from events.js)
 function generateCode() {
   const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let result = '';
