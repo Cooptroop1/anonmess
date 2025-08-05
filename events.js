@@ -1,5 +1,3 @@
-
-
 // Reconnection attempt counter for exponential backoff
 let reconnectAttempts = 0;
 // Image rate limiting
@@ -40,7 +38,7 @@ let token = '';
 let refreshToken = '';
 let features = { enableService: true, enableImages: true, enableVoice: true, enableVoiceCalls: true }; // Global features state
 let keyPair;
-let roomKey;
+let roomMaster;
 let remoteAudios = new Map();
 let refreshingToken = false;
 let signalingQueue = new Map();
@@ -275,11 +273,7 @@ socket.onmessage = async (event) => {
             updateFeaturesUI();
             if (isInitiator) {
                 isConnected = true;
-                roomKey = await window.crypto.subtle.generateKey(
-                    { name: 'AES-GCM', length: 256 },
-                    true,
-                    ['encrypt', 'decrypt']
-                );
+                roomMaster = window.crypto.getRandomValues(new Uint8Array(32));
             } else {
                 const publicKey = await exportPublicKey(keyPair.publicKey);
                 socket.send(JSON.stringify({ type: 'public-key', publicKey, clientId, code, token }));
@@ -349,14 +343,11 @@ socket.onmessage = async (event) => {
             try {
                 const joinerPublic = await importPublicKey(message.publicKey);
                 const sharedKey = await deriveSharedKey(keyPair.privateKey, joinerPublic);
-                const roomKeyRaw = await window.crypto.subtle.exportKey('raw', roomKey);
-                const { encrypted, iv } = await encryptRaw(sharedKey, roomKeyRaw);
-                const myPublic = await exportPublicKey(keyPair.publicKey);
+                const { encrypted, iv } = await encryptBytes(sharedKey, roomMaster);
                 socket.send(JSON.stringify({
                     type: 'encrypted-room-key',
                     encryptedKey: encrypted,
                     iv,
-                    publicKey: myPublic,
                     targetId: message.clientId,
                     code,
                     clientId,
@@ -371,15 +362,9 @@ socket.onmessage = async (event) => {
             try {
                 const initiatorPublic = await importPublicKey(message.publicKey);
                 const sharedKey = await deriveSharedKey(keyPair.privateKey, initiatorPublic);
-                const roomKeyRaw = await decryptBytes(sharedKey, message.encryptedKey, message.iv);
-                roomKey = await window.crypto.subtle.importKey(
-                    'raw',
-                    roomKeyRaw,
-                    { name: 'AES-GCM' },
-                    true,
-                    ['encrypt', 'decrypt']
-                );
-                console.log('Room key successfully imported.');
+                const roomMasterBuffer = await decryptBytes(sharedKey, message.encryptedKey, message.iv);
+                roomMaster = new Uint8Array(roomMasterBuffer);
+                console.log('Room master successfully imported.');
             } catch (error) {
                 console.error('Error handling encrypted-room-key:', error);
                 showStatusMessage('Failed to receive encryption key.');
@@ -388,34 +373,43 @@ socket.onmessage = async (event) => {
         if ((message.type === 'message' || message.type === 'image' || message.type === 'voice') && useRelay) {
             if (processedMessageIds.has(message.messageId)) return;
             processedMessageIds.add(message.messageId);
-            const senderUsername = message.username;
+            let payload;
+            try {
+                const jsonString = await decrypt(message.encryptedContent || message.encryptedData, message.iv, message.salt, roomMaster);
+                payload = JSON.parse(jsonString);
+            } catch (error) {
+                console.error('Decryption failed:', error);
+                showStatusMessage('Failed to decrypt message.');
+                return;
+            }
+            const senderUsername = payload.username;
             const messages = document.getElementById('messages');
             const isSelf = senderUsername === username;
             const messageDiv = document.createElement('div');
             messageDiv.className = `message-bubble ${isSelf ? 'self' : 'other'}`;
             const timeSpan = document.createElement('span');
             timeSpan.className = 'timestamp';
-            timeSpan.textContent = new Date(message.timestamp).toLocaleTimeString();
+            timeSpan.textContent = new Date(payload.timestamp).toLocaleTimeString();
             messageDiv.appendChild(timeSpan);
             messageDiv.appendChild(document.createTextNode(`${senderUsername}: `));
-            if (message.type === 'image') {
+            if (payload.type === 'image') {
                 const img = document.createElement('img');
-                img.src = message.data;
+                img.src = payload.data;
                 img.style.maxWidth = '100%';
                 img.style.borderRadius = '0.5rem';
                 img.style.cursor = 'pointer';
                 img.setAttribute('alt', 'Received image');
-                img.addEventListener('click', () => createImageModal(message.data, 'messageInput'));
+                img.addEventListener('click', () => createImageModal(payload.data, 'messageInput'));
                 messageDiv.appendChild(img);
-            } else if (message.type === 'voice') {
+            } else if (payload.type === 'voice') {
                 const audio = document.createElement('audio');
-                audio.src = message.data;
+                audio.src = payload.data;
                 audio.controls = true;
                 audio.setAttribute('alt', 'Received voice message');
-                audio.addEventListener('click', () => createAudioModal(message.data, 'messageInput'));
+                audio.addEventListener('click', () => createAudioModal(payload.data, 'messageInput'));
                 messageDiv.appendChild(audio);
             } else {
-                messageDiv.appendChild(document.createTextNode(sanitizeMessage(message.content)));
+                messageDiv.appendChild(document.createTextNode(sanitizeMessage(payload.content)));
             }
             messages.prepend(messageDiv);
             messages.scrollTop = 0;
@@ -436,6 +430,7 @@ socket.onmessage = async (event) => {
         console.error('Error parsing message:', error, 'Raw data:', event.data);
     }
 };
+
 // New: Function to refresh access token proactively
 function refreshAccessToken() {
     if (socket.readyState === WebSocket.OPEN && refreshToken && !refreshingToken) {
@@ -446,6 +441,7 @@ function refreshAccessToken() {
         console.log('Cannot refresh token: WebSocket not open, no refresh token, or refresh in progress');
     }
 }
+
 document.getElementById('startChatToggleButton').onclick = () => {
     console.log('Start chat toggle clicked');
     initialContainer.classList.add('hidden');
@@ -458,6 +454,7 @@ document.getElementById('startChatToggleButton').onclick = () => {
     document.getElementById('usernameInput').value = username || '';
     document.getElementById('usernameInput')?.focus();
 };
+
 document.getElementById('connectToggleButton').onclick = () => {
     console.log('Connect toggle clicked');
     initialContainer.classList.add('hidden');
@@ -470,6 +467,7 @@ document.getElementById('connectToggleButton').onclick = () => {
     document.getElementById('usernameConnectInput').value = username || '';
     document.getElementById('usernameConnectInput')?.focus();
 };
+
 document.getElementById('joinWithUsernameButton').onclick = () => {
     const usernameInput = document.getElementById('usernameInput').value.trim();
     if (!validateUsername(usernameInput)) {
@@ -507,6 +505,7 @@ document.getElementById('joinWithUsernameButton').onclick = () => {
     }
     document.getElementById('messageInput')?.focus();
 };
+
 document.getElementById('connectButton').onclick = () => {
     const usernameInput = document.getElementById('usernameConnectInput').value.trim();
     const inputCode = document.getElementById('codeInput').value.trim();
@@ -550,6 +549,7 @@ document.getElementById('connectButton').onclick = () => {
     }
     document.getElementById('messageInput')?.focus();
 };
+
 document.getElementById('backButton').onclick = () => {
     console.log('Back button clicked from usernameContainer');
     usernameContainer.classList.add('hidden');
@@ -563,6 +563,7 @@ document.getElementById('backButton').onclick = () => {
     stopKeepAlive();
     document.getElementById('startChatToggleButton')?.focus();
 };
+
 document.getElementById('backButtonConnect').onclick = () => {
     console.log('Back button clicked from connectContainer');
     connectContainer.classList.add('hidden');
@@ -576,6 +577,7 @@ document.getElementById('backButtonConnect').onclick = () => {
     stopKeepAlive();
     document.getElementById('connectToggleButton')?.focus();
 };
+
 document.getElementById('sendButton').onclick = () => {
     const messageInput = document.getElementById('messageInput');
     const message = messageInput.value.trim();
@@ -583,9 +585,11 @@ document.getElementById('sendButton').onclick = () => {
         sendMessage(message);
     }
 };
+
 document.getElementById('imageButton').onclick = () => {
     document.getElementById('imageInput')?.click();
 };
+
 document.getElementById('imageInput').onchange = (event) => {
     const file = event.target.files[0];
     if (file) {
@@ -593,6 +597,7 @@ document.getElementById('imageInput').onchange = (event) => {
         event.target.value = '';
     }
 };
+
 document.getElementById('voiceButton').onclick = () => {
     if (!mediaRecorder || mediaRecorder.state !== 'recording') {
         startVoiceRecording();
@@ -600,9 +605,11 @@ document.getElementById('voiceButton').onclick = () => {
         stopVoiceRecording();
     }
 };
+
 document.getElementById('voiceCallButton').onclick = () => {
     toggleVoiceCall();
 };
+
 function startVoiceRecording() {
     if (window.location.protocol !== 'https:') {
         console.error('Insecure context: HTTPS required for microphone access');
@@ -612,7 +619,7 @@ function startVoiceRecording() {
     }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         console.error('Microphone not supported');
-        showStatusMessage('Error: Microphone not supported by your browser or device.');
+        showStatusMessage('Error: Microphone not supported by your browser or device or device.');
         document.getElementById('voiceButton')?.focus();
         return;
     }
@@ -671,11 +678,13 @@ function startVoiceRecording() {
             document.getElementById('voiceButton')?.focus();
         });
 }
+
 function stopVoiceRecording() {
     if (mediaRecorder && mediaRecorder.state === 'recording') {
         mediaRecorder.stop();
     }
 }
+
 const messageInput = document.getElementById('messageInput');
 messageInput.addEventListener('input', () => {
     messageInput.style.height = '2.5rem';
@@ -690,6 +699,7 @@ messageInput.addEventListener('keydown', (event) => {
         }
     }
 });
+
 document.getElementById('newSessionButton').onclick = () => {
     console.log('New session button clicked');
     socket.send(JSON.stringify({ type: 'leave', code, clientId, token }));
@@ -742,24 +752,28 @@ document.getElementById('newSessionButton').onclick = () => {
     signalingQueue.clear();
     refreshingToken = false;
 };
+
 document.getElementById('usernameInput').addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {
         event.preventDefault();
         document.getElementById('joinWithUsernameButton')?.click();
     }
 });
+
 document.getElementById('usernameConnectInput').addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {
         event.preventDefault();
         document.getElementById('codeInput')?.focus();
     }
 });
+
 document.getElementById('codeInput').addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {
         event.preventDefault();
         document.getElementById('connectButton')?.click();
     }
 });
+
 document.getElementById('copyCodeButton').onclick = () => {
     const codeText = codeDisplayElement.textContent.replace('Your code: ', '').replace('Using code: ', '');
     navigator.clipboard.writeText(codeText).then(() => {
@@ -773,6 +787,7 @@ document.getElementById('copyCodeButton').onclick = () => {
     });
     copyCodeButton?.focus();
 };
+
 document.getElementById('button1').onclick = () => {
     if (isInitiator && socket.readyState === WebSocket.OPEN && code && totalClients < maxClients && token) {
         socket.send(JSON.stringify({ type: 'submit-random', code, clientId, token }));
@@ -784,6 +799,7 @@ document.getElementById('button1').onclick = () => {
     }
     document.getElementById('button1')?.focus();
 };
+
 document.getElementById('button2').onclick = () => {
     if (!button2.disabled) {
         window.location.href = 'https://anonomoose.com/random.html';
