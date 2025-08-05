@@ -1,3 +1,4 @@
+
 // Core logic: peer connections, message sending, handling offers, etc.
 // Global vars for dynamic TURN creds from server
 let turnUsername = '';
@@ -8,7 +9,7 @@ let voiceCallActive = false;
 async function sendMedia(file, type) {
   const validTypes = {
     image: ['image/jpeg', 'image/png'],
-    voice: ['audio/ogg; codecs=opus'] // Updated for Opus
+    voice: ['audio/webm', 'audio/ogg']
   };
   // Check if feature is enabled before proceeding
   if ((type === 'image' && !features.enableImages) || (type === 'voice' && !features.enableVoice)) {
@@ -45,7 +46,12 @@ async function sendMedia(file, type) {
   if (type === 'image') {
     const maxWidth = 640;
     const maxHeight = 360;
-    let quality = 0.7; // Updated for WebP
+    let quality = 0.4;
+    if (file.size > 3 * 1024 * 1024) {
+      quality = 0.3;
+    } else if (file.size > 1 * 1024 * 1024) {
+      quality = 0.35;
+    }
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     const img = new Image();
@@ -67,14 +73,14 @@ async function sendMedia(file, type) {
     canvas.width = width;
     canvas.height = height;
     ctx.drawImage(img, 0, 0, width, height);
-    base64 = canvas.toDataURL('image/webp', quality); // Updated to WebP
+    base64 = canvas.toDataURL('image/jpeg', quality);
     URL.revokeObjectURL(img.src);
   } else {
-    // For voice, no encoding needed; direct base64 from Ogg Opus blob
+    const mp3Blob = await encodeAudioToMp3(file);
     base64 = await new Promise(resolve => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result);
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(mp3Blob);
     });
   }
   const messageId = generateMessageId();
