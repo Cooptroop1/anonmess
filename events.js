@@ -1,3 +1,4 @@
+```javascript
 // Reconnection attempt counter for exponential backoff
 let reconnectAttempts = 0;
 // Image rate limiting
@@ -152,7 +153,7 @@ socket.onclose = () => {
             console.log('Reconnected, sending connect');
             socket.send(JSON.stringify({ type: 'connect', clientId }));
             startKeepAlive();
-            if (code && username && validateCode(code) && validateUsername(username)) {
+            if (code && (validateUsername(username) || username === '') && validateCode(code)) {
                 console.log('Rejoining with code:', code);
                 socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
             }
@@ -266,7 +267,7 @@ socket.onmessage = async (event) => {
             features = message.features || features;
             totalClients = 1;
             console.log(`Initialized client ${clientId}, username: ${username}, maxClients: ${maxClients}, isInitiator: ${isInitiator}, features:`, features);
-            usernames.set(clientId, username);
+            usernames.set(clientId, username || 'Anon-' + clientId.substr(0, 4));
             initializeMaxClientsUI();
             updateFeaturesUI();
             if (isInitiator) {
@@ -393,7 +394,7 @@ socket.onmessage = async (event) => {
             timeSpan.className = 'timestamp';
             timeSpan.textContent = new Date(payload.timestamp).toLocaleTimeString();
             messageDiv.appendChild(timeSpan);
-            messageDiv.appendChild(document.createTextNode(`${senderUsername}: `));
+            messageDiv.appendChild(document.createTextNode(`${senderUsername || 'Anon-' + message.clientId.substr(0, 4)}: `));
             if (payload.type === 'image') {
                 const img = document.createElement('img');
                 img.src = payload.data;
@@ -629,7 +630,7 @@ function startVoiceRecording() {
     }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         console.error('Microphone not supported');
-        showStatusMessage('Error: Microphone not supported by your browser or device or device.');
+        showStatusMessage('Error: Microphone not supported by your browser or device.');
         document.getElementById('voiceButton')?.focus();
         return;
     }
@@ -818,7 +819,7 @@ document.getElementById('button2').onclick = () => {
     document.getElementById('button2')?.focus();
 };
 
-document.getElementById('anonymousCheckbox').addEventListener('change', (event) => {
+document.getElementById('anonymousCheckbox')?.addEventListener('change', (event) => {
     const usernameInput = document.getElementById('usernameInput');
     usernameInput.disabled = event.target.checked;
     if (event.target.checked) {
@@ -829,7 +830,7 @@ document.getElementById('anonymousCheckbox').addEventListener('change', (event) 
     usernameInput?.focus();
 });
 
-document.getElementById('anonymousConnectCheckbox').addEventListener('change', (event) => {
+document.getElementById('anonymousConnectCheckbox')?.addEventListener('change', (event) => {
     const usernameInput = document.getElementById('usernameConnectInput');
     usernameInput.disabled = event.target.checked;
     if (event.target.checked) {
