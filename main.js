@@ -1,10 +1,12 @@
+
+
 // Core logic: peer connections, message sending, handling offers, etc.
 // Global vars for dynamic TURN creds from server
 let turnUsername = '';
 let turnCredential = '';
 let localStream = null;
-let callActive = false;
-let isVideoCall = false;
+let voiceCallActive = false;
+
 async function sendMedia(file, type) {
     const validTypes = {
         image: ['image/jpeg', 'image/png'],
@@ -224,34 +226,14 @@ function startPeerConnection(targetId, isOfferer) {
     };
     peerConnection.ontrack = (event) => {
         console.log(`Received remote track from ${targetId}`);
-        const track = event.track;
-        const stream = event.streams[0];
-        if (!remoteMedias.has(targetId)) {
-            let mediaElement;
-            if (track.kind === 'audio') {
-                mediaElement = document.createElement('audio');
-            } else if (track.kind === 'video') {
-                mediaElement = document.createElement('video');
-                mediaElement.playsInline = true;
-            }
-            if (mediaElement) {
-                mediaElement.srcObject = stream;
-                mediaElement.autoplay = true;
-                if (track.kind === 'video') mediaElement.playsinline = true;
-                mediaElement.play().catch(error => console.error('Error playing remote media:', error));
-                stream.getTracks().forEach(t => {
-                    t.onended = () => {
-                        if (stream.getTracks().every(tr => tr.readyState === 'ended')) {
-                            mediaElement.remove();
-                            remoteMedias.delete(targetId);
-                            if (remoteMedias.size === 0) document.getElementById('remoteMediaContainer').classList.add('hidden');
-                        }
-                    };
-                });
-                remoteMedias.set(targetId, mediaElement);
-                document.getElementById('remoteMediaContainer').appendChild(mediaElement);
-                document.getElementById('remoteMediaContainer').classList.remove('hidden');
-            }
+        if (!remoteAudios.has(targetId)) {
+            const audio = document.createElement('audio');
+            audio.srcObject = event.streams[0];
+            audio.autoplay = true;
+            audio.play().catch(error => console.error('Error playing remote audio:', error));
+            remoteAudios.set(targetId, audio);
+            document.getElementById('remoteAudioContainer').appendChild(audio);
+            document.getElementById('remoteAudioContainer').classList.remove('hidden');
         }
     };
     peerConnection.ondatachannel = (event) => {
@@ -331,20 +313,14 @@ function setupDataChannel(dataChannel, targetId) {
             return;
         }
         if (data.type === 'voice-call-start') {
-            if (!callActive) {
-                startCall(false);
+            if (!voiceCallActive) {
+                startVoiceCall();
             }
             return;
         }
-        if (data.type === 'video-call-start') {
-            if (!callActive) {
-                startCall(true);
-            }
-            return;
-        }
-        if (data.type === 'call-end') {
-            if (callActive) {
-                stopCall();
+        if (data.type === 'voice-call-end') {
+            if (voiceCallActive) {
+                stopVoiceCall();
             }
             return;
         }
@@ -407,12 +383,12 @@ function setupDataChannel(dataChannel, targetId) {
         messageRateLimits.delete(targetId);
         imageRateLimits.delete(targetId);
         voiceRateLimits.delete(targetId);
-        if (remoteMedias.has(targetId)) {
-            const media = remoteMedias.get(targetId);
-            media.remove();
-            remoteMedias.delete(targetId);
-            if (remoteMedias.size === 0) {
-                document.getElementById('remoteMediaContainer').classList.add('hidden');
+        if (remoteAudios.has(targetId)) {
+            const audio = remoteAudios.get(targetId);
+            audio.remove();
+            remoteAudios.delete(targetId);
+            if (remoteAudios.size === 0) {
+                document.getElementById('remoteAudioContainer').classList.add('hidden');
             }
         }
         if (dataChannels.size === 0) {
@@ -544,99 +520,53 @@ async function toggleVoiceCall() {
         showStatusMessage('Voice calls are disabled by admin.');
         return;
     }
-    toggleCall(false);
-}
-async function toggleVideoCall() {
-    if (!features.enableVideoCalls) {
-        showStatusMessage('Video calls are disabled by admin.');
-        return;
-    }
-    toggleCall(true);
-}
-function toggleCall(video) {
-    if (callActive) {
-        stopCall();
-        broadcastCallEvent('call-end');
+    if (voiceCallActive) {
+        stopVoiceCall();
+        broadcastVoiceCallEvent('voice-call-end');
     } else {
-        startCall(video);
-        broadcastCallEvent(video ? 'video-call-start' : 'voice-call-start');
+        startVoiceCall();
+        broadcastVoiceCallEvent('voice-call-start');
     }
 }
-async function startCall(video) {
+async function startVoiceCall() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        showStatusMessage('Media devices not supported.');
+        showStatusMessage('Microphone not supported.');
         return;
     }
     try {
-        const constraints = { audio: true, video };
-        localStream = await navigator.mediaDevices.getUserMedia(constraints);
-        const localVideo = document.getElementById('localVideo');
-        localVideo.srcObject = localStream;
-        localVideo.classList.remove('hidden');
-        document.getElementById('videoContainer').classList.add('active');
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         peerConnections.forEach((peerConnection, targetId) => {
             localStream.getTracks().forEach(track => {
                 peerConnection.addTrack(track, localStream);
             });
             renegotiate(targetId);
         });
-        callActive = true;
-        isVideoCall = video;
-        document.getElementById('voiceCallButton').classList.toggle('active', !video && callActive);
-        document.getElementById('videoCallButton').classList.toggle('active', video && callActive);
-        document.getElementById('voiceCallButton').title = !video && callActive ? 'End Voice Call' : 'Start Voice Call';
-        document.getElementById('videoCallButton').title = video && callActive ? 'End Video Call' : 'Start Video Call';
-        showStatusMessage(`${video ? 'Video' : 'Voice'} call started.`);
+        voiceCallActive = true;
+        document.getElementById('voiceCallButton').classList.add('active');
+        document.getElementById('voiceCallButton').title = 'End Voice Call';
+        showStatusMessage('Voice call started.');
     } catch (error) {
-        console.error(`Error starting ${video ? 'video' : 'voice'} call:`, error);
-        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-            showStatusMessage('Permission denied for camera/microphone. Please allow in settings.');
-        } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-            if (video) {
-                showStatusMessage('No camera found, starting audio-only call.');
-                startCall(false);
-            } else {
-                showStatusMessage('No microphone found.');
-            }
-        } else if (error.name === 'NotReadableError') {
-            showStatusMessage('Media device in use or hardware error.');
-        } else if (error.name === 'OverconstrainedError') {
-            showStatusMessage('Device does not support required constraints.');
-        } else {
-            showStatusMessage('Failed to access media devices for call. Check permissions.');
-        }
+        console.error('Error starting voice call:', error);
+        showStatusMessage('Failed to access microphone for voice call.');
     }
 }
-function stopCall() {
+function stopVoiceCall() {
     if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
         localStream = null;
     }
-    const localVideo = document.getElementById('localVideo');
-    localVideo.srcObject = null;
-    localVideo.classList.add('hidden');
-    document.getElementById('videoContainer').classList.remove('active');
     peerConnections.forEach((peerConnection, targetId) => {
         peerConnection.getSenders().forEach(sender => {
-            if (sender.track) {
+            if (sender.track && sender.track.kind === 'audio') {
                 peerConnection.removeTrack(sender);
             }
         });
         renegotiate(targetId);
     });
-    remoteMedias.forEach((media, id) => {
-        media.srcObject = null;
-        media.remove();
-    });
-    remoteMedias.clear();
-    document.getElementById('remoteMediaContainer').classList.add('hidden');
-    callActive = false;
-    isVideoCall = false;
+    voiceCallActive = false;
     document.getElementById('voiceCallButton').classList.remove('active');
-    document.getElementById('videoCallButton').classList.remove('active');
     document.getElementById('voiceCallButton').title = 'Start Voice Call';
-    document.getElementById('videoCallButton').title = 'Start Video Call';
-    showStatusMessage('Call ended.');
+    showStatusMessage('Voice call ended.');
 }
 async function renegotiate(targetId) {
     const peerConnection = peerConnections.get(targetId);
@@ -668,7 +598,7 @@ function sendSignalingMessage(type, additionalData) {
         signalingQueue.get('global').push({ type, additionalData });
     }
 }
-function broadcastCallEvent(eventType) {
+function broadcastVoiceCallEvent(eventType) {
     dataChannels.forEach((dataChannel) => {
         if (dataChannel.readyState === 'open') {
             dataChannel.send(JSON.stringify({ type: eventType }));
@@ -785,7 +715,6 @@ function updateFeaturesUI() {
     const imageButton = document.getElementById('imageButton');
     const voiceButton = document.getElementById('voiceButton');
     const voiceCallButton = document.getElementById('voiceCallButton');
-    const videoCallButton = document.getElementById('videoCallButton');
     if (imageButton) {
         imageButton.disabled = !features.enableImages;
         imageButton.style.opacity = features.enableImages ? 1 : 0.5; // Gray out visually
@@ -800,11 +729,6 @@ function updateFeaturesUI() {
         voiceCallButton.disabled = !features.enableVoiceCalls;
         voiceCallButton.style.opacity = features.enableVoiceCalls ? 1 : 0.5;
         voiceCallButton.title = features.enableVoiceCalls ? 'Start Voice Call' : 'Voice calls disabled by admin';
-    }
-    if (videoCallButton) {
-        videoCallButton.disabled = !features.enableVideoCalls;
-        videoCallButton.style.opacity = features.enableVideoCalls ? 1 : 0.5;
-        videoCallButton.title = features.enableVideoCalls ? 'Start Video Call' : 'Video calls disabled by admin';
     }
     if (!features.enableService) {
         showStatusMessage('Service disabled by admin. Disconnecting...');
