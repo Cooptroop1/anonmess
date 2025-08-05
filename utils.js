@@ -343,3 +343,5 @@ async function encryptRaw(key, data) {
     );
     return { encrypted: arrayBufferToBase64(encrypted), iv: arrayBufferToBase64(iv) };
 }
+</xaiArtifact>
+
