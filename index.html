@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,8 +291,8 @@
             height: 2.5rem;
             max-height: 12.5rem;
             line-height: 1.5rem;
-            width: 110%;
-            max-width: 110%;
+            flex: 1;
+            min-width: 0;
             background-color: #3b82f6;
             color: white;
             border-radius: 1rem;
@@ -302,7 +301,6 @@
             box-sizing: border-box;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             transition: all 0.2s ease;
-            margin-left: -3mm;
         }
         #imageButton, #voiceButton, #voiceCallButton {
             width: 2.5rem;
@@ -316,6 +314,7 @@
             font-size: 1.2rem;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             transition: all 0.2s ease;
+            flex-shrink: 0;
         }
         #imageButton:hover, #voiceButton:hover, #voiceCallButton:hover {
             background-color: #059669;
@@ -360,6 +359,7 @@
             font-size: 1.2rem;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             transition: all 0.2s ease;
+            flex-shrink: 0;
         }
         #sendButton:hover {
             background-color: #1d4ed8;
@@ -425,7 +425,6 @@
                 margin-top: -50px; /* Adjusted from 145px to 50px */
             }
         }
-
         @media (min-width: 641px) and (max-width: 1024px) {
             .bg-white {
                 margin-top: -165px;
@@ -524,6 +523,9 @@
             max-width: 300px;
             margin: 0.5rem;
         }
+        .hidden {
+            display: none !important;
+        }
     </style>
 </head>
 <body class="bg-black min-h-screen flex items-center justify-center">
@@ -556,7 +558,6 @@
                 <div class="input-container hidden">
                     <label for="messageInput" class="sr-only">Type a message</label>
                     <textarea id="messageInput" placeholder="Type a message..." cols="30" maxlength="1000" aria-describedby="messageHelp"></textarea>
-                    <div id="messageHelp" class="sr-only">Maximum 1000 characters. Press Enter to send, Shift+Enter for new line.</div>
                     <input type="file" id="imageInput" accept="image/jpeg,image/png" style="display: none;" aria-label="Upload image" />
                     <button id="imageButton" title="Send Image" aria-label="Send image">📷</button>
                     <button id="voiceButton" title="Record Voice" aria-label="Record voice message">🎤</button>
