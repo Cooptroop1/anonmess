@@ -579,7 +579,7 @@ async function renegotiate(targetId) {
             await peerConnection.setLocalDescription(offer);
             sendSignalingMessage('offer', { offer: peerConnection.localDescription, targetId });
         } catch (error) {
-            log('error', `Error renegotiating with ${targetId}:`, error);
+            log('error', `Error renegotiate with ${targetId}:`, error);
             showStatusMessage('Failed to renegotiate peer connection.');
         }
     }
@@ -712,4 +712,35 @@ async function autoConnect(codeParam) {
     } else {
         log('info', 'Invalid code, showing initial container');
         initialContainer.classList.remove('hidden');
-        usernameContainer.classList.add
+        usernameContainer.classList.add('hidden');
+        chatContainer.classList.add('hidden');
+        showStatusMessage('Invalid code format. Please enter a valid code.');
+        document.getElementById('connectToggleButton')?.focus();
+    }
+}
+
+// New: Function to update UI based on features
+function updateFeaturesUI() {
+    const imageButton = document.getElementById('imageButton');
+    const voiceButton = document.getElementById('voiceButton');
+    const voiceCallButton = document.getElementById('voiceCallButton');
+    if (imageButton) {
+        imageButton.disabled = !features.enableImages;
+        imageButton.style.opacity = features.enableImages ? 1 : 0.5; // Gray out visually
+        imageButton.title = features.enableImages ? 'Send Image' : 'Images disabled by admin';
+    }
+    if (voiceButton) {
+        voiceButton.disabled = !features.enableVoice;
+        voiceButton.style.opacity = features.enableVoice ? 1 : 0.5; // Gray out visually
+        voiceButton.title = features.enableVoice ? 'Record Voice' : 'Voice disabled by admin';
+    }
+    if (voiceCallButton) {
+        voiceCallButton.disabled = !features.enableVoiceCalls;
+        voiceCallButton.style.opacity = features.enableVoiceCalls ? 1 : 0.5;
+        voiceCallButton.title = features.enableVoiceCalls ? 'Start Voice Call' : 'Voice calls disabled by admin';
+    }
+    if (!features.enableService) {
+        showStatusMessage('Service disabled by admin. Disconnecting...');
+        socket.close();
+    }
+}
