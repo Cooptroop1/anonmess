@@ -1,12 +1,17 @@
 // utils.js - Utility functions
 
 import {
-  isInitiator, maxClients, isConnected, totalClients, clientId, socket, token, code
+  isInitiator, maxClients, isConnected, totalClients, clientId, code,
+  peerConnections, dataChannels, connectionTimeouts, retryCounts,
+  candidatesQueues, messageRateLimits, imageRateLimits, voiceRateLimits,
+  remoteAudios, roomKey
 } from './state.js';
+import { socket } from './ws-handlers.js';
 
 // Utility to show temporary status messages
 export function showStatusMessage(message, duration = 3000) {
-  if (typeof statusElement !== 'undefined' && statusElement) {
+  const statusElement = document.getElementById('status');
+  if (statusElement) {
     statusElement.textContent = message;
     statusElement.setAttribute('aria-live', 'assertive');
     setTimeout(() => {
@@ -38,13 +43,12 @@ export function validateCode(code) {
 }
 
 // Keepalive timer ID
-let keepAliveTimer = null; // Moved from events.js to utils.js
+let keepAliveTimer = null;
 
-// Keepalive function to prevent WebSocket timeout
 export function startKeepAlive() {
   if (keepAliveTimer) clearInterval(keepAliveTimer);
   keepAliveTimer = setInterval(() => {
-    if (typeof socket !== 'undefined' && socket.readyState === WebSocket.OPEN) {
+    if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({ type: 'ping', clientId, token }));
       log('info', 'Sent keepalive ping');
     }
@@ -92,6 +96,8 @@ export function cleanupPeerConnection(targetId) {
   isConnected = dataChannels.size > 0;
   updateMaxClientsUI();
   if (!isConnected) {
+    const inputContainer = document.querySelector('.input-container');
+    const messages = document.getElementById('messages');
     if (inputContainer) inputContainer.classList.add('hidden');
     if (messages) messages.classList.add('waiting');
   }
@@ -99,6 +105,8 @@ export function cleanupPeerConnection(targetId) {
 
 export function initializeMaxClientsUI() {
   log('info', 'initializeMaxClientsUI called, isInitiator:', isInitiator);
+  const maxClientsContainer = document.getElementById('maxClientsContainer');
+  const maxClientsRadios = document.getElementById('maxClientsRadios');
   if (!maxClientsContainer) {
     log('error', 'maxClientsContainer element not found');
     showStatusMessage('Error: UI initialization failed.');
@@ -133,6 +141,7 @@ export function initializeMaxClientsUI() {
 
 export function updateMaxClientsUI() {
   log('info', 'updateMaxClientsUI called, maxClients:', maxClients, 'isInitiator:', isInitiator);
+  const statusElement = document.getElementById('status');
   if (statusElement) {
     statusElement.textContent = isConnected ? `Connected (${totalClients}/${maxClients} connections)` : 'Waiting for connection...';
   }
@@ -143,9 +152,11 @@ export function updateMaxClientsUI() {
     button.classList.toggle('active', value === maxClients);
     button.disabled = !isInitiator;
   });
+  const maxClientsContainer = document.getElementById('maxClientsContainer');
   if (maxClientsContainer) {
     maxClientsContainer.classList.toggle('hidden', !isInitiator);
   }
+  const messages = document.getElementById('messages');
   if (messages) {
     if (!isConnected) {
       messages.classList.add('waiting');
@@ -345,7 +356,7 @@ export async function deriveSharedKey(privateKey, publicKey) {
 
 export async function encryptRaw(key, data) {
   const iv = window.crypto.getRandomValues(new Uint8Array(12));
-  const encoded = new TextEncoder().encode(data); // Encode string to bytes
+  const encoded = new TextEncoder().encode(data);
   const encrypted = await window.crypto.subtle.encrypt(
     { name: 'AES-GCM', iv },
     key,
