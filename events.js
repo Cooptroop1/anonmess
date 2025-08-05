@@ -1,4 +1,4 @@
-```javascript
+
 // Reconnection attempt counter for exponential backoff
 let reconnectAttempts = 0;
 // Image rate limiting
@@ -44,7 +44,6 @@ let roomMaster;
 let remoteAudios = new Map();
 let refreshingToken = false;
 let signalingQueue = new Map();
-let anonymousMode = false;
 // Declare UI variables globally
 let socket, statusElement, codeDisplayElement, copyCodeButton, initialContainer, usernameContainer, connectContainer, chatContainer, newSessionButton, maxClientsContainer, inputContainer, messages, cornerLogo, button2, helpText, helpModal;
 if (typeof window !== 'undefined') {
@@ -153,7 +152,7 @@ socket.onclose = () => {
             console.log('Reconnected, sending connect');
             socket.send(JSON.stringify({ type: 'connect', clientId }));
             startKeepAlive();
-            if (code && (validateUsername(username) || username === '') && validateCode(code)) {
+            if (code && username && validateCode(code) && validateUsername(username)) {
                 console.log('Rejoining with code:', code);
                 socket.send(JSON.stringify({ type: 'join', code, clientId, username, token }));
             }
@@ -267,7 +266,7 @@ socket.onmessage = async (event) => {
             features = message.features || features;
             totalClients = 1;
             console.log(`Initialized client ${clientId}, username: ${username}, maxClients: ${maxClients}, isInitiator: ${isInitiator}, features:`, features);
-            usernames.set(clientId, username || 'Anon-' + clientId.substr(0, 4));
+            usernames.set(clientId, username);
             initializeMaxClientsUI();
             updateFeaturesUI();
             if (isInitiator) {
@@ -292,8 +291,6 @@ socket.onmessage = async (event) => {
             console.log(`Join-notify received for code: ${code}, client: ${message.clientId}, total: ${totalClients}, username: ${message.username}`);
             if (message.username) {
                 usernames.set(message.clientId, message.username);
-            } else {
-                usernames.set(message.clientId, 'Anon-' + message.clientId.substr(0, 4));
             }
             updateMaxClientsUI();
             if (isInitiator && message.clientId !== clientId && !peerConnections.has(message.clientId)) {
@@ -394,7 +391,7 @@ socket.onmessage = async (event) => {
             timeSpan.className = 'timestamp';
             timeSpan.textContent = new Date(payload.timestamp).toLocaleTimeString();
             messageDiv.appendChild(timeSpan);
-            messageDiv.appendChild(document.createTextNode(`${senderUsername || 'Anon-' + message.clientId.substr(0, 4)}: `));
+            messageDiv.appendChild(document.createTextNode(`${senderUsername}: `));
             if (payload.type === 'image') {
                 const img = document.createElement('img');
                 img.src = payload.data;
@@ -473,16 +470,12 @@ document.getElementById('connectToggleButton').onclick = () => {
 
 document.getElementById('joinWithUsernameButton').onclick = () => {
     const usernameInput = document.getElementById('usernameInput').value.trim();
-    anonymousMode = document.getElementById('anonymousCheckbox')?.checked || false;
-    if (anonymousMode) {
-        username = '';
-    } else if (!validateUsername(usernameInput)) {
+    if (!validateUsername(usernameInput)) {
         showStatusMessage('Invalid username: 1-16 alphanumeric characters.');
         document.getElementById('usernameInput')?.focus();
         return;
-    } else {
-        username = usernameInput;
     }
+    username = usernameInput;
     localStorage.setItem('username', username);
     console.log('Username set in localStorage:', username);
     code = generateCode();
@@ -516,21 +509,17 @@ document.getElementById('joinWithUsernameButton').onclick = () => {
 document.getElementById('connectButton').onclick = () => {
     const usernameInput = document.getElementById('usernameConnectInput').value.trim();
     const inputCode = document.getElementById('codeInput').value.trim();
-    anonymousMode = document.getElementById('anonymousConnectCheckbox')?.checked || false;
-    if (anonymousMode) {
-        username = '';
-    } else if (!validateUsername(usernameInput)) {
+    if (!validateUsername(usernameInput)) {
         showStatusMessage('Invalid username: 1-16 alphanumeric characters.');
         document.getElementById('usernameConnectInput')?.focus();
         return;
-    } else {
-        username = usernameInput;
     }
     if (!validateCode(inputCode)) {
         showStatusMessage('Invalid code format: xxxx-xxxx-xxxx-xxxx.');
         document.getElementById('codeInput')?.focus();
         return;
     }
+    username = usernameInput;
     localStorage.setItem('username', username);
     console.log('Username set in localStorage:', username);
     code = inputCode;
@@ -630,7 +619,7 @@ function startVoiceRecording() {
     }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         console.error('Microphone not supported');
-        showStatusMessage('Error: Microphone not supported by your browser or device.');
+        showStatusMessage('Error: Microphone not supported by your browser or device or device.');
         document.getElementById('voiceButton')?.focus();
         return;
     }
@@ -752,7 +741,6 @@ document.getElementById('newSessionButton').onclick = () => {
     messages.classList.remove('waiting');
     codeSentToRandom = false;
     button2.disabled = false;
-    anonymousMode = false;
     stopKeepAlive();
     token = ''; // Clear token
     refreshToken = ''; // Clear refresh token
@@ -818,25 +806,3 @@ document.getElementById('button2').onclick = () => {
     }
     document.getElementById('button2')?.focus();
 };
-
-document.getElementById('anonymousCheckbox')?.addEventListener('change', (event) => {
-    const usernameInput = document.getElementById('usernameInput');
-    usernameInput.disabled = event.target.checked;
-    if (event.target.checked) {
-        usernameInput.value = '';
-    } else {
-        usernameInput.value = localStorage.getItem('username') || '';
-    }
-    usernameInput?.focus();
-});
-
-document.getElementById('anonymousConnectCheckbox')?.addEventListener('change', (event) => {
-    const usernameInput = document.getElementById('usernameConnectInput');
-    usernameInput.disabled = event.target.checked;
-    if (event.target.checked) {
-        usernameInput.value = '';
-    } else {
-        usernameInput.value = localStorage.getItem('username') || '';
-    }
-    usernameInput?.focus();
-});
