@@ -1,4 +1,5 @@
 // state.js - Shared state variables
+
 export let code = generateCode();
 export let clientId = Math.random().toString(36).substr(2, 9);
 export let username = '';
@@ -25,8 +26,10 @@ export let roomKey;
 export let remoteAudios = new Map();
 export let refreshingToken = false;
 export let signalingQueue = new Map();
+export let pendingCode = null;
+export let pendingJoin = null;
 
-// Function to generate code (moved from events.js)
+// Function to generate code
 function generateCode() {
   const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let result = '';
