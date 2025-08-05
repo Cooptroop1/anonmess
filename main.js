@@ -676,6 +676,7 @@ async function autoConnect(codeParam) {
                 }, { once: true });
             }
             document.getElementById('messageInput')?.focus();
+            updateFeaturesUI();  // Ensure features UI is updated after showing chat
         } else {
             console.log('No valid username, prompting for username');
             usernameContainer.classList.remove('hidden');
@@ -711,6 +712,7 @@ async function autoConnect(codeParam) {
                     }, { once: true });
                 }
                 document.getElementById('messageInput')?.focus();
+                updateFeaturesUI();  // Ensure features UI is updated after showing chat
             };
         }
     } else {
