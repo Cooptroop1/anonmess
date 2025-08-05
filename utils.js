@@ -380,3 +380,39 @@ async function encryptRaw(key, data) {
     );
     return { encrypted: arrayBufferToBase64(encrypted), iv: arrayBufferToBase64(iv) };
 }
+
+async function signMessage(signingKey, data) {
+    const encoded = new TextEncoder().encode(data);
+    return arrayBufferToBase64(await window.crypto.subtle.sign(
+        { name: 'HMAC' },
+        signingKey,
+        encoded
+    ));
+}
+
+async function verifyMessage(signingKey, signature, data) {
+    const encoded = new TextEncoder().encode(data);
+    return await window.crypto.subtle.verify(
+        { name: 'HMAC' },
+        signingKey,
+        base64ToArrayBuffer(signature),
+        encoded
+    );
+}
+
+async function deriveSigningKey(master) {
+    const hkdfKey = await window.crypto.subtle.importKey(
+        'raw',
+        master,
+        { name: 'HKDF' },
+        false,
+        ['deriveKey']
+    );
+    return await window.crypto.subtle.deriveKey(
+        { name: 'HKDF', salt: new Uint8Array(0), info: new TextEncoder().encode('signing'), hash: 'SHA-256' },
+        hkdfKey,
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign', 'verify']
+    );
+}
