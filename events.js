@@ -18,7 +18,7 @@ function generateCode() {
   return result;
 }
 let code = generateCode();
-let clientId = Math.random().toString(36).substr(2, 9);
+let clientId = getCookie('clientId') || Math.random().toString(36).substr(2, 9); // Prefer cookie
 let username = '';
 let isInitiator = false;
 let isConnected = false;
@@ -48,10 +48,10 @@ let socket, statusElement, codeDisplayElement, copyCodeButton, initialContainer,
 if (typeof window !== 'undefined') {
   socket = new WebSocket('wss://signaling-server-zc6m.onrender.com');
   console.log('WebSocket created');
-  if (localStorage.getItem('clientId')) {
-    clientId = localStorage.getItem('clientId');
+  if (getCookie('clientId')) {
+    clientId = getCookie('clientId');
   } else {
-    localStorage.setItem('clientId', clientId);
+    setCookie('clientId', clientId, 365);
   }
   username = localStorage.getItem('username')?.trim() || '';
   globalMessageRate.startTime = performance.now();
@@ -184,10 +184,6 @@ socket.onmessage = async (event) => {
       if (pendingCode) {
         autoConnect(pendingCode);
         pendingCode = null;
-      }
-      if (pendingJoin) {
-        socket.send(JSON.stringify({ type: 'join', ...pendingJoin, token }));
-        pendingJoin = null;
       }
       processSignalingQueue();
       return;
@@ -429,7 +425,6 @@ socket.onmessage = async (event) => {
     console.error('Error parsing message:', error, 'Raw data:', event.data);
   }
 };
-
 // New: Function to refresh access token proactively
 function refreshAccessToken() {
   if (socket.readyState === WebSocket.OPEN && refreshToken && !refreshingToken) {
@@ -440,7 +435,6 @@ function refreshAccessToken() {
     console.log('Cannot refresh token: WebSocket not open, no refresh token, or refresh in progress');
   }
 }
-
 document.getElementById('startChatToggleButton').onclick = () => {
   console.log('Start chat toggle clicked');
   initialContainer.classList.add('hidden');
@@ -453,7 +447,6 @@ document.getElementById('startChatToggleButton').onclick = () => {
   document.getElementById('usernameInput').value = username || '';
   document.getElementById('usernameInput')?.focus();
 };
-
 document.getElementById('connectToggleButton').onclick = () => {
   console.log('Connect toggle clicked');
   initialContainer.classList.add('hidden');
@@ -466,7 +459,6 @@ document.getElementById('connectToggleButton').onclick = () => {
   document.getElementById('usernameConnectInput').value = username || '';
   document.getElementById('usernameConnectInput')?.focus();
 };
-
 document.getElementById('joinWithUsernameButton').onclick = () => {
   const usernameInput = document.getElementById('usernameInput').value.trim();
   if (!validateUsername(usernameInput)) {
@@ -504,7 +496,6 @@ document.getElementById('joinWithUsernameButton').onclick = () => {
   }
   document.getElementById('messageInput')?.focus();
 };
-
 document.getElementById('connectButton').onclick = () => {
   const usernameInput = document.getElementById('usernameConnectInput').value.trim();
   const inputCode = document.getElementById('codeInput').value.trim();
@@ -548,7 +539,6 @@ document.getElementById('connectButton').onclick = () => {
   }
   document.getElementById('messageInput')?.focus();
 };
-
 document.getElementById('backButton').onclick = () => {
   console.log('Back button clicked from usernameContainer');
   usernameContainer.classList.add('hidden');
@@ -562,7 +552,6 @@ document.getElementById('backButton').onclick = () => {
   stopKeepAlive();
   document.getElementById('startChatToggleButton')?.focus();
 };
-
 document.getElementById('backButtonConnect').onclick = () => {
   console.log('Back button clicked from connectContainer');
   connectContainer.classList.add('hidden');
@@ -576,7 +565,6 @@ document.getElementById('backButtonConnect').onclick = () => {
   stopKeepAlive();
   document.getElementById('connectToggleButton')?.focus();
 };
-
 document.getElementById('sendButton').onclick = () => {
   const messageInput = document.getElementById('messageInput');
   const message = messageInput.value.trim();
@@ -584,11 +572,9 @@ document.getElementById('sendButton').onclick = () => {
     sendMessage(message);
   }
 };
-
 document.getElementById('imageButton').onclick = () => {
   document.getElementById('imageInput')?.click();
 };
-
 document.getElementById('imageInput').onchange = (event) => {
   const file = event.target.files[0];
   if (file) {
@@ -596,7 +582,6 @@ document.getElementById('imageInput').onchange = (event) => {
     event.target.value = '';
   }
 };
-
 document.getElementById('voiceButton').onclick = () => {
   if (!mediaRecorder || mediaRecorder.state !== 'recording') {
     startVoiceRecording();
@@ -604,11 +589,9 @@ document.getElementById('voiceButton').onclick = () => {
     stopVoiceRecording();
   }
 };
-
 document.getElementById('voiceCallButton').onclick = () => {
   toggleVoiceCall();
 };
-
 function startVoiceRecording() {
   if (window.location.protocol !== 'https:') {
     console.error('Insecure context: HTTPS required for microphone access');
@@ -677,13 +660,11 @@ function startVoiceRecording() {
     document.getElementById('voiceButton')?.focus();
   });
 }
-
 function stopVoiceRecording() {
   if (mediaRecorder && mediaRecorder.state === 'recording') {
     mediaRecorder.stop();
   }
 }
-
 const messageInput = document.getElementById('messageInput');
 messageInput.addEventListener('input', () => {
   messageInput.style.height = '2.5rem';
@@ -698,7 +679,6 @@ messageInput.addEventListener('keydown', (event) => {
     }
   }
 });
-
 document.getElementById('newSessionButton').onclick = () => {
   console.log('New session button clicked');
   socket.send(JSON.stringify({ type: 'leave', code, clientId, token }));
@@ -750,28 +730,24 @@ document.getElementById('newSessionButton').onclick = () => {
   signalingQueue.clear();
   refreshingToken = false;
 };
-
 document.getElementById('usernameInput').addEventListener('keydown', (event) => {
   if (event.key === 'Enter') {
     event.preventDefault();
     document.getElementById('joinWithUsernameButton')?.click();
   }
 });
-
 document.getElementById('usernameConnectInput').addEventListener('keydown', (event) => {
   if (event.key === 'Enter') {
     event.preventDefault();
     document.getElementById('codeInput')?.focus();
   }
 });
-
 document.getElementById('codeInput').addEventListener('keydown', (event) => {
   if (event.key === 'Enter') {
     event.preventDefault();
     document.getElementById('connectButton')?.click();
   }
 });
-
 document.getElementById('copyCodeButton').onclick = () => {
   const codeText = codeDisplayElement.textContent.replace('Your code: ', '').replace('Using code: ', '');
   navigator.clipboard.writeText(codeText).then(() => {
@@ -785,7 +761,6 @@ document.getElementById('copyCodeButton').onclick = () => {
   });
   copyCodeButton?.focus();
 };
-
 document.getElementById('button1').onclick = () => {
   if (isInitiator && socket.readyState === WebSocket.OPEN && code && totalClients < maxClients && token) {
     socket.send(JSON.stringify({ type: 'submit-random', code, clientId, token }));
@@ -797,16 +772,30 @@ document.getElementById('button1').onclick = () => {
   }
   document.getElementById('button1')?.focus();
 };
-
 document.getElementById('button2').onclick = () => {
   if (!button2.disabled) {
     window.location.href = 'https://anonomoose.com/random.html';
   }
   document.getElementById('button2')?.focus();
 };
-
 cornerLogo.addEventListener('click', () => {
   document.getElementById('messages').innerHTML = '';
   processedMessageIds.clear();
   showStatusMessage('Chat history cleared locally.');
 });
+// Helper functions for cookies
+function getCookie(name) {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(';').shift();
+  return null;
+}
+function setCookie(name, value, days) {
+  let expires = '';
+  if (days) {
+    const date = new Date();
+    date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+    expires = '; expires=' + date.toUTCString();
+  }
+  document.cookie = name + '=' + (value || '') + expires + '; path=/; Secure; HttpOnly; SameSite=Strict';
+}
