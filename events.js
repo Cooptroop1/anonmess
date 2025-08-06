@@ -44,6 +44,9 @@ let signingKey; // New: Cached signing key for HMAC
 let remoteAudios = new Map();
 let refreshingToken = false;
 let signalingQueue = new Map();
+let connectedClients = new Set(); // New: Track connected client IDs for ratchet
+let clientPublicKeys = new Map(); // New: Initiator stores public keys of clients
+let initiatorPublic; // New: Non-initiators store initiator's public key
 // Declare UI variables globally
 let socket, statusElement, codeDisplayElement, copyCodeButton, initialContainer, usernameContainer, connectContainer, chatContainer, newSessionButton, maxClientsContainer, inputContainer, messages, cornerLogo, button2, helpText, helpModal;
 if (typeof window !== 'undefined') {
@@ -263,12 +266,13 @@ socket.onmessage = async (event) => {
       totalClients = 1;
       console.log(`Initialized client ${clientId}, username: ${username}, maxClients: ${maxClients}, isInitiator: ${isInitiator}, features:`, features);
       usernames.set(clientId, username);
+      connectedClients.add(clientId); // Add self
       initializeMaxClientsUI();
       updateFeaturesUI();
       if (isInitiator) {
         isConnected = true;
         roomMaster = window.crypto.getRandomValues(new Uint8Array(32));
-        signingKey = await deriveSigningKey(roomMaster); // Derive signing key
+        signingKey = await deriveSigningKey(roomMaster);
       } else {
         const publicKey = await exportPublicKey(keyPair.publicKey);
         socket.send(JSON.stringify({ type: 'public-key', publicKey, clientId, code, token }));
@@ -283,16 +287,19 @@ socket.onmessage = async (event) => {
       initializeMaxClientsUI();
       updateMaxClientsUI();
     }
-    if (message.type === 'join-notify' && message.code === code) {
+   if (message.type === 'join-notify' && message.code === code) {
       totalClients = message.totalClients;
       console.log(`Join-notify received for code: ${code}, client: ${message.clientId}, total: ${totalClients}, username: ${message.username}`);
       if (message.username) {
         usernames.set(message.clientId, message.username);
       }
+      connectedClients.add(message.clientId);
       updateMaxClientsUI();
       if (isInitiator && message.clientId !== clientId && !peerConnections.has(message.clientId)) {
         console.log(`Initiating peer connection with client ${message.clientId}`);
         startPeerConnection(message.clientId, true);
+        // Trigger PFS ratchet after new join
+        await triggerRatchet();
       }
       if (voiceCallActive) {
         renegotiate(message.clientId);
@@ -302,6 +309,8 @@ socket.onmessage = async (event) => {
       totalClients = message.totalClients;
       console.log(`Client ${message.clientId} disconnected from code: ${code}, total: ${totalClients}`);
       usernames.delete(message.clientId);
+      connectedClients.delete(message.clientId);
+      clientPublicKeys.delete(message.clientId);
       cleanupPeerConnection(message.clientId);
       if (remoteAudios.has(message.clientId)) {
         const audio = remoteAudios.get(message.clientId);
@@ -336,6 +345,7 @@ socket.onmessage = async (event) => {
     }
     if (message.type === 'public-key' && isInitiator) {
       try {
+        clientPublicKeys.set(message.clientId, message.publicKey); // Store joiner's public key
         const joinerPublic = await importPublicKey(message.publicKey);
         const sharedKey = await deriveSharedKey(keyPair.privateKey, joinerPublic);
         const { encrypted, iv } = await encryptBytes(sharedKey, roomMaster);
@@ -357,15 +367,29 @@ socket.onmessage = async (event) => {
     }
     if (message.type === 'encrypted-room-key') {
       try {
-        const initiatorPublic = await importPublicKey(message.publicKey);
-        const sharedKey = await deriveSharedKey(keyPair.privateKey, initiatorPublic);
+        initiatorPublic = message.publicKey; // Store initiator's public key
+        const initiatorPublicImported = await importPublicKey(initiatorPublic);
+        const sharedKey = await deriveSharedKey(keyPair.privateKey, initiatorPublicImported);
         const roomMasterBuffer = await decryptBytes(sharedKey, message.encryptedKey, message.iv);
         roomMaster = new Uint8Array(roomMasterBuffer);
-        signingKey = await deriveSigningKey(roomMaster); // Derive signing key
+        signingKey = await deriveSigningKey(roomMaster);
         console.log('Room master successfully imported.');
       } catch (error) {
         console.error('Error handling encrypted-room-key:', error);
         showStatusMessage('Failed to receive encryption key.');
+      }
+    }
+    if (message.type === 'new-room-key' && message.targetId === clientId) {
+      try {
+        const importedInitiatorPublic = await importPublicKey(initiatorPublic);
+        const shared = await deriveSharedKey(keyPair.privateKey, importedInitiatorPublic);
+        const newRoomMasterBuffer = await decryptBytes(shared, message.encrypted, message.iv);
+        roomMaster = new Uint8Array(newRoomMasterBuffer);
+        signingKey = await deriveSigningKey(roomMaster);
+        console.log('New room master received and set for PFS.');
+      } catch (error) {
+        console.error('Error handling new-room-key:', error);
+        showStatusMessage('Failed to update encryption key for PFS.');
       }
     }
     if ((message.type === 'message' || message.type === 'image' || message.type === 'voice') && useRelay) {
@@ -444,6 +468,30 @@ function refreshAccessToken() {
   } else {
     console.log('Cannot refresh token: WebSocket not open, no refresh token, or refresh in progress');
   }
+}
+// New: Function to trigger PFS key rotation (called by initiator on new join)
+async function triggerRatchet() {
+  if (!isInitiator) return;
+  const newRoomMaster = window.crypto.getRandomValues(new Uint8Array(32));
+  for (const cId of connectedClients) {
+    if (cId === clientId) continue;
+    const publicKey = clientPublicKeys.get(cId);
+    if (!publicKey) {
+      console.warn(`No public key for client ${cId}, skipping ratchet send`);
+      continue;
+    }
+    try {
+      const importedPublic = await importPublicKey(publicKey);
+      const shared = await deriveSharedKey(keyPair.privateKey, importedPublic);
+      const { encrypted, iv } = await encryptBytes(shared, newRoomMaster);
+      socket.send(JSON.stringify({ type: 'new-room-key', encrypted, iv, targetId: cId, code, clientId, token }));
+    } catch (error) {
+      console.error(`Error sending new room key to ${cId}:`, error);
+    }
+  }
+  roomMaster = newRoomMaster;
+  signingKey = await deriveSigningKey(roomMaster);
+  console.log('PFS ratchet complete, new roomMaster set.');
 }
 document.getElementById('startChatToggleButton').onclick = () => {
   console.log('Start chat toggle clicked');
@@ -704,6 +752,9 @@ document.getElementById('newSessionButton').onclick = () => {
   messageRateLimits.clear();
   imageRateLimits.clear();
   voiceRateLimits.clear();
+  connectedClients.clear(); // Clear on new session
+  clientPublicKeys.clear();
+  initiatorPublic = undefined;
   isConnected = false;
   isInitiator = false;
   maxClients = 2;
