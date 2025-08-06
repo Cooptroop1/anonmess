@@ -40,6 +40,7 @@ let refreshToken = '';
 let features = { enableService: true, enableImages: true, enableVoice: true, enableVoiceCalls: true }; // Global features state
 let keyPair;
 let roomMaster;
+let signingKey; // New: Cached signing key for HMAC
 let remoteAudios = new Map();
 let refreshingToken = false;
 let signalingQueue = new Map();
@@ -267,6 +268,7 @@ socket.onmessage = async (event) => {
       if (isInitiator) {
         isConnected = true;
         roomMaster = window.crypto.getRandomValues(new Uint8Array(32));
+        signingKey = await deriveSigningKey(roomMaster); // Derive signing key
       } else {
         const publicKey = await exportPublicKey(keyPair.publicKey);
         socket.send(JSON.stringify({ type: 'public-key', publicKey, clientId, code, token }));
@@ -359,6 +361,7 @@ socket.onmessage = async (event) => {
         const sharedKey = await deriveSharedKey(keyPair.privateKey, initiatorPublic);
         const roomMasterBuffer = await decryptBytes(sharedKey, message.encryptedKey, message.iv);
         roomMaster = new Uint8Array(roomMasterBuffer);
+        signingKey = await deriveSigningKey(roomMaster); // Derive signing key
         console.log('Room master successfully imported.');
       } catch (error) {
         console.error('Error handling encrypted-room-key:', error);
@@ -368,9 +371,16 @@ socket.onmessage = async (event) => {
     if ((message.type === 'message' || message.type === 'image' || message.type === 'voice') && useRelay) {
       if (processedMessageIds.has(message.messageId)) return;
       processedMessageIds.add(message.messageId);
+      const encrypted = message.type === 'message' ? message.encryptedContent : message.encryptedData;
+      const valid = await verifyMessage(signingKey, message.signature, encrypted); // Verify signature before decrypt
+      if (!valid) {
+        console.error('Tampered message detected');
+        showStatusMessage('Tampered message detected. Ignoring.');
+        return;
+      }
       let payload;
       try {
-        const jsonString = await decrypt(message.encryptedContent || message.encryptedData, message.iv, message.salt, roomMaster);
+        const jsonString = await decrypt(encrypted, message.iv, message.salt, roomMaster);
         payload = JSON.parse(jsonString);
       } catch (error) {
         console.error('Decryption failed:', error);
@@ -606,59 +616,59 @@ function startVoiceRecording() {
     return;
   }
   navigator.mediaDevices.getUserMedia({ audio: true })
-  .then(stream => {
-    mediaRecorder = new MediaRecorder(stream);
-    const chunks = [];
-    let startTime = Date.now();
-    mediaRecorder.ondataavailable = (event) => {
-      if (event.data.size > 0) {
-        chunks.push(event.data);
-      }
-    };
-    mediaRecorder.onstop = async () => {
-      const blob = new Blob(chunks, { type: 'audio/webm' });
-      stream.getTracks().forEach(track => track.stop());
-      clearInterval(voiceTimerInterval);
-      document.getElementById('voiceTimer').style.display = 'none';
-      document.getElementById('voiceButton').classList.remove('recording');
-      document.getElementById('voiceButton').textContent = '🎤';
-      if (blob.size > 0) {
-        await sendMedia(blob, 'voice');
+    .then(stream => {
+      mediaRecorder = new MediaRecorder(stream);
+      const chunks = [];
+      let startTime = Date.now();
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunks.push(event.data);
+        }
+      };
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        stream.getTracks().forEach(track => track.stop());
+        clearInterval(voiceTimerInterval);
+        document.getElementById('voiceTimer').style.display = 'none';
+        document.getElementById('voiceButton').classList.remove('recording');
+        document.getElementById('voiceButton').textContent = '🎤';
+        if (blob.size > 0) {
+          await sendMedia(blob, 'voice');
+        } else {
+          showStatusMessage('Error: No audio recorded.');
+        }
+      };
+      mediaRecorder.start();
+      document.getElementById('voiceButton').classList.add('recording');
+      document.getElementById('voiceButton').textContent = '⏹';
+      document.getElementById('voiceTimer').style.display = 'flex';
+      document.getElementById('voiceTimer').textContent = '0:00';
+      voiceTimerInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        if (elapsed >= 30) {
+          mediaRecorder.stop();
+          return;
+        }
+        const minutes = Math.floor(elapsed / 60);
+        const seconds = elapsed % 60;
+        document.getElementById('voiceTimer').textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+      }, 1000);
+    })
+    .catch(error => {
+      console.error('Error accessing microphone:', error.name, error.message);
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        showStatusMessage('Error: Microphone permission denied. Please enable in browser or device settings.');
+      } else if (error.name === 'NotFoundError') {
+        showStatusMessage('Error: No microphone found on device.');
+      } else if (error.name === 'NotReadableError') {
+        showStatusMessage('Error: Microphone hardware error or in use by another app.');
+      } else if (error.name === 'SecurityError') {
+        showStatusMessage('Error: Insecure context. Ensure site is loaded over HTTPS.');
       } else {
-        showStatusMessage('Error: No audio recorded.');
+        showStatusMessage('Error: Could not access microphone. Check permissions and device support.');
       }
-    };
-    mediaRecorder.start();
-    document.getElementById('voiceButton').classList.add('recording');
-    document.getElementById('voiceButton').textContent = '⏹';
-    document.getElementById('voiceTimer').style.display = 'flex';
-    document.getElementById('voiceTimer').textContent = '0:00';
-    voiceTimerInterval = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - startTime) / 1000);
-      if (elapsed >= 30) {
-        mediaRecorder.stop();
-        return;
-      }
-      const minutes = Math.floor(elapsed / 60);
-      const seconds = elapsed % 60;
-      document.getElementById('voiceTimer').textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-    }, 1000);
-  })
-  .catch(error => {
-    console.error('Error accessing microphone:', error.name, error.message);
-    if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-      showStatusMessage('Error: Microphone permission denied. Please enable in browser or device settings.');
-    } else if (error.name === 'NotFoundError') {
-      showStatusMessage('Error: No microphone found on device.');
-    } else if (error.name === 'NotReadableError') {
-      showStatusMessage('Error: Microphone hardware error or in use by another app.');
-    } else if (error.name === 'SecurityError') {
-      showStatusMessage('Error: Insecure context. Ensure site is loaded over HTTPS.');
-    } else {
-      showStatusMessage('Error: Could not access microphone. Check permissions and device support.');
-    }
-    document.getElementById('voiceButton')?.focus();
-  });
+      document.getElementById('voiceButton')?.focus();
+    });
 }
 function stopVoiceRecording() {
   if (mediaRecorder && mediaRecorder.state === 'recording') {
