@@ -684,7 +684,7 @@ async function autoConnect(codeParam) {
       usernameContainer.classList.remove('hidden');
       chatContainer.classList.add('hidden');
       statusElement.textContent = 'Please enter a username to join the chat';
-      document.getElementById('usernameInput').value = username;
+      document.getElementById('usernameInput').value = username || '';
       document.getElementById('usernameInput')?.focus();
       document.getElementById('joinWithUsernameButton').onclick = () => {
         const usernameInput = document.getElementById('usernameInput').value.trim();
