@@ -31,15 +31,22 @@ function validateCode(code) {
   return code && regex.test(code);
 }
 
-// Validate base64 string
+// Validate base64 string, optionally handling data URI prefixes
 function isValidBase64(str) {
   if (typeof str !== 'string') return false;
+  // Handle data URI (e.g., data:image/jpeg;base64,...)
+  let base64Str = str;
+  if (str.startsWith('data:')) {
+    const match = str.match(/^data:[a-zA-Z0-9\/+;]+,(.+)$/);
+    if (!match) return false;
+    base64Str = match[1];
+  }
   const base64Regex = /^[A-Za-z0-9+/=]+$/;
-  return base64Regex.test(str) && str.length % 4 === 0;
+  return base64Regex.test(base64Str) && base64Str.length % 4 === 0;
 }
 
 // Keepalive timer ID
-let keepAliveTimer = null; // Moved from events.js to utils.js
+let keepAliveTimer = null;
 // Keepalive function to prevent WebSocket timeout
 function startKeepAlive() {
   if (keepAliveTimer) clearInterval(keepAliveTimer);
@@ -179,8 +186,23 @@ function log(level, ...msg) {
 }
 
 function createImageModal(base64, focusId) {
-  if (!isValidBase64(base64)) {
-    log('error', 'Invalid base64 format for image modal');
+  if (!base64) {
+    log('error', 'No base64 data provided for image modal');
+    showStatusMessage('Invalid image data received.');
+    return;
+  }
+  // Strip data URI prefix if present
+  let base64Data = base64;
+  let isDataURI = false;
+  if (base64.startsWith('data:')) {
+    const match = base64.match(/^data:[a-zA-Z0-9\/+;]+,(.+)$/);
+    if (match) {
+      base64Data = match[1];
+      isDataURI = true;
+    }
+  }
+  if (!isValidBase64(base64Data)) {
+    log('error', `Invalid base64 format for image modal: ${base64Data.substring(0, 50)}...`);
     showStatusMessage('Invalid image data received.');
     return;
   }
@@ -196,7 +218,7 @@ function createImageModal(base64, focusId) {
   }
   modal.innerHTML = '';
   const modalImg = document.createElement('img');
-  modalImg.src = base64;
+  modalImg.src = isDataURI ? base64 : `data:image/jpeg;base64,${base64Data}`;
   modalImg.setAttribute('alt', 'Enlarged image');
   modal.appendChild(modalImg);
   modal.classList.add('active');
@@ -266,7 +288,7 @@ function base64ToArrayBuffer(base64) {
   return bytes.buffer;
 }
 
-async function encodeAudioToMp3(audioBlob) {
+function encodeAudioToMp3(audioBlob) {
   const arrayBuffer = await audioBlob.arrayBuffer();
   const audioContext = new (window.AudioContext || window.webkitAudioContext)();
   const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
@@ -405,7 +427,7 @@ async function deriveSharedKey(privateKey, publicKey) {
 
 async function encryptRaw(key, data) {
   const iv = window.crypto.getRandomValues(new Uint8Array(12));
-  const encoded = new TextEncoder().encode(data); // Encode string to bytes
+  const encoded = new TextEncoder().encode(data);
   const encrypted = await window.crypto.subtle.encrypt(
     { name: 'AES-GCM', iv },
     key,
