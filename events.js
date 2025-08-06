@@ -805,9 +805,8 @@ document.getElementById('button2').onclick = () => {
   document.getElementById('button2')?.focus();
 };
 
-document.getElementById('clearHistoryButton').onclick = () => {
+cornerLogo.addEventListener('click', () => {
   document.getElementById('messages').innerHTML = '';
   processedMessageIds.clear();
   showStatusMessage('Chat history cleared locally.');
-  document.getElementById('clearHistoryButton')?.focus();
-};
+});
