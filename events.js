@@ -773,8 +773,8 @@
     document.getElementById('messages').innerHTML = '';
     document.getElementById('messageInput').value = '';
     document.getElementById('messageInput').style.height = '2.5rem';
-    document.getElementById('usernameInput').value = username || '';
-    document.getElementById('usernameConnectInput').value = username || '';
+    document.getElementById('usernameInput').value = '';
+    document.getElementById('usernameConnectInput').value = '';
     document.getElementById('codeInput').value = '';
     initialContainer.classList.remove('hidden');
     usernameContainer.classList.add('hidden');
@@ -789,6 +789,9 @@
     stopKeepAlive();
     token = ''; // Clear token
     refreshToken = ''; // Clear refresh token
+    // Clear localStorage and cookies for data minimization
+    localStorage.removeItem('username');
+    document.cookie = 'clientId=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; Secure; HttpOnly; SameSite=Strict';
     document.getElementById('startChatToggleButton')?.focus();
     // Clean up voice call
     stopVoiceCall();
