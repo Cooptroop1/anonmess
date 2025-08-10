@@ -455,7 +455,7 @@ async function handleAnswer(answer, targetId) {
           console.error(`Error applying queued answer from ${targetId}:`, error);
           showStatusMessage('Error processing peer response.');
         });
-      } else if (item.type === 'candidate') {
+      } else {
         handleCandidate(item.candidate, targetId);
       }
     });
@@ -758,7 +758,10 @@ function updateFeaturesUI() {
     voiceCallButton.classList.toggle('hidden', !features.enableVoiceCalls);
     voiceCallButton.title = features.enableVoiceCalls ? 'Start Voice Call' : 'Voice calls disabled by admin';
   }
-  // Grok bot is always available, no feature toggle needed
+  if (grokButton) {
+    grokButton.classList.toggle('hidden', !features.enableGrokBot);
+    grokButton.title = features.enableGrokBot ? 'Toggle Grok Bot' : 'Grok bot disabled by admin';
+  }
   if (!features.enableService) {
     showStatusMessage('Service disabled by admin. Disconnecting...');
     socket.close();
