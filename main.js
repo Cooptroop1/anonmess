@@ -4,11 +4,13 @@ let turnUsername = '';
 let turnCredential = '';
 let localStream = null;
 let voiceCallActive = false;
+let grokBotActive = false;
+let grokApiKey = localStorage.getItem('grokApiKey') || '';
 
 async function sendMedia(file, type) {
   const validTypes = {
-    image: ['image/jpeg', 'image/png'],
-    voice: ['audio/webm', 'audio/ogg']
+  image: ['image/jpeg', 'image/png'],
+  voice: ['audio/webm', 'audio/ogg']
   };
   // Check if feature is enabled before proceeding
   if ((type === 'image' && !features.enableImages) || (type === 'voice' && !features.enableVoice)) {
@@ -481,6 +483,17 @@ function handleCandidate(candidate, targetId) {
 
 async function sendMessage(content) {
   if (content && dataChannels.size > 0 && username) {
+    if (grokBotActive && content.startsWith('/grok ')) {
+      const query = content.slice(6).trim();
+      if (query) {
+        await sendToGrok(query);
+      }
+      const messageInput = document.getElementById('messageInput');
+      messageInput.value = '';
+      messageInput.style.height = '2.5rem';
+      messageInput?.focus();
+      return;
+    }
     const messageId = generateMessageId();
     const sanitizedContent = sanitizeMessage(content);
     const timestamp = Date.now();
@@ -732,6 +745,7 @@ function updateFeaturesUI() {
   const imageButton = document.getElementById('imageButton');
   const voiceButton = document.getElementById('voiceButton');
   const voiceCallButton = document.getElementById('voiceCallButton');
+  const grokButton = document.getElementById('grokButton');
   if (imageButton) {
     imageButton.classList.toggle('hidden', !features.enableImages);
     imageButton.title = features.enableImages ? 'Send Image' : 'Images disabled by admin';
@@ -744,8 +758,78 @@ function updateFeaturesUI() {
     voiceCallButton.classList.toggle('hidden', !features.enableVoiceCalls);
     voiceCallButton.title = features.enableVoiceCalls ? 'Start Voice Call' : 'Voice calls disabled by admin';
   }
+  // Grok bot is always available, no feature toggle needed
   if (!features.enableService) {
     showStatusMessage('Service disabled by admin. Disconnecting...');
     socket.close();
+  }
+}
+
+async function sendToGrok(query) {
+  if (!grokApiKey) {
+    showStatusMessage('Error: xAI API key not set. Enter it in the Grok bot settings.');
+    return;
+  }
+  try {
+    const response = await fetch('https://api.x.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${grokApiKey}`
+      },
+      body: JSON.stringify({
+        model: 'grok-4',
+        messages: [{ role: 'user', content: query }]
+      })
+    });
+    if (!response.ok) {
+      throw new Error(`API error: ${response.statusText}`);
+    }
+    const data = await response.json();
+    const botResponse = data.choices[0].message.content;
+    // Display bot response
+    const messages = document.getElementById('messages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message-bubble other';
+    const timeSpan = document.createElement('span');
+    timeSpan.className = 'timestamp';
+    timeSpan.textContent = new Date().toLocaleTimeString();
+    messageDiv.appendChild(timeSpan);
+    messageDiv.appendChild(document.createTextNode(`Grok Bot: ${sanitizeMessage(botResponse)}`));
+    messages.prepend(messageDiv);
+    messages.scrollTop = 0;
+  } catch (error) {
+    console.error('Grok API error:', error);
+    showStatusMessage('Error querying Grok: ' + error.message + '. Check your API key or visit https://x.ai/api for details.');
+  }
+}
+
+function toggleGrokBot() {
+  grokBotActive = !grokBotActive;
+  const grokButton = document.getElementById('grokButton');
+  const grokKeyContainer = document.getElementById('grokKeyContainer');
+  grokButton.classList.toggle('active', grokBotActive);
+  grokKeyContainer.classList.toggle('active', grokBotActive && !grokApiKey);
+  if (grokBotActive) {
+    if (!grokApiKey) {
+      showStatusMessage('Grok bot enabled. Enter your xAI API key below. For details, visit https://x.ai/api.');
+    } else {
+      showStatusMessage('Grok bot enabled. Use /grok <query> to ask questions.');
+    }
+  } else {
+    showStatusMessage('Grok bot disabled.');
+  }
+}
+
+function saveGrokKey() {
+  const keyInput = document.getElementById('grokApiKey');
+  grokApiKey = keyInput.value.trim();
+  if (grokApiKey) {
+    localStorage.setItem('grokApiKey', grokApiKey);
+    document.getElementById('grokKeyContainer').classList.remove('active');
+    showStatusMessage('API key saved. Use /grok <query> to ask Grok.');
+    keyInput.value = '';
+  } else {
+    showStatusMessage('Error: Enter a valid API key.');
   }
 }
